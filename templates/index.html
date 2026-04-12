@@ -1,0 +1,2598 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Media Library</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    /* ── Reset & tokens ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:          #0b0919;
+      --surface:     #130c25;
+      --surface2:    #1b1035;
+      --border:      #2d1a52;
+      --pink:        #d4006b;
+      --pink-dim:    rgba(212,0,107,0.18);
+      --pink-glow:   rgba(212,0,107,0.55);
+      --cyan:        #00e5e5;
+      --cyan-dim:    rgba(0,229,229,0.12);
+      --cyan-glow:   rgba(0,229,229,0.45);
+      --amber:       #ffb700;
+      --amber-dim:   rgba(255,183,0,0.15);
+      --amber-glow:  rgba(255,183,0,0.45);
+      --purple:      #9b4dff;
+      --purple-dim:  rgba(155,77,255,0.15);
+      --green:       #00e676;
+      --text:        #f0e6ff;
+      --text-muted:  #8870b0;
+      --sidebar-w:   240px;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: flex;
+    }
+    a, a:visited { color: var(--amber); }
+    a:hover, a:focus-visible { color: #ffd24d; }
+    /* ── Scanline overlay ───────────────────────────────────── */
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: linear-gradient(rgba(212,0,107,0.022) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(212,0,107,0.022) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       SIDEBAR
+    ══════════════════════════════════════════════════════════ */
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      position: relative; z-index: 10; overflow-y: auto;
+    }
+    .sidebar-logo {
+      padding: 24px 20px 16px;
+      font-size: 1.1rem; font-weight: 800; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--text);
+      text-shadow: 0 0 14px var(--pink-glow);
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo span { color: var(--cyan); text-shadow: 0 0 12px var(--cyan-glow); }
+
+    .nav-section { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 20px; cursor: pointer; font-size: 13px; font-weight: 600;
+      letter-spacing: 0.04em; color: var(--text-muted);
+      transition: color .18s, background .18s;
+      border: none; background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover { color: var(--text); background: var(--surface2); }
+    .nav-item.active { color: var(--cyan); background: var(--cyan-dim); }
+    .nav-item .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+    .nav-item .nav-count {
+      margin-left: auto; font-size: 11px; font-weight: 700;
+      background: var(--surface2); border: 1px solid var(--border);
+      padding: 1px 7px; border-radius: 10px; color: var(--text-muted);
+    }
+    .nav-item.active .nav-count { border-color: var(--cyan); color: var(--cyan); }
+
+    .sidebar-actions {
+      padding: 14px 12px; display: flex; flex-direction: column; gap: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-actions form { width: 100%; }
+    .sidebar-actions-heading { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+    .btn-sidebar {
+      width: 100%; padding: 8px 12px; border-radius: 5px; cursor: pointer;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.05em;
+      border: 1px solid var(--border); background: var(--surface2);
+      color: var(--text-muted); transition: all .2s; text-align: left;
+    }
+    .btn-sidebar:hover { border-color: var(--cyan); color: var(--cyan); }
+    .btn-sidebar.pink { border-color: var(--pink); color: var(--pink); background: var(--pink-dim); }
+    .btn-sidebar.pink:hover { background: rgba(212,0,107,0.3); }
+
+    .sidebar-footer {
+      margin-top: auto; padding: 12px 16px;
+      font-size: 11px; color: var(--text-muted); line-height: 1.6;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       MAIN AREA
+    ══════════════════════════════════════════════════════════ */
+    .main {
+      flex: 1; min-width: 0; display: flex; flex-direction: column;
+      overflow: hidden; position: relative; z-index: 1;
+    }
+
+    /* ── Status bar ─────────────────────────────────────────── */
+    .status-bar {
+      padding: 9px 20px; font-size: 12px; letter-spacing: .03em;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .status-info  { background: var(--cyan-dim);  border-bottom: 1px solid rgba(0,229,229,0.25); color: var(--cyan); }
+    .status-error { background: var(--pink-dim);  border-bottom: 1px solid rgba(212,0,107,0.35); color: #ff7eb3; }
+    .status-close { background: none; border: none; color: inherit; cursor: pointer; font-size: 14px; padding: 0 4px; }
+
+    .toast-stack {
+      position: fixed; top: 16px; right: 18px; z-index: 120;
+      display: flex; flex-direction: column; gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      min-width: 220px; max-width: 360px;
+      border: 1px solid var(--border);
+      background: rgba(19,12,37,0.96);
+      color: var(--text); padding: 9px 12px;
+      font-size: 12px; line-height: 1.4;
+      box-shadow: 0 10px 28px rgba(0,0,0,.58);
+      opacity: 0; transform: translateY(-6px);
+      transition: opacity .18s, transform .18s;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { border-color: rgba(0,230,118,.55); color: #8cf7c4; }
+    .toast.error { border-color: rgba(248,113,113,.55); color: #ff9aa9; }
+
+    /* ── Hero panel ─────────────────────────────────────────── */
+    .hero {
+      position: relative; height: 320px;
+      flex-shrink: 0; overflow: hidden;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-idle {
+      position: absolute; inset: 0; z-index: 5;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+    .hero-idle-logo {
+      width: min(68vw, 520px);
+      max-height: 62%;
+      object-fit: contain;
+      opacity: 0.92;
+      filter: drop-shadow(0 8px 26px rgba(0,0,0,0.45));
+    }
+    .hero:not(.loaded) .hero-inner,
+    .hero:not(.loaded) .hero-info-bar,
+    .hero:not(.loaded) #hero-fav-form,
+    .hero:not(.loaded) #hero-refresh-form {
+      display: none;
+    }
+    .hero.loaded .hero-idle { opacity: 0; }
+    .hero-bg {
+      position: absolute; inset: 0; background-size: cover; background-position: center top;
+      background-image: linear-gradient(135deg, #1b1035 0%, #3a0033 100%);
+      filter: blur(32px) brightness(0.18) saturate(1.8); transform: scale(1.1);
+    }
+    .hero:not(.loaded) .hero-bg {
+      filter: none;
+      transform: none;
+      background-image: linear-gradient(135deg, #1b1035 0%, #3a0033 100%);
+    }
+    .hero-scrim {
+      position: absolute; inset: 0;
+      background: linear-gradient(to right, rgba(11,9,25,0.92) 0%, rgba(11,9,25,0.55) 60%, rgba(11,9,25,0.3) 100%);
+    }
+    .hero:not(.loaded) .hero-scrim {
+      background: rgba(11,9,25,0.22);
+    }
+    .hero-scrim-bottom {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+      background: linear-gradient(transparent, var(--bg));
+    }
+    .hero:not(.loaded) .hero-scrim-bottom {
+      opacity: 0.45;
+    }
+    .hero-inner {
+      position: relative; z-index: 2; display: flex; gap: 28px;
+      padding: 28px 32px; height: 100%; align-items: flex-start;
+    }
+    .hero-poster {
+      flex-shrink: 0; width: 160px; height: 240px;
+      border-radius: 8px; overflow: hidden;
+      border: 1px solid rgba(0,229,229,0.2);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 20px var(--pink-glow);
+    }
+    .hero-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .hero-poster-ph {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #1b1035 0%, #3a0033 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 3.5rem; font-weight: 800; color: rgba(240,230,255,0.15);
+    }
+    .hero-details { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+    .hero-title {
+      font-size: 2rem; font-weight: 800; line-height: 1.15;
+      color: var(--text); text-shadow: 0 0 24px var(--pink-glow);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .hero-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip {
+      padding: 3px 11px; border-radius: 12px; font-size: 11px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+    }
+    .chip-year    { background: var(--purple-dim); border: 1px solid rgba(155,77,255,.4); color: #c9a7ff; }
+    .chip-type    { background: var(--cyan-dim);   border: 1px solid rgba(0,229,229,.3);  color: var(--cyan); }
+    .chip-quality { background: var(--amber-dim);  border: 1px solid rgba(255,183,0,.45); color: var(--amber); }
+    .hero-synopsis {
+      font-size: 13px; color: var(--text-muted); line-height: 1.75;
+      max-height: 72px; overflow: hidden; display: -webkit-box;
+      line-clamp: 3;
+      -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    }
+    .hero-actors { font-size: 12px; color: var(--text-muted); }
+    .hero-actors-label { color: var(--cyan); font-weight: 600; }
+    .hero-discover-actions {
+      margin-top: 8px; display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .hero-library-actions {
+      margin-top: 8px; display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .hero-discover-actions .hero-action-btn {
+      padding: 7px 14px; border: 1px solid var(--cyan); background: var(--cyan);
+      color: #0b0919; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; cursor: pointer;
+    }
+    .hero-library-actions .hero-action-btn {
+      padding: 7px 14px; border: 1px solid var(--cyan); background: transparent;
+      color: var(--cyan); font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; cursor: pointer;
+    }
+    .hero-discover-actions .hero-action-btn:hover { background: #00cccc; }
+    .hero-library-actions .hero-action-btn:hover { border-color: #6ff3f3; color: #6ff3f3; }
+    .hero-discover-actions .hero-action-btn[disabled] {
+      border-color: var(--border); background: var(--surface2); color: var(--text-muted); cursor: default;
+    }
+    .hero-library-actions .hero-action-btn[disabled] {
+      border-color: var(--border); color: var(--text-muted); cursor: default;
+    }
+    .hero-discover-status { font-size: 12px; color: var(--text-muted); min-height: 16px; }
+    .hero-library-status { font-size: 12px; color: var(--text-muted); min-height: 16px; }
+    .hero-dl-progress-wrap {
+      width: 100%; margin-top: 6px; display: none;
+    }
+    .hero-dl-progress-bar {
+      width: 100%; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden;
+    }
+    .hero-dl-progress-fill {
+      height: 100%; width: 0%; background: var(--cyan); border-radius: 2px;
+      transition: width 0.6s ease;
+    }
+    .hero-dl-progress-label {
+      font-size: 11px; color: var(--text-muted); margin-top: 4px;
+    }
+    .torrent-modal {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: rgba(11,9,25,.72); z-index: 50; padding: 18px;
+    }
+    .torrent-modal.open { display: flex; }
+    .torrent-modal-panel {
+      width: min(980px, 96vw); max-height: 84vh; overflow: hidden;
+      border: 1px solid var(--border); background: var(--surface); box-shadow: 0 14px 42px rgba(0,0,0,.65);
+      display: flex; flex-direction: column;
+    }
+    .torrent-modal-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 14px; border-bottom: 1px solid var(--border);
+    }
+    .torrent-modal-title { font-size: 12px; letter-spacing: .11em; text-transform: uppercase; color: var(--text-muted); }
+    .torrent-modal-close {
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+      padding: 4px 8px; font-size: 11px; cursor: pointer;
+    }
+    .torrent-modal-close:hover { border-color: var(--cyan); color: var(--cyan); }
+    .torrent-modal-body { overflow: auto; padding: 10px 12px 14px; }
+    .torrent-candidate {
+      border: 1px solid var(--border); background: var(--surface2);
+      padding: 10px; display: grid; gap: 8px; margin-bottom: 8px;
+    }
+    .torrent-candidate-title { font-size: 13px; color: var(--text); font-weight: 700; }
+    .torrent-candidate-meta { font-size: 11px; color: var(--text-muted); }
+    .torrent-candidate-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .torrent-btn {
+      border: 1px solid var(--cyan); background: var(--cyan); color: #0b0919;
+      padding: 6px 10px; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; cursor: pointer;
+    }
+    .torrent-btn:hover { background: #00cccc; }
+    .torrent-link {
+      border: 1px solid rgba(255,183,0,0.35); background: transparent; color: var(--amber);
+      padding: 6px 10px; font-size: 11px; text-decoration: none; text-transform: uppercase;
+    }
+    .torrent-link:hover { border-color: var(--amber); color: #ffd24d; }
+    .torrent-modal-note { font-size: 12px; color: var(--text-muted); padding: 8px 4px; }
+
+    /* Info cards row at the bottom of the hero */
+    .hero-info-bar {
+      position: absolute; bottom: 0; left: 0; right: 0; z-index: 3;
+      display: flex; gap: 10px; padding: 0 32px 18px; flex-wrap: wrap;
+    }
+    .info-card {
+      background: rgba(19,12,37,0.82); border: 1px solid var(--border);
+      backdrop-filter: blur(8px); border-radius: 7px;
+      padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 90px;
+    }
+    .info-card-label {
+      font-size: 9px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    .info-card-value { font-size: 14px; font-weight: 700; color: var(--text); }
+    .info-card-value.cyan  { color: var(--cyan); }
+    .info-card-value.amber { color: var(--amber); }
+    .info-card-value.green { color: var(--green); }
+
+    .hero-fav-btn {
+      position: absolute; top: 20px; right: 28px; z-index: 4;
+      background: var(--pink-dim); border: 1px solid rgba(212,0,107,.4);
+      border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px;
+      color: var(--pink); font-weight: 700; transition: background .2s;
+    }
+    .hero-fav-btn:hover { background: rgba(212,0,107,.3); }
+    .hero-fav-btn.active { background: var(--pink); color: #fff; }
+    .hero-refresh-btn {
+      position: absolute; top: 62px; right: 28px; z-index: 4;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 11px;
+      color: var(--text-muted); font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; transition: all .2s;
+    }
+    .hero-refresh-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* ── Grid area ──────────────────────────────────────────── */
+    .grid-area {
+      flex: 1; min-height: 0; overflow-y: auto; padding: 20px 28px 40px;
+    }
+    .grid-header {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .grid-heading {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    .grid-count { font-size: 11px; color: var(--border); }
+    .grid-actions { margin-left: auto; display: flex; gap: 8px; }
+    .btn-sm {
+      padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px;
+      font-weight: 600; letter-spacing: .05em; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--text-muted); transition: all .2s;
+    }
+    .btn-sm:hover { border-color: var(--cyan); color: var(--cyan); }
+    .btn-sm.active { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+    .btn-sm.filter-incomplete.active { border-color: var(--pink); color: var(--pink); background: var(--pink-dim); }
+    .btn-sm.filter-downloading.active { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+    .library-toolbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .library-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .library-search-row { display: none; margin-bottom: 12px; }
+    .library-search-row.open { display: block; }
+    .library-search-input {
+      width: min(420px, 100%); padding: 8px 12px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 5px; color: var(--text);
+      font-size: 13px; font-family: monospace; outline: none;
+    }
+    .library-search-input:focus { border-color: var(--cyan); }
+    .library-results-meta {
+      margin-bottom: 14px; font-size: 11px; color: var(--text-muted); min-height: 16px;
+    }
+
+    .media-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 14px;
+    }
+    .card {
+      position: relative; border-radius: 0; overflow: hidden; cursor: pointer;
+      background: var(--surface); border: 1px solid var(--border);
+      transition: transform .22s ease, box-shadow .22s ease, border-color .22s;
+    }
+    .card:hover {
+      transform: translateY(-4px) scale(1.025);
+      border-color: rgba(0,229,229,.3);
+      box-shadow: 0 10px 28px rgba(0,0,0,.7), 0 0 16px var(--pink-glow);
+    }
+    .card.active-card {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 2px rgba(0,229,229,.25), 0 10px 28px rgba(0,0,0,.7);
+    }
+    .card.has-upgrade { border-color: rgba(155,77,255,.5); }
+    .card-poster { position: relative; aspect-ratio: 2/3; overflow: hidden; background: var(--surface2); }
+    .card-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card-no-poster {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1b1035 0%, #3a0033 100%);
+      font-size: 2.4rem; font-weight: 800; color: rgba(240,230,255,.15);
+    }
+    .card-overlay { display: none; }
+    .card-collection .card-overlay {
+      display: block; position: absolute; left: 0; right: 0; bottom: 0;
+      padding: 10px 8px 8px;
+      background: linear-gradient(transparent, rgba(11,9,25,0.92));
+    }
+    .card-collection .card-title {
+      font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.3;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .card-collection .card-year {
+      margin-top: 4px; font-size: 10px; color: var(--amber); letter-spacing: .05em; text-transform: uppercase;
+    }
+    .card-badge {
+      position: absolute; padding: 2px 6px; border-radius: 3px;
+      font-size: 9px; font-weight: 700; letter-spacing: .04em;
+    }
+    .card-badge-upgrade { top: 6px; left: 6px; background: var(--purple-dim); border: 1px solid var(--purple); color: var(--purple); animation: pulse 2s infinite; }
+    .card-badge-download { top: 6px; right: 6px; background: var(--cyan-dim); border: 1px solid var(--cyan); color: var(--cyan); }
+    .card-badge-fav { bottom: 28px; right: 6px; font-size: 12px; background: none; border: none; color: var(--pink); text-shadow: 0 0 8px var(--pink-glow); }
+    .card-badge-missing { top: 6px; left: 6px; background: rgba(220,38,38,.18); border: 1px solid #dc2626; color: #f87171; }
+    .card-badge-incomplete { bottom: 6px; left: 6px; background: var(--pink-dim); border: 1px solid var(--pink); color: var(--pink); font-size: 11px; padding: 1px 5px; border-radius: 3px; line-height: 1; }
+    .card-badge-collection { top: 6px; right: 6px; background: var(--amber-dim); border: 1px solid var(--amber); color: var(--amber); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    .empty-state { padding: 60px 24px; text-align: center; color: var(--text-muted); font-size: 14px; line-height: 1.8; }
+    .empty-state strong { color: var(--text); display: block; font-size: 16px; margin-bottom: 6px; }
+
+    .discover-layout { display: flex; flex-direction: column; gap: 18px; }
+    .discover-search-panel, .discover-block, .discover-result-card {
+      background: rgba(19,12,37,0.82); border: 1px solid var(--border); border-radius: 8px;
+    }
+    .discover-search-panel, .discover-block { padding: 16px; }
+    .discover-search-form { display: flex; gap: 10px; flex-wrap: wrap; }
+    .discover-search-input {
+      flex: 1; min-width: 220px; padding: 10px 12px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+      font-size: 14px; outline: none;
+    }
+    .discover-search-input:focus { border-color: var(--cyan); }
+    .discover-search-btn {
+      padding: 10px 16px; border-radius: 6px; cursor: pointer; border: 1px solid var(--cyan);
+      background: var(--cyan); color: #0b0919; font-size: 12px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .discover-search-btn:hover { background: #00cccc; }
+    .discover-search-note, .discover-block-note {
+      margin-top: 10px; font-size: 12px; color: var(--text-muted); line-height: 1.6;
+    }
+    .discover-block-header {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+      margin-bottom: 12px;
+    }
+    .discover-block-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .discover-strip {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;
+    }
+    .discover-card {
+      display: flex; flex-direction: column; gap: 8px; padding: 0; width: 100%;
+      border: 1px solid var(--border); border-radius: 0; overflow: hidden;
+      background: var(--surface); color: inherit; text-align: left;
+    }
+    button.discover-card { cursor: pointer; transition: transform .2s, border-color .2s, box-shadow .2s; }
+    button.discover-card:hover {
+      transform: translateY(-4px) scale(1.025); border-color: rgba(0,229,229,.3);
+      box-shadow: 0 10px 28px rgba(0,0,0,.7), 0 0 16px var(--pink-glow);
+    }
+    .discover-card-poster {
+      aspect-ratio: 2/3; background: linear-gradient(135deg, #1b1035 0%, #3a0033 100%);
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+      color: rgba(240,230,255,.18); font-size: 2rem; font-weight: 800;
+    }
+    .discover-card-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .discover-card-body { padding: 0 10px 12px; }
+    .discover-card-title {
+      font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.35;
+      min-height: 34px;
+    }
+    .discover-card-meta {
+      margin-top: 4px; font-size: 11px; color: var(--text-muted); letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .discover-results { display: flex; flex-direction: column; gap: 12px; }
+    .discover-result-card { display: flex; gap: 16px; padding: 14px 16px; align-items: flex-start; }
+    .discover-result-thumb {
+      width: 74px; height: 110px; flex-shrink: 0; border-radius: 6px; overflow: hidden;
+      background: var(--surface2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(240,230,255,.18); font-size: 1.8rem; font-weight: 800;
+    }
+    .discover-result-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .discover-result-body { flex: 1; min-width: 0; }
+    .discover-result-title { font-size: 16px; font-weight: 700; color: var(--text); }
+    .discover-result-meta { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+    .discover-add-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .discover-add-form input {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 5px; padding: 8px 10px; font-size: 13px; outline: none;
+    }
+    .discover-add-form input:focus { border-color: var(--cyan); }
+    .discover-add-form button {
+      padding: 8px 14px; border-radius: 5px; cursor: pointer; border: 1px solid var(--pink);
+      background: var(--pink); color: #fff; font-size: 12px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
+    }
+    .discover-add-form button[disabled] {
+      cursor: default; border-color: var(--border); background: var(--surface2); color: var(--text-muted);
+    }
+    .discover-result-status { margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+    .discover-collections { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+    .discover-card-poster-only { border-radius: 0; }
+    .discover-card-poster-only .discover-card-poster { border-radius: 0; }
+    .discover-collection-card { position: relative; }
+    .discover-ignore-actions {
+      position: absolute; top: 6px; right: 6px; z-index: 2;
+      display: flex; gap: 4px; opacity: 0; transition: opacity .15s;
+    }
+    .discover-collection-card:hover .discover-ignore-actions { opacity: 1; }
+    .discover-ignore-btn {
+      border: 1px solid var(--border); background: rgba(11,9,25,.86);
+      color: var(--text-muted); font-size: 10px; font-weight: 700;
+      letter-spacing: .04em; padding: 3px 5px; cursor: pointer;
+    }
+    .discover-ignore-btn:hover { border-color: var(--pink); color: var(--pink); }
+
+    /* Settings panel */
+    .settings-content {
+      display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 20px 28px 40px;
+    }
+    .settings-content.active { display: block; }
+    .settings-section { max-width: 920px; }
+    .settings-block {
+      border: 1px solid var(--border); background: var(--surface2);
+      padding: 14px; margin-bottom: 14px;
+    }
+    .settings-title { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+    .settings-grid { display: grid; grid-template-columns: 150px 1fr; gap: 10px 14px; align-items: center; margin-bottom: 16px; }
+    .settings-grid label { font-size: 13px; color: var(--text-muted); }
+    .settings-grid input, .settings-grid select, .settings-grid textarea { padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-size: 13px; font-family: monospace; outline: none; transition: border-color .2s; }
+    .settings-grid textarea { min-height: 94px; resize: vertical; line-height: 1.5; }
+    .settings-grid input:focus, .settings-grid select:focus, .settings-grid textarea:focus { border-color: var(--cyan); }
+    .btn-save { padding: 8px 20px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 700; border: 1px solid var(--cyan); background: var(--cyan); color: #0b0919; transition: background .2s; }
+    .btn-save:hover { background: #00cccc; }
+    .settings-note { font-size: 12px; color: var(--text-muted); line-height: 1.7; margin-top: 14px; }
+    .settings-note code { color: var(--amber); font-family: monospace; }
+    .settings-subtitle {
+      margin-top: 24px; margin-bottom: 10px;
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-muted);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .settings-inline-btn {
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+      padding: 6px 10px; font-size: 11px; font-weight: 700; letter-spacing: .06em; cursor: pointer;
+      text-transform: uppercase;
+    }
+    .settings-inline-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .ignored-list { display: flex; flex-direction: column; gap: 8px; }
+    .ignored-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      border: 1px solid var(--border); background: var(--surface2); padding: 8px 10px;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .ignored-item strong { color: var(--text); font-weight: 700; }
+    .ignored-empty { font-size: 12px; color: var(--text-muted); padding: 8px 0; }
+    .ignored-unignore {
+      border: 1px solid var(--pink); background: transparent; color: var(--pink);
+      padding: 5px 8px; font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase;
+    }
+    .ignored-unignore:hover { background: var(--pink-dim); }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    @media (max-width: 680px) {
+      .sidebar { width: 200px; }
+      :root { --sidebar-w: 200px; }
+      .hero.open { height: auto; min-height: 280px; }
+      .hero-title { font-size: 1.4rem; }
+      .hero-poster { width: 110px; height: 165px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     SIDEBAR
+══════════════════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">Media <span>Library</span></div>
+
+  <nav class="nav-section">
+    <button class="nav-item" id="nav-discover" onclick="showSection('discover')">
+      Discover
+    </button>
+    <button class="nav-item active" id="nav-movies" onclick="showSection('movies')">
+      Movies
+      <span class="nav-count">{{ movies|length }}</span>
+    </button>
+    <button class="nav-item" id="nav-tv" onclick="showSection('tv')">
+      TV Shows
+      <span class="nav-count">{{ tv_shows|length }}</span>
+    </button>
+    <button class="nav-item" id="nav-favourites" onclick="showSection('favourites')">
+      Favourites
+      <span class="nav-count">{{ favourites|length }}</span>
+    </button>
+    <button class="nav-item" id="nav-settings" onclick="showSection('settings')">
+      Settings
+    </button>
+  </nav>
+
+  <div class="sidebar-footer">
+    {{ (movies|length) + (tv_shows|length) }} titles
+    {% set missing_count = (movies + tv_shows) | selectattr('file_missing') | list | length %}
+    {% if missing_count %}<br><span style="color:#f87171;">&#9888; {{ missing_count }} file{{ 's' if missing_count != 1 }} missing</span>{% endif %}
+    {% if not trakt_configured %}<br><span style="color:var(--border);">Trakt: not configured</span>{% endif %}
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════════════════════
+     MAIN
+══════════════════════════════════════════════════════════ -->
+<div class="main">
+
+  {% if status %}
+  <div id="status-bar" class="status-bar {% if 'error' in status or 'not_configured' in status %}status-error{% else %}status-info{% endif %}">
+    <span>
+      {% if   'settings_saved_' in status      %}Folder paths saved &mdash; {{ status.split('_')[-1] }} title{% if status.split('_')[-1] != '1' %}s{% endif %} imported.
+      {% elif status == 'settings_saved'       %}Settings saved.
+      {% elif 'quality_scanned_' in status      %}Quality scan complete &mdash; {{ status.split('_')[-1] }} item{% if status.split('_')[-1] != '1' %}s{% endif %} updated.
+      {% elif 'subtitles_scanned_' in status    %}Subtitle scan complete &mdash; {{ status.split('_')[-1] }} item{% if status.split('_')[-1] != '1' %}s{% endif %} updated.
+      {% elif status == 'quality_checked'      %}Quality check complete.
+      {% elif 'trakt_synced_' in status        %}Trakt sync complete &mdash; {{ status.split('_')[-1] }} items imported.
+      {% elif 'folder_sync_' in status         %}Folder scan complete &mdash; {{ status.split('_')[-1] }} new title{% if status.split('_')[-1] != '1' %}s{% endif %} imported.
+      {% elif status == 'trakt_not_configured' %}Trakt sync not configured. Save your Trakt username, client ID, and client secret in Settings, then connect with OAuth.
+      {% elif status == 'trakt_error_unauthorized'%}Trakt sync failed. Reconnect Trakt in Settings.
+      {% elif status == 'trakt_error_forbidden'%}Trakt sync failed. Check the Trakt API app credentials in your environment.
+      {% elif status == 'trakt_error_not_found'%}Trakt sync failed. Trakt could not find that username.
+      {% elif status == 'trakt_error_network'  %}Trakt sync failed. Check network access to api.trakt.tv.
+      {% elif status == 'trakt_error'          %}Trakt sync failed. Check credentials and network.
+      {% elif 'refreshed_all_' in status       %}Metadata refreshed for {{ status.split('_')[-1] }} item{% if status.split('_')[-1] != '1' %}s{% endif %}.
+      {% elif status == 'qbt_url_invalid'      %}qB WebUI URL must be http(s) and point to a local/private host.
+      {% elif status == 'tmdb_not_configured'  %}TMDB API key not set. Save it in Settings.
+      {% elif status == 'add_failed'           %}The selected title could not be added because TMDB did not return an IMDb ID.
+      {% else %}{{ status }}{% endif %}
+    </span>
+    <button class="status-close" onclick="this.parentElement.remove()">&#x2715;</button>
+  </div>
+  {% endif %}
+
+  <!-- ── Hero panel ──────────────────────────────────────── -->
+  <div id="hero" class="hero">
+    <div class="hero-idle" id="hero-idle">
+      <img class="hero-idle-logo" src="/static/UILogo.png" alt="Media Library">
+    </div>
+    <div id="hero-bg" class="hero-bg"></div>
+    <div class="hero-scrim"></div>
+    <div class="hero-scrim-bottom"></div>
+
+    <form id="hero-fav-form" method="post" style="position:absolute;top:0;right:0;z-index:4;display:none;">
+      <button id="hero-fav-btn" type="submit" class="hero-fav-btn">&#10084; Favourite</button>
+    </form>
+    <form id="hero-refresh-form" method="post" style="position:absolute;top:0;right:0;z-index:4;display:none;">
+      <button id="hero-refresh-btn" type="submit" class="hero-refresh-btn">Refresh metadata</button>
+    </form>
+
+    <div class="hero-inner">
+      <div class="hero-poster">
+        <img id="hero-poster-img" src="" alt="" style="display:none">
+        <div id="hero-poster-ph" class="hero-poster-ph"></div>
+      </div>
+      <div class="hero-details">
+        <h2 id="hero-title" class="hero-title"></h2>
+        <div class="hero-chips">
+          <span id="hero-chip-year"    class="chip chip-year"></span>
+          <span id="hero-chip-type"    class="chip chip-type"></span>
+          <span id="hero-chip-quality" class="chip chip-quality"></span>
+          <span id="hero-chip-download" class="chip chip-type" style="display:none">Downloading</span>
+        </div>
+        <p   id="hero-synopsis" class="hero-synopsis"></p>
+        <div id="hero-actors"   class="hero-actors"></div>
+        <div id="hero-discover-actions" class="hero-discover-actions">
+          <button id="hero-add-btn" type="button" class="hero-action-btn">Add to library</button>
+          <span id="hero-discover-status" class="hero-discover-status"></span>
+        </div>
+        <div id="hero-library-actions" class="hero-library-actions">
+          <button id="hero-retry-download-btn" type="button" class="hero-action-btn">Retry / Find Torrent</button>
+          <span id="hero-library-status" class="hero-library-status"></span>
+          <div id="hero-dl-progress-wrap" class="hero-dl-progress-wrap">
+            <div class="hero-dl-progress-bar"><div id="hero-dl-progress-fill" class="hero-dl-progress-fill"></div></div>
+            <div id="hero-dl-progress-label" class="hero-dl-progress-label"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info cards row -->
+    <div class="hero-info-bar">
+      <div id="hero-card-rating" class="info-card" style="display:none">
+        <span class="info-card-label">TMDB Rating</span>
+        <span id="hero-rating-val" class="info-card-value cyan"></span>
+      </div>
+      <div id="hero-card-subs" class="info-card" style="display:none">
+        <span class="info-card-label">Subtitles</span>
+        <span id="hero-subs-val" class="info-card-value green"></span>
+      </div>
+      <div id="hero-card-resolution" class="info-card" style="display:none">
+        <span class="info-card-label">Quality</span>
+        <span id="hero-resolution-val" class="info-card-value amber"></span>
+      </div>
+      <div id="hero-card-upgrade" class="info-card" style="display:none">
+        <span class="info-card-label">Upgrade</span>
+        <span id="hero-upgrade-val" class="info-card-value green"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Sections ────────────────────────────────────────── -->
+  <div id="section-discover" class="grid-area" style="display:none">
+    <div class="discover-layout">
+      <div class="discover-search-panel">
+        <div class="grid-header" style="margin-bottom:12px">
+          <span class="grid-heading">Discover</span>
+          <span class="grid-count">Search, watchlist, collections, trending</span>
+        </div>
+        <form id="discover-search-form" class="discover-search-form">
+          <input id="discover-search-input" class="discover-search-input" type="search" placeholder="Search TMDB to add a title…" required>
+          <button type="submit" class="discover-search-btn">Search</button>
+        </form>
+        <div id="discover-search-note" class="discover-search-note">Search stays in this panel. Click posters below to prefill a search.</div>
+      </div>
+
+      <div id="discover-search-results" class="discover-results" style="display:none"></div>
+
+      <div class="discover-block">
+        <div class="discover-block-header">
+          <span class="discover-block-title">Your Watchlist</span>
+          <span id="discover-watchlist-meta" class="grid-count"></span>
+        </div>
+        <div id="discover-watchlist" class="discover-strip"></div>
+        <div id="discover-watchlist-note" class="discover-block-note">Loading watchlist…</div>
+      </div>
+
+      <div class="discover-block">
+        <div class="discover-block-header">
+          <span class="discover-block-title">Incomplete Collections</span>
+          <span id="discover-collections-meta" class="grid-count"></span>
+        </div>
+        <div id="discover-collections" class="discover-collections"></div>
+        <div id="discover-collections-note" class="discover-block-note">Loading collections…</div>
+      </div>
+
+      <div class="discover-block">
+        <div class="discover-block-header">
+          <span class="discover-block-title">Trending</span>
+          <span id="discover-trending-meta" class="grid-count"></span>
+        </div>
+        <div id="discover-trending" class="discover-strip"></div>
+        <div id="discover-trending-note" class="discover-block-note">Loading trending titles…</div>
+      </div>
+    </div>
+  </div>
+
+  {% for section_id, section_label, items, folder_path, file_count in [
+      ('movies',     'Movies',     movies,     movies_path, movie_files|length),
+      ('tv',         'TV Shows',   tv_shows,   tv_path,     tv_files|length),
+      ('favourites', 'Favourites', favourites, '',          0)
+  ] %}
+  <div id="section-{{ section_id }}" class="grid-area" style="display:none">
+    <div class="grid-header">
+      <span class="grid-heading">{{ section_label }}</span>
+    </div>
+    {% if section_id in ['movies', 'tv'] %}
+    <div class="library-toolbar">
+      <div class="library-toolbar-actions">
+        <button type="button" class="btn-sm" data-library-search-toggle="{{ section_id }}">Search</button>
+        <button type="button" class="btn-sm filter-incomplete" data-library-filter="{{ section_id }}" data-filter-key="incomplete">!</button>
+        <button type="button" class="btn-sm filter-downloading" data-library-filter="{{ section_id }}" data-filter-key="downloading">DL</button>
+        {% if section_id == 'movies' %}
+        <button type="button" class="btn-sm" data-library-filter="{{ section_id }}" data-filter-key="collections">Collections</button>
+        {% endif %}
+      </div>
+    </div>
+    <div id="library-search-row-{{ section_id }}" class="library-search-row">
+      <input id="library-search-input-{{ section_id }}" class="library-search-input" type="search" placeholder="Filter {{ section_label|lower }}...">
+    </div>
+    <div id="library-results-meta-{{ section_id }}" class="library-results-meta"></div>
+    {% endif %}
+    {% if items %}
+    <div id="media-grid-{{ section_id }}" class="media-grid">
+      {% for item in items %}
+      <div class="card{% if item.found == 1 %} has-upgrade{% endif %}"
+           id="card-{{ item.id }}"
+           data-id="{{ item.id }}"
+           onclick="openHero(this)">
+        <div class="card-poster">
+          {% if item.poster_url %}
+          <img src="{{ item.poster_url }}" alt="" loading="lazy"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div class="card-no-poster" style="display:none">{{ (item.title or '?')[0].upper() }}</div>
+          {% else %}
+          <div class="card-no-poster" style="font-size:1rem;padding:8px;text-align:center;color:rgba(240,230,255,0.35);">
+            {% if item.path %}
+              {{ item.path.split('\\')[-1].split('/')[-1][:40] }}
+            {% elif item.imdb_id %}
+              {{ item.imdb_id }}
+            {% else %}
+              ?
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if item.file_missing %}<div class="card-badge card-badge-missing" title="File not found on disk">&#9888; MISSING</div>
+          {% elif item.found == 1 %}<div class="card-badge card-badge-upgrade" title="Higher quality available">&#x2191; HQ</div>{% endif %}
+          {% if item.download_status in ['starting', 'handed_off', 'downloading'] %}
+          <div class="card-badge card-badge-download" title="{{ item.download_message or item.download_status }}">DL</div>
+          {% endif %}
+          {% if item.favourite %}<div class="card-badge card-badge-fav">&#10084;</div>{% endif %}
+          {% if item.download_status not in ['starting', 'handed_off', 'downloading'] and (not item.poster_url or not item.synopsis or not item.year or not item.current_quality or not item.subtitles) %}
+          <div class="card-badge card-badge-incomplete" title="Incomplete metadata: {% if not item.poster_url %}poster {% endif %}{% if not item.synopsis %}synopsis {% endif %}{% if not item.year %}year {% endif %}{% if not item.current_quality %}quality {% endif %}{% if not item.subtitles %}subtitles{% endif %}">!</div>
+          {% endif %}
+          <div class="card-overlay">
+            <div class="card-title">{% if item.title and not item.title.startswith('tt') %}{{ item.title }}{% elif item.path %}{{ item.path.split('\\')[-1].split('/')[-1] }}{% else %}{{ item.imdb_id }}{% endif %}</div>
+            {% if item.year %}<div class="card-year">{{ item.year }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      {% if section_id == 'favourites' %}
+        <strong>No favourites yet</strong>Select a title and click the heart to add it.
+      {% else %}
+        <strong>No {{ section_label|lower }} yet</strong>Use Discover to add titles, or sync your Trakt.tv collection.
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <!-- Settings section -->
+  <div id="section-settings" class="settings-content">
+    <div class="settings-section">
+      <div class="settings-title">Settings</div>
+        <div class="settings-block">
+          <div class="settings-subtitle" style="margin-top:0"><span>Library Paths</span></div>
+          <form action="/settings" method="post">
+            <div class="settings-grid" style="margin-bottom:8px;">
+              <label for="movies_path">Movies folder</label>
+              <input type="text" id="movies_path" name="movies_path" value="{{ movies_path }}" placeholder="e.g. D:\Movies">
+              <label for="tv_path">TV Shows folder</label>
+              <input type="text" id="tv_path" name="tv_path" value="{{ tv_path }}" placeholder="e.g. D:\TV Shows">
+              <span></span>
+              <div>
+                <button type="submit" class="btn-save">Save settings</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="settings-block">
+          <div class="settings-subtitle" style="margin-top:0"><span>Media preferences</span></div>
+          <form action="/settings" method="post">
+            <div class="settings-grid" style="margin-bottom:8px;">
+              <label for="preferred_quality">Preferred quality</label>
+              <select id="preferred_quality" name="preferred_quality">
+                <option value="720p" {% if preferred_quality == '720p' %}selected{% endif %}>720p</option>
+                <option value="1080p" {% if preferred_quality == '1080p' %}selected{% endif %}>1080p</option>
+                <option value="2160p" {% if preferred_quality == '2160p' %}selected{% endif %}>2160p (4K)</option>
+              </select>
+              <span></span>
+              <div>
+                <button type="submit" class="btn-save">Save settings</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="settings-block">
+        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>TMDB</span></div>
+        <form action="/settings" method="post">
+          <div class="settings-grid" style="margin-bottom:8px;">
+            <label for="tmdb_api_key">API Key</label>
+            <input type="password" id="tmdb_api_key" name="tmdb_api_key" value="" placeholder="{% if tmdb_api_configured %}Saved securely. Leave blank to keep it.{% else %}TMDB API key{% endif %}" autocomplete="new-password">
+            <span></span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="submit" class="btn-save">Save settings</button>
+              <button type="button" id="tmdb-test-btn" class="settings-inline-btn">Test connection</button>
+            </div>
+          </div>
+          <div id="tmdb-test-status" class="settings-note" style="margin-top:0;"></div>
+        </form>
+        <p class="settings-note" style="margin-top:8px;">
+          View documentation for configuring TMDB settings <a href="https://developer.themoviedb.org/docs/getting-started" target="_blank" rel="noopener noreferrer">here</a>.
+        </p>
+      </div>
+
+        <div class="settings-block">
+          <div class="settings-subtitle" style="margin-top:0"><span>Torrent settings</span></div>
+          <form action="/settings" method="post">
+            <div class="settings-grid" style="margin-bottom:8px;">
+              <label for="mirror_urls">Mirrors</label>
+              <textarea id="mirror_urls" name="mirror_urls" placeholder="One mirror URL per line">{{ mirror_urls_text }}</textarea>
+              <span></span>
+              <div>
+                <button type="submit" class="btn-save">Save settings</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+      <div class="settings-block">
+        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Torrent WebUI configuration</span></div>
+        <form action="/settings" method="post">
+          <div class="settings-grid" style="margin-bottom:8px;">
+            <label for="qbt_webui_url">WebUI IP address</label>
+            <input type="text" id="qbt_webui_url" name="qbt_webui_url" value="{{ qbt_webui_url }}" placeholder="http://127.0.0.1:8090">
+            <span></span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="submit" class="btn-save">Save settings</button>
+              <button type="button" id="qbt-test-btn" class="settings-inline-btn">Test connection</button>
+            </div>
+          </div>
+          <div id="qbt-test-status" class="settings-note" style="margin-top:0;"></div>
+        </form>
+        <p class="settings-note" style="margin-top:8px;">
+          View documentation for configuring torrent WebUI settings <a href="https://github.com/qbittorrent/qBittorrent/wiki/Explanation-of-Options-in-qBittorrent#web-ui" target="_blank" rel="noopener noreferrer">here</a>.
+        </p>
+      </div>
+
+      <div class="settings-block">
+      <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Trakt</span></div>
+      <form action="/settings" method="post" style="margin-bottom:12px;">
+        <div class="settings-grid" style="margin-bottom:8px;">
+          <label for="trakt_username">Username</label>
+          <input type="text" id="trakt_username" name="trakt_username" value="{{ trakt_saved_username }}" placeholder="Trakt username">
+          <label for="trakt_client_id">Client ID</label>
+          <input type="text" id="trakt_client_id" name="trakt_client_id" value="{{ trakt_client_id }}" placeholder="Trakt client ID">
+          <label for="trakt_client_secret">Client Secret</label>
+          <input type="password" id="trakt_client_secret" name="trakt_client_secret" value="" placeholder="{% if trakt_secret_configured %}Saved securely. Leave blank to keep it.{% else %}Trakt client secret{% endif %}" autocomplete="new-password">
+          <span></span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="submit" class="btn-save">Save settings</button>
+            <button type="button" id="trakt-test-btn" class="settings-inline-btn">Test connection</button>
+          </div>
+        </div>
+        <div id="trakt-test-status" class="settings-note" style="margin-top:0;"></div>
+      </form>
+      <div id="trakt-auth-summary" class="settings-note" style="margin-top:0;margin-bottom:8px;"></div>
+      <div id="trakt-device-panel" style="display:none;margin-bottom:10px;padding:12px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px;">Authorize Trakt</div>
+        <div class="settings-note" style="margin:0 0 8px 0;">Open the Trakt activation page and enter this code:</div>
+        <div style="font-size:20px;font-weight:800;letter-spacing:0.08em;margin-bottom:8px;"><code id="trakt-device-code"></code></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <button type="button" id="trakt-copy-btn" class="settings-inline-btn">Copy code</button>
+        </div>
+        <div id="trakt-device-status" class="settings-note" style="margin:0;"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <button type="button" id="trakt-connect-btn" class="btn-save" {% if not trakt_oauth_available %}style="display:none;"{% endif %}>Connect Trakt</button>
+        <button type="button" id="trakt-open-btn" class="settings-inline-btn" style="display:none;">Open activation page</button>
+        <button type="button" id="trakt-disconnect-btn" class="settings-inline-btn" {% if not trakt_connected %}style="display:none;"{% endif %}>Disconnect</button>
+      </div>
+      <p class="settings-note" style="margin-top:8px;">
+        View documentation for configuring Trakt settings <a href="https://docs.trakt.tv/docs/create-an-app" target="_blank" rel="noopener noreferrer">here</a>.
+      </p>
+      </div>
+
+      <div class="settings-block">
+        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Bulk Actions</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          {% if movies_path or tv_path %}
+          <form action="/sync-library" method="post"><button type="submit" class="settings-inline-btn">Scan folders</button></form>
+          {% endif %}
+          <form action="/scan-quality" method="post"><button type="submit" class="settings-inline-btn">Scan media quality</button></form>
+          <form action="/scan-subtitles" method="post"><button type="submit" class="settings-inline-btn">Scan subtitles</button></form>
+          <form action="/refresh-all" method="post"><button type="submit" class="settings-inline-btn">Refresh all metadata</button></form>
+        </div>
+      </div>
+
+      <div class="settings-block">
+      <div class="settings-subtitle">
+        <span>Discover ignored items</span>
+        <button type="button" id="ignored-refresh-btn" class="settings-inline-btn">Refresh</button>
+      </div>
+      <div class="settings-note" style="margin-top:0;margin-bottom:8px;">Use this list to restore hidden titles or whole collections.</div>
+
+      <div class="settings-subtitle" style="margin-top:10px;margin-bottom:8px;"><span>Ignored Titles</span></div>
+      <div style="margin-bottom:8px;"><button type="button" id="ignored-clear-titles-btn" class="settings-inline-btn">Unignore all titles</button></div>
+      <div id="ignored-titles-list" class="ignored-list"></div>
+
+      <div class="settings-subtitle" style="margin-top:14px;margin-bottom:8px;"><span>Ignored Collections</span></div>
+      <div style="margin-bottom:8px;"><button type="button" id="ignored-clear-collections-btn" class="settings-inline-btn">Unignore all collections</button></div>
+      <div id="ignored-collections-list" class="ignored-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+<div id="torrent-modal" class="torrent-modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="torrent-modal-panel">
+    <div class="torrent-modal-head">
+      <div id="torrent-modal-title" class="torrent-modal-title">Choose a torrent</div>
+      <button id="torrent-modal-close" type="button" class="torrent-modal-close">Close</button>
+    </div>
+    <div id="torrent-modal-body" class="torrent-modal-body"></div>
+  </div>
+</div>
+
+<script>
+  // ── Item data (safe JSON in script context, not HTML attributes) ──
+  const ITEMS = {
+    {% for item in movies + tv_shows + favourites %}
+    {{ item.id }}: {{ item | tojson }}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  };
+
+  const PREFERRED_QUALITY = {{ preferred_quality | tojson }};
+  const INITIAL_SECTION = {{ initial_section | tojson }};
+  const QUALITY_RANK = { '480p': 1, '720p': 2, '1080p': 3, '1440p': 4, '2160p': 5, '4k': 5 };
+  function qualityRank(q) { return QUALITY_RANK[(q || '').toLowerCase()] || 0; }
+  const DISCOVER_STATE = { loaded: false, loading: false };
+  const TMDB_CONFIGURED = {{ tmdb_api_configured | tojson }};
+  const IGNORES_STATE = { loaded: false, loading: false };
+  const HERO_STATE = { source: 'library', item: null };
+  const TORRENT_MODAL_STATE = { mediaId: null, title: '' };
+  let activeCardId = null;
+  let _dlPollTimer = null;
+  const TRAKT_STATE = {
+    oauthAvailable: {{ trakt_oauth_available | tojson }},
+    connected: {{ trakt_connected | tojson }},
+    configured: {{ trakt_configured | tojson }},
+    username: {{ trakt_username | tojson }},
+    deviceFlow: {{ trakt_device_flow | tojson }},
+    secretConfigured: {{ trakt_secret_configured | tojson }},
+    polling: false,
+    pollTimer: null,
+  };
+  const LIBRARY_SECTION_ITEMS = {
+    movies: [{% for item in movies %}{{ item.id }}{% if not loop.last %}, {% endif %}{% endfor %}],
+    tv: [{% for item in tv_shows %}{{ item.id }}{% if not loop.last %}, {% endif %}{% endfor %}],
+    favourites: [{% for item in favourites %}{{ item.id }}{% if not loop.last %}, {% endif %}{% endfor %}],
+  };
+  const LIBRARY_VIEW_STATE = {
+    movies: { query: '', searchOpen: false, incomplete: false, downloading: false, collections: false },
+    tv: { query: '', searchOpen: false, incomplete: false, downloading: false },
+  };
+
+  // ── Section switching ──────────────────────────────────
+  const SECTIONS = ['discover', 'movies', 'tv', 'favourites', 'settings'];
+  const LAST_SECTION_KEY = 'media-library.last-section';
+
+  function resolveInitialSection() {
+    try {
+      const saved = localStorage.getItem(LAST_SECTION_KEY);
+      if (saved && SECTIONS.includes(saved)) return saved;
+    } catch (_error) {
+      // Ignore storage issues and fall back to server-selected section.
+    }
+    return SECTIONS.includes(INITIAL_SECTION) ? INITIAL_SECTION : 'movies';
+  }
+
+  // Reset hero to idle state when switching sections.
+  function showSection(name) {
+    closeHero();
+    SECTIONS.forEach(s => {
+      const el = document.getElementById('section-' + s);
+      if (el) el.style.display = 'none';
+      const nb = document.getElementById('nav-' + s);
+      if (nb) nb.classList.remove('active');
+    });
+    const target = document.getElementById('section-' + name);
+    if (target) target.style.display = 'block';
+    const navBtn = document.getElementById('nav-' + name);
+    if (navBtn) navBtn.classList.add('active');
+    try {
+      localStorage.setItem(LAST_SECTION_KEY, name);
+    } catch (_error) {
+      // Ignore storage issues.
+    }
+    if (name === 'discover') loadDiscoverOnce();
+    if (name === 'settings') loadIgnoredItemsOnce();
+  }
+
+  // Show the section selected by the server.
+  showSection(resolveInitialSection());
+
+  function escAttr(str) {
+    return escHtml(String(str)).replace(/"/g, '&quot;');
+  }
+
+  function formatTorrentSize(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '?';
+    const bytes = Number(raw);
+    if (!Number.isFinite(bytes) || bytes < 0) return raw;
+    if (bytes < 1024) return bytes + ' B';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let size = bytes / 1024;
+    let idx = 0;
+    while (size >= 1024 && idx < units.length - 1) {
+      size /= 1024;
+      idx += 1;
+    }
+    const decimals = size >= 100 ? 0 : (size >= 10 ? 1 : 2);
+    return size.toFixed(decimals) + ' ' + units[idx];
+  }
+
+  function normalizeTitle(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (raw.startsWith('the ')) return raw.slice(4);
+    if (raw.startsWith('an ')) return raw.slice(3);
+    if (raw.startsWith('a ')) return raw.slice(2);
+    return raw;
+  }
+
+  function libraryItemTitle(item) {
+    if (item.title && !String(item.title).startsWith('tt')) return item.title;
+    if (item.path) {
+      const parts = String(item.path).split(/[\\/]/);
+      return parts[parts.length - 1] || item.path;
+    }
+    return item.imdb_id || 'Untitled';
+  }
+
+  function libraryItemIncomplete(item) {
+    const active = ['starting', 'handed_off', 'downloading'];
+    return !active.includes(item.download_status) && (!item.poster_url || !item.synopsis || !item.year || !item.current_quality || !item.subtitles);
+  }
+
+  function libraryItemDownloading(item) {
+    return ['starting', 'handed_off', 'downloading'].includes(item.download_status);
+  }
+
+  function libraryItemMatchesQuery(item, query) {
+    if (!query) return true;
+    const haystack = [libraryItemTitle(item), item.collection_name || '', item.imdb_id || '', item.path || ''].join(' ').toLowerCase();
+    return haystack.includes(query);
+  }
+
+  function libraryCardMarkup(item) {
+    const title = libraryItemTitle(item);
+    const noPoster = item.path
+      ? String(item.path).split(/[\\/]/).pop().slice(0, 40)
+      : (item.imdb_id || '?');
+    return `
+      <div class="card${item.found === 1 ? ' has-upgrade' : ''}" id="card-${escAttr(item.id)}" data-id="${escAttr(item.id)}" onclick="openHero(this)">
+        <div class="card-poster">
+          ${item.poster_url ? `
+            <img src="${escAttr(item.poster_url)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="card-no-poster" style="display:none">${escHtml((title || '?').charAt(0).toUpperCase() || '?')}</div>
+          ` : `
+            <div class="card-no-poster" style="font-size:1rem;padding:8px;text-align:center;color:rgba(240,230,255,0.35);">${escHtml(noPoster || '?')}</div>
+          `}
+          ${item.file_missing ? '<div class="card-badge card-badge-missing" title="File not found on disk">&#9888; MISSING</div>' : ''}
+          ${!item.file_missing && item.found === 1 ? '<div class="card-badge card-badge-upgrade" title="Higher quality available">&#x2191; HQ</div>' : ''}
+          ${libraryItemDownloading(item) ? `<div class="card-badge card-badge-download" title="${escAttr(item.download_message || item.download_status || 'Downloading')}">DL</div>` : ''}
+          ${item.favourite ? '<div class="card-badge card-badge-fav">&#10084;</div>' : ''}
+          ${libraryItemIncomplete(item) ? '<div class="card-badge card-badge-incomplete" title="Incomplete metadata">!</div>' : ''}
+          <div class="card-overlay">
+            <div class="card-title">${escHtml(title)}</div>
+            ${item.year ? `<div class="card-year">${escHtml(String(item.year))}</div>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function collectionPosterUrl(group) {
+    const withPoster = (group.items || []).find(item => item.poster_url);
+    return withPoster ? withPoster.poster_url : '';
+  }
+
+  function collectionCardMarkup(group) {
+    const posterUrl = collectionPosterUrl(group);
+    const firstId = group.items.length ? group.items[0].id : '';
+    return `
+      <div class="card card-collection" data-id="${escAttr(firstId)}" onclick="openHero(this)">
+        <div class="card-poster">
+          ${posterUrl ? `<img src="${escAttr(posterUrl)}" alt="" loading="lazy">` : `<div class="card-no-poster">${escHtml((group.name || '?').charAt(0).toUpperCase() || '?')}</div>`}
+          <div class="card-badge card-badge-collection">${escHtml(String(group.items.length))}</div>
+          <div class="card-overlay">
+            <div class="card-title">${escHtml(group.name)}</div>
+            <div class="card-year">${escHtml(String(group.items.length))} titles</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function getSectionItems(sectionId) {
+    return (LIBRARY_SECTION_ITEMS[sectionId] || []).map(id => ITEMS[id]).filter(Boolean);
+  }
+
+  function renderLibrarySection(sectionId) {
+    const grid = document.getElementById(`media-grid-${sectionId}`);
+    if (!grid) return;
+    const meta = document.getElementById(`library-results-meta-${sectionId}`);
+    const state = LIBRARY_VIEW_STATE[sectionId] || { query: '', incomplete: false, downloading: false, collections: false };
+    const query = String(state.query || '').trim().toLowerCase();
+    const items = getSectionItems(sectionId).filter(item => {
+      if (!libraryItemMatchesQuery(item, query)) return false;
+      if (state.incomplete && !libraryItemIncomplete(item)) return false;
+      if (state.downloading && !libraryItemDownloading(item)) return false;
+      return true;
+    });
+
+    let entries = [];
+    if (sectionId === 'movies' && state.collections) {
+      const grouped = new Map();
+      const standalone = [];
+      for (const item of items) {
+        if (item.collection_id && item.collection_name) {
+          const key = String(item.collection_id);
+          if (!grouped.has(key)) grouped.set(key, { id: item.collection_id, name: item.collection_name, items: [] });
+          grouped.get(key).items.push(item);
+        } else {
+          standalone.push({ sortKey: normalizeTitle(libraryItemTitle(item)), html: libraryCardMarkup(item) });
+        }
+      }
+      for (const group of grouped.values()) {
+        group.items.sort((a, b) => normalizeTitle(libraryItemTitle(a)).localeCompare(normalizeTitle(libraryItemTitle(b))) || (a.year || 0) - (b.year || 0));
+        entries.push({ sortKey: normalizeTitle(group.name), html: collectionCardMarkup(group) });
+      }
+      entries = entries.concat(standalone);
+    } else {
+      entries = items.map(item => ({ sortKey: normalizeTitle(libraryItemTitle(item)), html: libraryCardMarkup(item) }));
+    }
+
+    entries.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    grid.innerHTML = entries.map(entry => entry.html).join('');
+
+    if (meta) {
+      const filters = [];
+      if (state.incomplete) filters.push('!');
+      if (state.downloading) filters.push('DL');
+      if (state.collections) filters.push('Collections');
+      const parts = [];
+      if (query) parts.push(`Search: ${state.query}`);
+      if (filters.length) parts.push(`Filters: ${filters.join(', ')}`);
+      parts.push(`${entries.length} result${entries.length === 1 ? '' : 's'}`);
+      meta.textContent = parts.join(' · ');
+    }
+  }
+
+  function syncLibraryToolbar(sectionId) {
+    const state = LIBRARY_VIEW_STATE[sectionId];
+    if (!state) return;
+    const searchRow = document.getElementById(`library-search-row-${sectionId}`);
+    const searchInput = document.getElementById(`library-search-input-${sectionId}`);
+    if (searchRow) searchRow.classList.toggle('open', !!state.searchOpen);
+    if (searchInput && searchInput.value !== state.query) searchInput.value = state.query;
+    document.querySelectorAll(`[data-library-filter="${sectionId}"]`).forEach(btn => {
+      const key = btn.dataset.filterKey;
+      btn.classList.toggle('active', !!state[key]);
+    });
+    const searchBtn = document.querySelector(`[data-library-search-toggle="${sectionId}"]`);
+    if (searchBtn) searchBtn.classList.toggle('active', !!state.searchOpen || !!state.query);
+  }
+
+  function discoverCardMarkup(item) {
+    const title = item.title || 'Untitled';
+    const poster = item.poster_url
+      ? `<img src="${escAttr(item.poster_url)}" alt="" loading="lazy">`
+      : escHtml(title.charAt(0).toUpperCase() || '?');
+    return `
+      <button
+        type="button"
+        class="discover-card discover-card-poster-only discover-hero-trigger"
+        data-tmdb-id="${escAttr(item.tmdb_id || '')}"
+        data-media-type="${escAttr(item.media_type || 'movie')}"
+        data-title="${escAttr(title)}"
+        data-year="${escAttr(item.year || '')}"
+        data-poster-url="${escAttr(item.poster_url || '')}"
+        title="${escAttr(title)}"
+      >
+        <div class="discover-card-poster">${poster}</div>
+      </button>
+    `;
+  }
+
+  function renderDiscoverStrip(containerId, noteId, items, emptyText, metaText) {
+    const container = document.getElementById(containerId);
+    const note = document.getElementById(noteId);
+    const meta = document.getElementById(containerId + '-meta');
+    if (meta) meta.textContent = metaText || '';
+    if (!items.length) {
+      container.innerHTML = '';
+      note.textContent = emptyText;
+      note.style.display = 'block';
+      return;
+    }
+    container.innerHTML = items.map(discoverCardMarkup).join('');
+    note.style.display = 'none';
+  }
+
+  function renderCollections(collections) {
+    const container = document.getElementById('discover-collections');
+    const note = document.getElementById('discover-collections-note');
+    const missingItems = collections.flatMap(group =>
+      (group.missing || []).map(item => ({
+        ...item,
+        collection_id: group.collection_id,
+        collection_name: group.collection_name,
+      }))
+    );
+    document.getElementById('discover-collections-meta').textContent = missingItems.length
+      ? `${missingItems.length} missing titles`
+      : '';
+    if (!missingItems.length) {
+      container.innerHTML = '';
+      note.textContent = TMDB_CONFIGURED
+        ? 'No incomplete movie collections found in the current library.'
+        : 'Configure TMDB to load trending titles.';
+      note.style.display = 'block';
+      return;
+    }
+    container.innerHTML = missingItems.map(item => {
+      const title = item.title || 'Untitled';
+      const poster = item.poster_url
+        ? `<img src="${escAttr(item.poster_url)}" alt="" loading="lazy">`
+        : escHtml(title.charAt(0).toUpperCase() || '?');
+      return `
+        <div class="discover-card discover-card-poster-only discover-collection-card" title="${escAttr(title)}">
+          <div class="discover-ignore-actions">
+            <button type="button" class="discover-ignore-btn" data-ignore-kind="title" data-tmdb-id="${escAttr(item.tmdb_id)}" data-collection-id="${escAttr(item.collection_id || '')}" data-title="${escAttr(title)}" data-collection-name="${escAttr(item.collection_name || '')}" title="Ignore this title">Hide</button>
+            ${item.collection_id ? `<button type="button" class="discover-ignore-btn" data-ignore-kind="collection" data-collection-id="${escAttr(item.collection_id)}" data-collection-name="${escAttr(item.collection_name || '')}" title="Ignore this collection">Series</button>` : ''}
+          </div>
+          <button
+            type="button"
+            class="discover-hero-trigger"
+            data-tmdb-id="${escAttr(item.tmdb_id || '')}"
+            data-media-type="movie"
+            data-title="${escAttr(title)}"
+            data-year="${escAttr(item.year || '')}"
+            data-poster-url="${escAttr(item.poster_url || '')}"
+            style="all:unset;display:block;cursor:pointer;"
+          >
+            <div class="discover-card-poster">${poster}</div>
+          </button>
+        </div>
+      `;
+    }).join('');
+    note.style.display = 'none';
+  }
+
+  async function refreshDiscover() {
+    DISCOVER_STATE.loaded = false;
+    document.getElementById('discover-watchlist-note').textContent = 'Refreshing…';
+    document.getElementById('discover-collections-note').textContent = 'Refreshing…';
+    document.getElementById('discover-trending-note').textContent = 'Refreshing…';
+    await loadDiscoverOnce();
+  }
+
+  async function ignoreDiscoverItem(kind, tmdbId, collectionId, title, collectionName) {
+    const body = new URLSearchParams();
+    if (tmdbId) body.set('tmdb_id', tmdbId);
+    if (collectionId) body.set('collection_id', collectionId);
+    if (title) body.set('title', title);
+    if (collectionName) body.set('collection_name', collectionName);
+    const endpoint = kind === 'collection' ? '/api/discover/ignore-collection' : '/api/discover/ignore-title';
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+      },
+      body: body.toString(),
+    });
+    if (!response.ok) {
+      throw new Error('ignore_failed');
+    }
+    await refreshDiscover();
+    IGNORES_STATE.loaded = false;
+    if (document.getElementById('section-settings').style.display === 'block') {
+      await loadIgnoredItemsOnce();
+    }
+  }
+
+  function renderIgnoredList(containerId, items, kind) {
+    const container = document.getElementById(containerId);
+    if (!items.length) {
+      container.innerHTML = '<div class="ignored-empty">Nothing ignored.</div>';
+      return;
+    }
+    container.innerHTML = items.map(item => {
+      const key = kind === 'collection' ? item.collection_id : item.tmdb_id;
+      const label = kind === 'collection'
+        ? (item.collection_name || `Collection #${item.collection_id}`)
+        : (item.title || `Title #${item.tmdb_id}`);
+      const sub = kind === 'collection'
+        ? `Collection ID: ${item.collection_id}`
+        : `TMDB ID: ${item.tmdb_id}${item.collection_name ? ` · ${item.collection_name}` : ''}`;
+      return `
+        <div class="ignored-item">
+          <div><strong>${escHtml(label)}</strong><br>${escHtml(sub)}</div>
+          <button type="button" class="ignored-unignore" data-unignore-kind="${kind}" data-ignore-key="${escAttr(key)}">Unignore</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function loadIgnoredItemsOnce(force = false) {
+    if ((IGNORES_STATE.loaded && !force) || IGNORES_STATE.loading) return;
+    IGNORES_STATE.loading = true;
+    try {
+      const response = await fetch('/api/discover/ignored', { headers: { 'Accept': 'application/json' } });
+      const data = await response.json();
+      renderIgnoredList('ignored-titles-list', data.titles || [], 'title');
+      renderIgnoredList('ignored-collections-list', data.collections || [], 'collection');
+      IGNORES_STATE.loaded = true;
+    } catch (_error) {
+      document.getElementById('ignored-titles-list').innerHTML = '<div class="ignored-empty">Unable to load ignored titles.</div>';
+      document.getElementById('ignored-collections-list').innerHTML = '<div class="ignored-empty">Unable to load ignored collections.</div>';
+    } finally {
+      IGNORES_STATE.loading = false;
+    }
+  }
+
+  function traktStatusMessage() {
+    if (TRAKT_STATE.connected) {
+      return `Connected as ${TRAKT_STATE.username || 'your Trakt account'} via OAuth.`;
+    }
+    if (TRAKT_STATE.deviceFlow) {
+      return 'Waiting for Trakt authorization.';
+    }
+    return '';
+  }
+
+  function setTraktInlineStatus(message, isError = false) {
+    const el = document.getElementById('trakt-device-status');
+    if (!el) return;
+    el.textContent = message || '';
+    el.style.color = isError ? '#f87171' : 'var(--text-muted)';
+  }
+
+  function renderTraktControls() {
+    document.getElementById('trakt-auth-summary').textContent = traktStatusMessage();
+    document.getElementById('trakt-connect-btn').style.display = (!TRAKT_STATE.oauthAvailable || TRAKT_STATE.connected) ? 'none' : 'inline-flex';
+    document.getElementById('trakt-disconnect-btn').style.display = TRAKT_STATE.connected ? 'inline-flex' : 'none';
+    document.getElementById('trakt-connect-btn').disabled = Boolean(TRAKT_STATE.deviceFlow);
+
+    const devicePanel = document.getElementById('trakt-device-panel');
+    const openBtn = document.getElementById('trakt-open-btn');
+    const copyBtn = document.getElementById('trakt-copy-btn');
+    if (TRAKT_STATE.deviceFlow) {
+      devicePanel.style.display = 'block';
+      openBtn.style.display = 'inline-flex';
+      copyBtn.style.display = 'inline-flex';
+      document.getElementById('trakt-device-code').textContent = TRAKT_STATE.deviceFlow.user_code || '';
+      if (!document.getElementById('trakt-device-status').textContent) {
+        setTraktInlineStatus('Copy or note the code, then open Trakt and keep this page open while it checks for approval.');
+      }
+    } else {
+      devicePanel.style.display = 'none';
+      openBtn.style.display = 'none';
+      copyBtn.style.display = 'none';
+      document.getElementById('trakt-device-code').textContent = '';
+      setTraktInlineStatus('');
+    }
+  }
+
+  function scheduleTraktPoll(intervalSeconds) {
+    if (TRAKT_STATE.pollTimer) {
+      clearTimeout(TRAKT_STATE.pollTimer);
+    }
+    TRAKT_STATE.pollTimer = window.setTimeout(() => {
+      pollTraktConnect();
+    }, Math.max(1, intervalSeconds || 5) * 1000);
+  }
+
+  async function startTraktConnect() {
+    try {
+      const response = await fetch('/api/trakt/connect/start', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'trakt_connect_failed');
+      }
+      TRAKT_STATE.deviceFlow = data.flow || null;
+      TRAKT_STATE.connected = false;
+      TRAKT_STATE.configured = true;
+      renderTraktControls();
+      setTraktInlineStatus('Code ready. Open Trakt, enter the code, and keep this page open while it checks for approval.');
+      if (TRAKT_STATE.deviceFlow && TRAKT_STATE.deviceFlow.verification_url) {
+        scheduleTraktPoll(TRAKT_STATE.deviceFlow.interval || 5);
+      }
+    } catch (_error) {
+      setTraktInlineStatus('Unable to start Trakt OAuth. Check the app-level Trakt credentials.', true);
+    }
+  }
+
+  async function pollTraktConnect() {
+    if (!TRAKT_STATE.deviceFlow || TRAKT_STATE.polling) return;
+    TRAKT_STATE.polling = true;
+    try {
+      const response = await fetch('/api/trakt/connect/poll', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+      });
+      const data = await response.json();
+      if (response.ok && data.ok && data.status === 'connected') {
+        window.location.href = '/?section=settings';
+        return;
+      }
+      if (response.ok && data.ok && data.status === 'pending') {
+        setTraktInlineStatus('Waiting for approval…');
+        scheduleTraktPoll(data.interval || (TRAKT_STATE.deviceFlow.interval || 5));
+        return;
+      }
+      TRAKT_STATE.deviceFlow = null;
+      renderTraktControls();
+      const messageMap = {
+        trakt_oauth_expired: 'The Trakt code expired. Start again.',
+        trakt_oauth_denied: 'Trakt authorization was denied.',
+        trakt_oauth_not_found: 'That Trakt device code was not found. Start again.',
+        trakt_oauth_already_used: 'This Trakt code was already used. Start again if needed.',
+      };
+      setTraktInlineStatus(messageMap[data.error] || 'Trakt authorization failed.', true);
+    } catch (_error) {
+      setTraktInlineStatus('Unable to reach Trakt right now.', true);
+      scheduleTraktPoll(TRAKT_STATE.deviceFlow ? (TRAKT_STATE.deviceFlow.interval || 5) : 5);
+    } finally {
+      TRAKT_STATE.polling = false;
+    }
+  }
+
+  async function disconnectTrakt() {
+    try {
+      await fetch('/api/trakt/disconnect', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+      });
+    } finally {
+      window.location.href = '/?section=settings';
+    }
+  }
+
+  async function unignoreDiscoverItem(kind, key) {
+    const body = new URLSearchParams();
+    if (kind === 'collection') body.set('collection_id', key);
+    else body.set('tmdb_id', key);
+    const endpoint = kind === 'collection' ? '/api/discover/unignore-collection' : '/api/discover/unignore-title';
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+      },
+      body: body.toString(),
+    });
+    if (!response.ok) {
+      throw new Error('unignore_failed');
+    }
+    await loadIgnoredItemsOnce(true);
+    await refreshDiscover();
+  }
+
+  async function unignoreAll(kind) {
+    const endpoint = kind === 'collection'
+      ? '/api/discover/unignore-all-collections'
+      : '/api/discover/unignore-all-titles';
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error('unignore_all_failed');
+    }
+    await loadIgnoredItemsOnce(true);
+    await refreshDiscover();
+  }
+
+  async function openDiscoverHero(trigger) {
+    const tmdbId = (trigger.dataset.tmdbId || '').trim();
+    const mediaType = (trigger.dataset.mediaType || 'movie').trim();
+    const fallbackTitle = (trigger.dataset.title || '').trim();
+    const fallbackPoster = (trigger.dataset.posterUrl || '').trim();
+    const fallbackYear = parseInt(trigger.dataset.year || '', 10);
+    if (!tmdbId) {
+      openHeroFromItem({
+        title: fallbackTitle || 'Title',
+        media_type: mediaType,
+        year: Number.isFinite(fallbackYear) ? fallbackYear : null,
+        poster_url: fallbackPoster || null,
+      }, null, false);
+      return;
+    }
+
+    const query = new URLSearchParams({ tmdb_id: tmdbId, media_type: mediaType, title: fallbackTitle });
+    try {
+      const response = await fetch('/api/discover/hero?' + query.toString(), { headers: { 'Accept': 'application/json' } });
+      const payload = await response.json();
+      const item = (payload && payload.item) ? payload.item : {};
+      if (!item.poster_url && fallbackPoster) item.poster_url = fallbackPoster;
+      if (!item.year && Number.isFinite(fallbackYear)) item.year = fallbackYear;
+      if (!item.title && fallbackTitle) item.title = fallbackTitle;
+      openHeroFromItem(item, null, false);
+    } catch (_error) {
+      openHeroFromItem({
+        title: fallbackTitle || 'Title',
+        media_type: mediaType,
+        year: Number.isFinite(fallbackYear) ? fallbackYear : null,
+        poster_url: fallbackPoster || null,
+      }, null, false);
+    }
+  }
+
+  async function addDiscoverHeroItem() {
+    const item = HERO_STATE.item;
+    if (!item || HERO_STATE.source !== 'discover') return;
+    const addBtn = document.getElementById('hero-add-btn');
+    const statusEl = document.getElementById('hero-discover-status');
+    addBtn.disabled = true;
+    statusEl.textContent = 'Adding…';
+    try {
+      const response = await fetch('/api/discover/add-and-search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          tmdb_id: item.tmdb_id,
+          media_type: item.media_type || 'movie',
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || 'add_failed');
+      }
+      statusEl.textContent = 'Added to library. Choose a torrent below.';
+      showTorrentModal(payload.media_id, payload.title || item.title || 'Title', payload.candidates || []);
+      await refreshDiscover();
+      addBtn.disabled = false;
+    } catch (_error) {
+      addBtn.disabled = false;
+      statusEl.textContent = 'Add failed.';
+    }
+  }
+
+  async function retryLibraryDownloadSearch() {
+    const item = HERO_STATE.item;
+    if (!item || HERO_STATE.source !== 'library' || !item.id) return;
+    const retryBtn = document.getElementById('hero-retry-download-btn');
+    const statusEl = document.getElementById('hero-library-status');
+    retryBtn.disabled = true;
+    statusEl.textContent = 'Searching…';
+    try {
+      const response = await fetch('/api/library/retry-download/' + item.id, {
+        headers: { 'Accept': 'application/json' },
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || 'retry_failed');
+      }
+      statusEl.textContent = payload.candidates && payload.candidates.length
+        ? 'Choose a torrent below.'
+        : 'No candidates found right now.';
+      showTorrentModal(payload.media_id, payload.title || item.title || 'Title', payload.candidates || []);
+    } catch (_error) {
+      statusEl.textContent = 'Search failed.';
+      showToast('Unable to load torrent candidates.', 'error');
+    } finally {
+      retryBtn.disabled = false;
+    }
+  }
+
+  function showTorrentModal(mediaId, title, candidates) {
+    const modal = document.getElementById('torrent-modal');
+    const body = document.getElementById('torrent-modal-body');
+    const heading = document.getElementById('torrent-modal-title');
+    TORRENT_MODAL_STATE.mediaId = mediaId;
+    TORRENT_MODAL_STATE.title = title || 'Title';
+    heading.textContent = `Choose a torrent · ${TORRENT_MODAL_STATE.title}`;
+
+    if (!candidates.length) {
+      body.innerHTML = '<div class="torrent-modal-note">No candidates were found right now. You can run a manual quality check later.</div>';
+    } else {
+      body.innerHTML = candidates.map((row, idx) => {
+        const quality = row.quality ? ` · ${escHtml(row.quality)}` : '';
+        const seeds = escHtml(row.seeds || '0');
+        const size = escHtml(formatTorrentSize(row.size));
+        const pub = escHtml(row.pub_date || '');
+        const desc = row.desc_link ? `<a class="torrent-link" target="_blank" rel="noopener noreferrer" href="${escAttr(row.desc_link)}">Open page</a>` : '';
+        return `
+          <div class="torrent-candidate">
+            <div class="torrent-candidate-title">${idx + 1}. ${escHtml(row.name || 'Untitled release')}</div>
+            <div class="torrent-candidate-meta">Seeds ${seeds} · Size ${size}${quality}${pub ? ` · ${pub}` : ''}</div>
+            <div class="torrent-candidate-actions">
+              <button type="button" class="torrent-btn" data-torrent-launch="1" data-link="${escAttr(row.link || '')}" data-desc-link="${escAttr(row.desc_link || '')}">Download</button>
+              ${desc}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeTorrentModal() {
+    const modal = document.getElementById('torrent-modal');
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  /** Update (or remove) the DL badge on a card element without a page reload. */
+  function setCardDlBadge(mediaId, status, message) {
+    const card = document.getElementById('card-' + mediaId);
+    if (!card) return;
+    const ACTIVE = ['starting', 'handed_off', 'downloading'];
+    let badge = card.querySelector('.card-badge-download');
+    if (ACTIVE.includes(status)) {
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'card-badge card-badge-download';
+        badge.textContent = 'DL';
+        card.querySelector('.card-poster').appendChild(badge);
+      }
+      badge.title = message || status;
+    } else {
+      if (badge) badge.remove();
+    }
+  }
+
+  async function startTorrentDownload(link, descLink) {
+    const response = await fetch('/api/discover/start-download', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        link: link || '',
+        desc_link: descLink || '',
+        media_id: TORRENT_MODAL_STATE.mediaId,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      throw new Error('launch_failed');
+    }
+
+    if (TORRENT_MODAL_STATE.mediaId && ITEMS[TORRENT_MODAL_STATE.mediaId]) {
+      if (payload.mode === 'qbittorrent') {
+        ITEMS[TORRENT_MODAL_STATE.mediaId].download_status = 'downloading';
+        ITEMS[TORRENT_MODAL_STATE.mediaId].download_source = 'qb_webui';
+        ITEMS[TORRENT_MODAL_STATE.mediaId].download_message = payload.save_path
+          ? ('Destination: ' + payload.save_path)
+          : 'Downloading';
+        if (payload.torrent_hash) {
+          ITEMS[TORRENT_MODAL_STATE.mediaId].download_torrent_hash = payload.torrent_hash;
+        }
+      } else {
+        ITEMS[TORRENT_MODAL_STATE.mediaId].download_status = 'handed_off';
+        ITEMS[TORRENT_MODAL_STATE.mediaId].download_source = 'external_client';
+        ITEMS[TORRENT_MODAL_STATE.mediaId].download_message = 'Sent to torrent client';
+      }
+      const mid = TORRENT_MODAL_STATE.mediaId;
+      setCardDlBadge(mid, ITEMS[mid].download_status, ITEMS[mid].download_message);
+    }
+
+    if (payload.mode === 'qbittorrent') {
+      showToast('Download submitted to qBittorrent.');
+      closeTorrentModal();
+      window.location.href = '/?section=' + encodeURIComponent(payload.section || 'movies');
+      return;
+    }
+
+    if (!payload.launch_url) {
+      throw new Error('launch_failed');
+    }
+
+    window.open(payload.launch_url, '_blank');
+    showToast('Handed off to torrent client.');
+    closeTorrentModal();
+    window.location.href = '/?section=' + encodeURIComponent(payload.section || 'movies');
+  }
+
+  async function loadDiscoverOnce() {
+    if (DISCOVER_STATE.loaded || DISCOVER_STATE.loading) return;
+    DISCOVER_STATE.loading = true;
+    try {
+      const response = await fetch('/api/discover', { headers: { 'Accept': 'application/json' } });
+      const data = await response.json();
+      renderDiscoverStrip(
+        'discover-watchlist',
+        'discover-watchlist-note',
+        data.watchlist || [],
+        data.trakt_connected ? 'Your Trakt watchlist is empty.' : 'Connect Trakt to load your watchlist.',
+        (data.watchlist || []).length ? `${data.watchlist.length} titles` : ''
+      );
+      renderCollections(data.collections || []);
+      renderDiscoverStrip(
+        'discover-trending',
+        'discover-trending-note',
+        data.trending || [],
+        data.tmdb_configured ? 'No trending titles were returned.' : 'Configure TMDB to load trending titles.',
+        (data.trending || []).length ? 'This week on TMDB' : ''
+      );
+      DISCOVER_STATE.loaded = true;
+    } catch (_error) {
+      document.getElementById('discover-watchlist-note').textContent = 'Failed to load Discover data.';
+      document.getElementById('discover-collections-note').textContent = 'Failed to load Discover data.';
+      document.getElementById('discover-trending-note').textContent = 'Failed to load Discover data.';
+    } finally {
+      DISCOVER_STATE.loading = false;
+    }
+  }
+
+  async function runDiscoverSearch(rawQuery) {
+    const input = document.getElementById('discover-search-input');
+    const note = document.getElementById('discover-search-note');
+    const resultsEl = document.getElementById('discover-search-results');
+    const query = (rawQuery || input.value || '').trim();
+    if (!query) return;
+    input.value = query;
+    note.textContent = `Searching for “${query}”…`;
+    resultsEl.style.display = 'none';
+    resultsEl.innerHTML = '';
+    try {
+      const response = await fetch('/api/search-imdb?q=' + encodeURIComponent(query), { headers: { 'Accept': 'application/json' } });
+      const data = await response.json();
+      renderSearchResults(data.query || query, data.results || []);
+    } catch (_error) {
+      note.textContent = 'Search failed. Check TMDB configuration and try again.';
+    }
+  }
+
+  function renderSearchResults(query, results) {
+    const note = document.getElementById('discover-search-note');
+    const resultsEl = document.getElementById('discover-search-results');
+    resultsEl.style.display = 'flex';
+    if (!results.length) {
+      note.textContent = `No results found for “${query}”.`;
+      resultsEl.innerHTML = '';
+      return;
+    }
+    note.textContent = `${results.length} result${results.length === 1 ? '' : 's'} for “${query}”.`;
+    resultsEl.innerHTML = results.map(result => {
+      const title = result.title || 'Untitled';
+      const meta = [result.media_type === 'tv' ? 'TV Show' : 'Movie', result.year].filter(Boolean).join(' · ');
+      const poster = result.thumbnail
+        ? `<img src="${escAttr(result.thumbnail)}" alt="" loading="lazy">`
+        : escHtml(title.charAt(0).toUpperCase() || '?');
+      const buttonLabel = result.in_library ? 'Already in library' : 'Add to library';
+      return `
+        <div class="discover-result-card">
+          <div class="discover-result-thumb">${poster}</div>
+          <div class="discover-result-body">
+            <div class="discover-result-title">${escHtml(title)}</div>
+            <div class="discover-result-meta">${escHtml(meta)}</div>
+            <form class="discover-add-form">
+              <input type="hidden" name="tmdb_id" value="${escAttr(result.tmdb_id)}">
+              <input type="hidden" name="media_type" value="${escAttr(result.media_type)}">
+              <input type="hidden" name="return_section" value="discover">
+              <input type="text" name="current_quality" placeholder="Quality (e.g. 1080p)" style="width:170px;">
+              <input type="text" name="path" placeholder="Local path (optional)" style="width:240px;">
+              <button type="submit" ${result.in_library ? 'disabled' : ''}>${buttonLabel}</button>
+            </form>
+            <div class="discover-result-status"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function submitDiscoverAdd(form) {
+    const button = form.querySelector('button[type="submit"]');
+    const status = form.parentElement.querySelector('.discover-result-status');
+    const payload = new FormData(form);
+    button.disabled = true;
+    status.textContent = 'Adding…';
+    try {
+      const response = await fetch('/add', {
+        method: 'POST',
+        body: payload,
+        headers: { 'X-Requested-With': 'fetch' },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'add_failed');
+      }
+      button.textContent = 'Added';
+      status.textContent = 'Saved to library.';
+    } catch (_error) {
+      button.disabled = false;
+      status.textContent = 'Add failed.';
+    }
+  }
+
+  document.getElementById('discover-search-form').addEventListener('submit', event => {
+    event.preventDefault();
+    runDiscoverSearch();
+  });
+
+  document.querySelectorAll('[data-library-search-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sectionId = btn.dataset.librarySearchToggle;
+      const state = LIBRARY_VIEW_STATE[sectionId];
+      if (!state) return;
+      state.searchOpen = !state.searchOpen;
+      if (!state.searchOpen && !state.query) {
+        syncLibraryToolbar(sectionId);
+        renderLibrarySection(sectionId);
+        return;
+      }
+      syncLibraryToolbar(sectionId);
+      if (state.searchOpen) {
+        const input = document.getElementById(`library-search-input-${sectionId}`);
+        if (input) input.focus();
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-library-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sectionId = btn.dataset.libraryFilter;
+      const key = btn.dataset.filterKey;
+      const state = LIBRARY_VIEW_STATE[sectionId];
+      if (!state || !key) return;
+      state[key] = !state[key];
+      syncLibraryToolbar(sectionId);
+      renderLibrarySection(sectionId);
+    });
+  });
+
+  Object.keys(LIBRARY_VIEW_STATE).forEach(sectionId => {
+    const input = document.getElementById(`library-search-input-${sectionId}`);
+    if (!input) return;
+    input.addEventListener('input', () => {
+      LIBRARY_VIEW_STATE[sectionId].query = input.value || '';
+      syncLibraryToolbar(sectionId);
+      renderLibrarySection(sectionId);
+    });
+  });
+
+  document.getElementById('trakt-connect-btn').addEventListener('click', () => {
+    startTraktConnect();
+  });
+
+  document.getElementById('trakt-open-btn').addEventListener('click', () => {
+    if (TRAKT_STATE.deviceFlow && TRAKT_STATE.deviceFlow.verification_url) {
+      window.open(TRAKT_STATE.deviceFlow.verification_url, '_blank', 'noopener');
+    }
+  });
+
+  document.getElementById('trakt-copy-btn').addEventListener('click', async () => {
+    const code = (TRAKT_STATE.deviceFlow && TRAKT_STATE.deviceFlow.user_code) || '';
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setTraktInlineStatus('Code copied. Open Trakt, paste or enter it, and keep this page open while it checks for approval.');
+    } catch (_error) {
+      setTraktInlineStatus('Unable to copy automatically. Enter the displayed code manually on Trakt.', true);
+    }
+  });
+
+  document.getElementById('trakt-disconnect-btn').addEventListener('click', () => {
+    disconnectTrakt();
+  });
+
+  document.getElementById('trakt-test-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('trakt-test-btn');
+    const status = document.getElementById('trakt-test-status');
+    const form = document.getElementById('trakt_username').form;
+    const payload = new FormData(form);
+    btn.disabled = true;
+    status.textContent = 'Checking Trakt OAuth settings...';
+    try {
+      const response = await fetch('/api/settings/trakt-test', {
+        method: 'POST',
+        body: payload,
+        headers: { 'Accept': 'application/json' },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'trakt_test_failed');
+      }
+      status.textContent = 'Trakt credentials are valid. Click Connect Trakt to authorize your account.';
+    } catch (_error) {
+      status.textContent = 'Connection failed. Check the Trakt client ID, client secret, and network access.';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('tmdb-test-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('tmdb-test-btn');
+    const status = document.getElementById('tmdb-test-status');
+    const form = document.getElementById('tmdb_api_key').form;
+    const payload = new FormData(form);
+    btn.disabled = true;
+    status.textContent = 'Checking TMDB connection...';
+    try {
+      const response = await fetch('/api/settings/tmdb-test', {
+        method: 'POST',
+        body: payload,
+        headers: { 'Accept': 'application/json' },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'tmdb_test_failed');
+      }
+      status.textContent = 'Connected to TMDB.';
+    } catch (_error) {
+      status.textContent = 'Connection failed. Check the TMDB API key and network access.';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('qbt-test-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('qbt-test-btn');
+    const status = document.getElementById('qbt-test-status');
+    btn.disabled = true;
+    status.textContent = 'Checking qB connection...';
+    try {
+      const response = await fetch('/api/settings/qbt-test', { headers: { 'Accept': 'application/json' } });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || 'qbt_test_failed');
+      }
+      status.textContent = 'Connected. qB reachable (' + String(payload.torrents_seen || 0) + ' torrents visible).';
+    } catch (_error) {
+      status.textContent = 'Connection failed. Ensure URL/username are saved and QBT_WEBUI_PASSWORD is set in this app session.';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  Object.keys(LIBRARY_VIEW_STATE).forEach(sectionId => {
+    syncLibraryToolbar(sectionId);
+    renderLibrarySection(sectionId);
+  });
+
+  renderTraktControls();
+  if (TRAKT_STATE.deviceFlow) {
+    scheduleTraktPoll(TRAKT_STATE.deviceFlow.interval || 5);
+  }
+
+  document.addEventListener('click', event => {
+    const launchBtn = event.target.closest('[data-torrent-launch="1"]');
+    if (launchBtn) {
+      event.preventDefault();
+      const link = launchBtn.dataset.link || '';
+      const descLink = launchBtn.dataset.descLink || '';
+      startTorrentDownload(link, descLink).catch(() => {
+        const body = document.getElementById('torrent-modal-body');
+        body.insertAdjacentHTML('afterbegin', '<div class="torrent-modal-note">Unable to launch download for the selected candidate.</div>');
+      });
+      return;
+    }
+
+    const unignoreBtn = event.target.closest('.ignored-unignore');
+    if (unignoreBtn) {
+      event.preventDefault();
+      const kind = unignoreBtn.dataset.unignoreKind;
+      const key = unignoreBtn.dataset.ignoreKey;
+      unignoreDiscoverItem(kind, key).catch(() => {
+        if (kind === 'collection') {
+          document.getElementById('ignored-collections-list').innerHTML = '<div class="ignored-empty">Unable to remove ignore entry.</div>';
+        } else {
+          document.getElementById('ignored-titles-list').innerHTML = '<div class="ignored-empty">Unable to remove ignore entry.</div>';
+        }
+      });
+      return;
+    }
+    const ignoreBtn = event.target.closest('.discover-ignore-btn');
+    if (ignoreBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const kind = ignoreBtn.dataset.ignoreKind;
+      const tmdbId = ignoreBtn.dataset.tmdbId || '';
+      const collectionId = ignoreBtn.dataset.collectionId || '';
+      const title = ignoreBtn.dataset.title || '';
+      const collectionName = ignoreBtn.dataset.collectionName || '';
+      ignoreDiscoverItem(kind, tmdbId, collectionId, title, collectionName).catch(() => {
+        const note = document.getElementById('discover-collections-note');
+        note.textContent = 'Unable to save ignore preference.';
+        note.style.display = 'block';
+      });
+      return;
+    }
+    const heroTrigger = event.target.closest('.discover-hero-trigger');
+    if (heroTrigger) {
+      event.preventDefault();
+      openDiscoverHero(heroTrigger);
+      return;
+    }
+  });
+
+  document.addEventListener('submit', event => {
+    const form = event.target.closest('.discover-add-form');
+    if (!form) return;
+    event.preventDefault();
+    submitDiscoverAdd(form);
+  });
+
+  document.getElementById('ignored-refresh-btn').addEventListener('click', () => {
+    loadIgnoredItemsOnce(true);
+  });
+
+  document.getElementById('ignored-clear-titles-btn').addEventListener('click', () => {
+    unignoreAll('title').catch(() => {
+      document.getElementById('ignored-titles-list').innerHTML = '<div class="ignored-empty">Unable to clear ignored titles.</div>';
+    });
+  });
+
+  document.getElementById('ignored-clear-collections-btn').addEventListener('click', () => {
+    unignoreAll('collection').catch(() => {
+      document.getElementById('ignored-collections-list').innerHTML = '<div class="ignored-empty">Unable to clear ignored collections.</div>';
+    });
+  });
+
+  document.getElementById('torrent-modal-close').addEventListener('click', () => {
+    closeTorrentModal();
+  });
+
+  document.getElementById('torrent-modal').addEventListener('click', event => {
+    if (event.target.id === 'torrent-modal') {
+      closeTorrentModal();
+    }
+  });
+
+  document.getElementById('hero-add-btn').addEventListener('click', () => {
+    addDiscoverHeroItem();
+  });
+
+  document.getElementById('hero-retry-download-btn').addEventListener('click', () => {
+    retryLibraryDownloadSearch();
+  });
+
+  async function autoFinalizeDownload() {
+    const item = HERO_STATE.item;
+    if (!item || HERO_STATE.source !== 'library' || !item.id) return;
+    const statusEl = document.getElementById('hero-library-status');
+    statusEl.textContent = 'Marking complete…';
+    _stopDlPoll();
+    try {
+      const response = await fetch('/api/library/mark-downloaded/' + item.id, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'mark_failed');
+      if (payload.item && ITEMS[item.id]) {
+        Object.assign(ITEMS[item.id], payload.item);
+      }
+      setCardDlBadge(item.id, null, null);
+      _hideDlProgress();
+      document.getElementById('hero-chip-download').style.display = 'none';
+      document.getElementById('hero-library-actions').style.display = 'none';
+      statusEl.textContent = '';
+      showToast('Download marked complete.');
+      // Refresh hero with updated quality/subtitles.
+      if (payload.item) openHeroFromItem(payload.item, null, true);
+    } catch (_e) {
+      statusEl.textContent = 'Failed to mark complete.';
+    }
+  }
+
+  function _hideDlProgress() {
+    document.getElementById('hero-dl-progress-wrap').style.display = 'none';
+  }
+
+  function _showDlProgress(percent, label) {
+    const wrap = document.getElementById('hero-dl-progress-wrap');
+    const fill = document.getElementById('hero-dl-progress-fill');
+    const lbl  = document.getElementById('hero-dl-progress-label');
+    wrap.style.display = 'block';
+    fill.style.width = Math.min(100, Math.max(0, percent || 0)) + '%';
+    lbl.textContent = label || '';
+  }
+
+  function _stopDlPoll() {
+    if (_dlPollTimer) { clearTimeout(_dlPollTimer); _dlPollTimer = null; }
+  }
+
+  async function _pollDownloadProgress() {
+    const item = HERO_STATE.item;
+    if (!item || HERO_STATE.source !== 'library' || !item.id) return;
+    const statusEl = document.getElementById('hero-library-status');
+    try {
+      const response = await fetch('/api/library/download-progress/' + item.id, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!data.ok) return;
+
+      if (data.is_complete) {
+        statusEl.textContent = 'Download complete!';
+        _showDlProgress(100, '100%');
+        await autoFinalizeDownload();
+        return;
+      }
+
+      if (data.source === 'qbittorrent' && data.progress !== null) {
+        const pct = data.progress_percent || 0;
+        const eta = data.eta != null && data.eta > 0
+          ? ' · ETA ' + _formatEta(data.eta)
+          : '';
+        _showDlProgress(pct, pct.toFixed(1) + '%' + eta);
+        statusEl.textContent = _capitalise(data.state || 'downloading') + '…';
+      } else {
+        _hideDlProgress();
+        statusEl.textContent = 'Waiting for torrent client…';
+      }
+    } catch (_e) { /* silent */ }
+    // Schedule next poll in 30 s only if hero still shows this item.
+    if (HERO_STATE.item && HERO_STATE.item.id === item.id) {
+      _dlPollTimer = setTimeout(_pollDownloadProgress, 30000);
+    }
+  }
+
+  function _formatEta(seconds) {
+    if (!seconds || seconds < 0) return '';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return h + 'h ' + m + 'm';
+    if (m > 0) return m + 'm ' + s + 's';
+    return s + 's';
+  }
+
+  function _capitalise(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+  }
+
+  function showToast(message, variant = 'success', timeoutMs = 2400) {
+    const stack = document.getElementById('toast-stack');
+    if (!stack) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast ' + (variant === 'error' ? 'error' : 'success');
+    toast.textContent = message;
+    stack.appendChild(toast);
+
+    window.requestAnimationFrame(() => {
+      toast.classList.add('show');
+    });
+
+    window.setTimeout(() => {
+      toast.classList.remove('show');
+      window.setTimeout(() => {
+        if (toast.parentElement) toast.parentElement.removeChild(toast);
+      }, 180);
+    }, timeoutMs);
+  }
+
+  document.getElementById('hero-fav-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (HERO_STATE.source !== 'library' || !HERO_STATE.item || !HERO_STATE.item.id) return;
+
+    const form = event.currentTarget;
+    const btn = document.getElementById('hero-fav-btn');
+    btn.disabled = true;
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'fetch',
+          'Accept': 'application/json',
+        },
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok || !payload.item) {
+        throw new Error('favourite_failed');
+      }
+      const itemId = HERO_STATE.item.id;
+      const merged = { ...(ITEMS[itemId] || HERO_STATE.item), ...payload.item };
+      ITEMS[itemId] = merged;
+      HERO_STATE.item = merged;
+      const card = document.getElementById('card-' + itemId);
+      openHeroFromItem(merged, card, true);
+      showToast(merged.favourite ? 'Added to favourites.' : 'Removed from favourites.');
+    } catch (_error) {
+      showToast('Unable to update favourite right now.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('hero-refresh-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (HERO_STATE.source !== 'library' || !HERO_STATE.item || !HERO_STATE.item.id) return;
+
+    const form = event.currentTarget;
+    const btn = document.getElementById('hero-refresh-btn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Refreshing...';
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'fetch',
+          'Accept': 'application/json',
+        },
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok || !payload.item) {
+        throw new Error('refresh_failed');
+      }
+
+      const itemId = HERO_STATE.item.id;
+      const merged = { ...(ITEMS[itemId] || HERO_STATE.item), ...payload.item };
+      ITEMS[itemId] = merged;
+      HERO_STATE.item = merged;
+
+      const card = document.getElementById('card-' + itemId);
+      openHeroFromItem(merged, card, true);
+      btn.textContent = 'Refreshed';
+      showToast('Metadata refreshed.');
+    } catch (_error) {
+      btn.textContent = 'Refresh failed';
+      showToast('Metadata refresh failed.', 'error');
+    } finally {
+      window.setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }, 1000);
+    }
+  });
+
+  // ── Hero panel ─────────────────────────────────────────
+
+  async function runQualityCheck(mediaId) {
+    const upgradeCard = document.getElementById('hero-card-upgrade');
+    const upgradeVal = document.getElementById('hero-upgrade-val');
+    const oldText = upgradeVal.textContent;
+    upgradeCard.style.pointerEvents = 'none';
+    upgradeVal.textContent = 'Checking...';
+    try {
+      const response = await fetch('/check/' + mediaId, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'fetch',
+          'Accept': 'application/json',
+        },
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok || !payload.item) {
+        throw new Error('check_failed');
+      }
+      const merged = { ...(ITEMS[mediaId] || {}), ...payload.item };
+      ITEMS[mediaId] = merged;
+      HERO_STATE.item = merged;
+      const card = document.getElementById('card-' + mediaId);
+      openHeroFromItem(merged, card, true);
+      showToast(payload.outcome && payload.outcome.found ? 'Higher quality found.' : 'Quality check complete.');
+    } catch (_error) {
+      upgradeVal.textContent = oldText;
+      showToast('Quality check failed.', 'error');
+    } finally {
+      upgradeCard.style.pointerEvents = '';
+    }
+  }
+
+  function openHero(el) {
+    const id = parseInt(el.dataset.id, 10);
+    const item = ITEMS[id];
+    if (!item) return;
+
+    openHeroFromItem(item, el, true);
+  }
+
+  function openHeroFromItem(item, el, isLibraryItem) {
+    const favBtn  = document.getElementById('hero-fav-btn');
+    const favForm = document.getElementById('hero-fav-form');
+    const refreshForm = document.getElementById('hero-refresh-form');
+    const upgradeCard = document.getElementById('hero-card-upgrade');
+    const discoverActions = document.getElementById('hero-discover-actions');
+    const discoverStatus = document.getElementById('hero-discover-status');
+    const libraryActions = document.getElementById('hero-library-actions');
+    const libraryStatus = document.getElementById('hero-library-status');
+    const addBtn = document.getElementById('hero-add-btn');
+
+    HERO_STATE.source = isLibraryItem ? 'library' : 'discover';
+    HERO_STATE.item = item;
+
+    if (isLibraryItem) {
+      const id = item.id;
+      // Toggle off if same card clicked again
+      if (activeCardId === id && el) { activeCardId = null; el.classList.remove('active-card'); return; }
+      activeCardId = id;
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('active-card'));
+      if (el) el.classList.add('active-card');
+      favForm.style.display = 'block';
+      refreshForm.style.display = 'block';
+      discoverActions.style.display = 'none';
+      libraryActions.style.display = 'none';
+      discoverStatus.textContent = '';
+      libraryStatus.textContent = '';
+      addBtn.disabled = false;
+    } else {
+      activeCardId = null;
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('active-card'));
+      favForm.style.display = 'none';
+      refreshForm.style.display = 'none';
+      discoverActions.style.display = 'flex';
+      libraryActions.style.display = 'none';
+      discoverStatus.textContent = '';
+      libraryStatus.textContent = '';
+      addBtn.disabled = false;
+    }
+
+    // Background blur
+    const bg = document.getElementById('hero-bg');
+    bg.style.backgroundImage = item.poster_url
+      ? "url('" + item.poster_url.replace(/'/g, "\\'") + "')"
+      : 'linear-gradient(135deg, #1b1035 0%, #3a0033 100%)';
+
+    // Poster
+    const img = document.getElementById('hero-poster-img');
+    const ph  = document.getElementById('hero-poster-ph');
+    if (item.poster_url) {
+      img.src = item.poster_url;
+      img.style.display = 'block';
+      ph.style.display  = 'none';
+      img.onerror = () => { img.style.display='none'; ph.style.display='flex'; };
+    } else {
+      img.style.display = 'none';
+      ph.textContent    = (item.title || '?')[0].toUpperCase();
+      ph.style.display  = 'flex';
+    }
+
+    // Text
+    document.getElementById('hero-title').textContent = item.title || '';
+
+    const cy = document.getElementById('hero-chip-year');
+    cy.textContent   = item.year ? String(item.year) : '';
+    cy.style.display = item.year ? 'inline-block' : 'none';
+    document.getElementById('hero-chip-type').textContent    = item.media_type === 'tv' ? 'TV Show' : 'Movie';
+    const cq = document.getElementById('hero-chip-quality');
+    if (isLibraryItem) {
+      cq.textContent = item.current_quality || 'Unknown quality';
+      cq.style.display = 'inline-block';
+    } else {
+      cq.style.display = 'none';
+    }
+
+    const synEl = document.getElementById('hero-synopsis');
+    synEl.textContent = item.synopsis || '';
+    synEl.style.display = item.synopsis ? 'block' : 'none';
+
+    const actEl = document.getElementById('hero-actors');
+    if (item.actors) {
+      actEl.innerHTML = '<span class="hero-actors-label">Cast\u00a0</span>' + escHtml(item.actors);
+      actEl.style.display = 'block';
+    } else { actEl.style.display = 'none'; }
+
+    // Info cards
+    const downloadChip = document.getElementById('hero-chip-download');
+    const statusMap = {
+      starting: 'Starting',
+      handed_off: 'Queued',
+      downloading: 'Downloading',
+    };
+    if (isLibraryItem && item.download_status && statusMap[item.download_status]) {
+      downloadChip.textContent = statusMap[item.download_status];
+      downloadChip.style.display = 'inline-block';
+      downloadChip.title = item.download_message || item.download_status;
+      libraryActions.style.display = 'flex';
+      // Begin / restart polling if qB WebUI mode with a hash, else just show buttons.
+      _stopDlPoll();
+      _hideDlProgress();
+      libraryStatus.textContent = '';
+      if (item.download_source === 'qb_webui' && item.download_torrent_hash) {
+        _dlPollTimer = setTimeout(_pollDownloadProgress, 800);
+      }
+    } else {
+      downloadChip.style.display = 'none';
+      downloadChip.title = '';
+      libraryActions.style.display = 'none';
+    }
+
+    setInfoCard('hero-card-rating', 'hero-rating-val', item.rating ? item.rating.toFixed(1) + ' / 10' : null);
+    if (isLibraryItem) {
+      setInfoCard('hero-card-resolution', 'hero-resolution-val', item.current_quality || null);
+      setInfoCard('hero-card-subs', 'hero-subs-val', item.subtitles || null);
+      const belowPreferred = qualityRank(item.current_quality) < qualityRank(PREFERRED_QUALITY);
+      const shouldShowUpgrade = item.found === 1 || belowPreferred;
+      if (shouldShowUpgrade) {
+        setInfoCard(
+          'hero-card-upgrade',
+          'hero-upgrade-val',
+          item.found === 1 ? ('↑ ' + (item.best_found_quality || 'Available')) : '↑ Check'
+        );
+      } else {
+        upgradeCard.style.display = 'none';
+      }
+
+      // Torrent link on the upgrade card
+      if (item.found === 1 && item.best_found_desc_link) {
+        let linkEl = upgradeCard.querySelector('.hero-upgrade-link');
+        if (!linkEl) {
+          linkEl = document.createElement('a');
+          linkEl.className = 'hero-upgrade-link';
+          linkEl.target = '_blank';
+          linkEl.rel = 'noopener noreferrer';
+          linkEl.style.cssText = 'display:block;font-size:11px;color:var(--amber);margin-top:4px;word-break:break-all;text-decoration:none;';
+          upgradeCard.appendChild(linkEl);
+        }
+        linkEl.href = item.best_found_desc_link;
+        linkEl.textContent = (item.best_found_name || 'View torrent').substring(0, 60) + (item.best_found_name && item.best_found_name.length > 60 ? '…' : '');
+        linkEl.style.display = 'block';
+      } else {
+        const old = upgradeCard.querySelector('.hero-upgrade-link');
+        if (old) old.style.display = 'none';
+      }
+
+      // Upgrade card acts as the search trigger.
+      if (upgradeCard.style.display !== 'none') {
+        upgradeCard.style.cursor = 'pointer';
+        upgradeCard.title = 'Check for upgrade';
+        upgradeCard.onclick = () => {
+          runQualityCheck(item.id);
+        };
+      } else {
+        upgradeCard.style.cursor = '';
+        upgradeCard.title = '';
+        upgradeCard.onclick = null;
+      }
+
+      favForm.action = '/favourite/' + item.id;
+      refreshForm.action = '/refresh/' + item.id;
+      favBtn.classList.toggle('active', !!item.favourite);
+      favBtn.textContent = item.favourite ? '♥ Unfavourite' : '♡ Favourite';
+    } else {
+      document.getElementById('hero-card-resolution').style.display = 'none';
+      document.getElementById('hero-card-subs').style.display = 'none';
+      upgradeCard.style.display = 'none';
+      upgradeCard.style.cursor = '';
+      upgradeCard.title = '';
+      upgradeCard.onclick = null;
+      const old = upgradeCard.querySelector('.hero-upgrade-link');
+      if (old) old.style.display = 'none';
+    }
+
+    document.getElementById('hero').classList.add('loaded');
+  }
+
+  function closeHero() {
+    _stopDlPoll();
+    _hideDlProgress();
+    document.getElementById('hero').classList.remove('loaded');
+    document.getElementById('hero-bg').style.backgroundImage = 'linear-gradient(135deg, #1b1035 0%, #3a0033 100%)';
+    document.getElementById('hero-fav-form').style.display = 'none';
+    document.getElementById('hero-refresh-form').style.display = 'none';
+    document.getElementById('hero-discover-actions').style.display = 'none';
+    document.getElementById('hero-library-actions').style.display = 'none';
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active-card'));
+    activeCardId = null;
+  }
+
+  // Escape key still closes / deselects
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHero(); });
+
+  function setInfoCard(cardId, valId, value) {
+    const card = document.getElementById(cardId);
+    if (value) {
+      document.getElementById(valId).textContent = value;
+      card.style.display = 'flex';
+    } else {
+      card.style.display = 'none';
+    }
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>

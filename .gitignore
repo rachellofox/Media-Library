@@ -1,0 +1,27 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Local runtime data
+library.db
+
+# Cached poster images (populated at runtime)
+static/posters/*
+!static/posters/.gitkeep
+
+# Log files
+*.log
+
+# Copilot and VS Code workspace files (personal/team-specific)
+.github/
+.vscode/
+
+# Local secrets
+.env
