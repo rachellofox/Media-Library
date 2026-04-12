@@ -11,7 +11,7 @@ A local-first media library for movies and TV. Self-hosted, no cloud required. B
 - Syncs your Trakt watchlist and collection via OAuth.
 - Discovers trending titles, missing collection entries, and watchlist items.
 - Searches for higher-quality torrents via a torrent plugin and surfaces upgrade candidates.
-- Submits downloads directly to your torrent clients Web UI with the correct save path.
+- Submits downloads directly to your torrent client's Web UI with the correct save path.
 
 ## Prerequisites
 
@@ -26,18 +26,20 @@ A local-first media library for movies and TV. Self-hosted, no cloud required. B
 
 ## Project layout
 
-app.py              Flask routes and request handling
-storage.py          SQLite schema and data-access helpers
-tmdb_client.py      TMDB API client (metadata, posters, collections, search)
-trakt_client.py     Trakt API client (OAuth, watchlist, collection sync)
-qb_search.py        qBittorrent nova3 plugin integration
-quality.py          Quality string parsing and comparison logic
-imdb_client.py      Retained; not in active use
-templates/          Jinja2 HTML templates
-static/posters/     Cached poster images (runtime, not tracked in git)
-Common/             Governance: Runbook.md, Roadmap.md, CHANGELOG.md
-docs/               Technical reference documents
-scripts/            Developer maintenance utilities (audit, cleanup, debug)
+| Path | Purpose |
+| --- | --- |
+| `app.py` | Flask routes and request handling |
+| `storage.py` | SQLite schema and data-access helpers |
+| `tmdb_client.py` | TMDB API client (metadata, posters, collections, search) |
+| `trakt_client.py` | Trakt API client (OAuth, watchlist, collection sync) |
+| `qb_search.py` | qBittorrent nova3 plugin integration |
+| `quality.py` | Quality string parsing and comparison logic |
+| `imdb_client.py` | Retained; not in active use |
+| `templates/` | Jinja2 HTML templates |
+| `static/posters/` | Cached poster images (runtime, not tracked in git) |
+| `Common/` | Governance docs: [Runbook](Common/Runbook.md), [Roadmap](Common/Roadmap.md), [Changelog](Common/CHANGELOG.md) |
+| `docs/` | Technical reference documents |
+| `scripts/` | Developer maintenance utilities (audit, cleanup, debug) |
 
 ## Setup
 
@@ -70,11 +72,11 @@ The quality-search and upgrade features require a plugin for your torrent client
    `%LOCALAPPDATA%\qBittorrent\nova3`
 4. In Settings, add one or more working KAT mirror URLs under **Torrent mirrors**.
 
-See `Common/Runbook.md` for plugin troubleshooting steps and validation commands.
+See [Common/Runbook.md](Common/Runbook.md) for plugin troubleshooting steps and validation commands.
 
 ## Configure torrent client Web UI
 
-These instructions are specific to qBittorrent. For other torrent clients locate their instructions online.
+These instructions are specific to qBittorrent. For other torrent clients, use their official docs.
 
 1. Enable the Web UI in qBittorrent: Tools → Preferences → Web UI.
 2. In Settings, set **qBittorrent Web UI URL**, **username**, and **password**.
@@ -95,7 +97,7 @@ The key is stored in the OS credential store via `keyring` — not in `.env` or 
 3. Click **Connect Trakt** and follow the device activation flow: note the code shown, open the activation page, and enter the code.
 4. The app polls for approval automatically. Once approved, your Trakt account is linked.
 
-The Client Secret is stored in the OS credential store. See `Common/Runbook.md` for the full OAuth flow and token lifecycle.
+The Client Secret is stored in the OS credential store. See [Common/Runbook.md](Common/Runbook.md) for the full OAuth flow and token lifecycle.
 
 ## Configure FFprobe
 
@@ -116,6 +118,6 @@ Two variables can be set in `.env` or the shell to override Settings for `QBT_NO
 
 ## Project standards
 
-- Runbook and operational procedures: `Common/Runbook.md`
-- Feature roadmap: `Common/Roadmap.md`
-- Shipped changes: `Common/CHANGELOG.md`
+- Runbook and operational procedures: [Common/Runbook.md](Common/Runbook.md)
+- Feature roadmap: [Common/Roadmap.md](Common/Roadmap.md)
+- Shipped changes: [Common/CHANGELOG.md](Common/CHANGELOG.md)
