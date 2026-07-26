@@ -22,23 +22,31 @@ record anything user-facing in `Common/CHANGELOG.md`.
 
 Deletions are **always** `[?]`. Nothing gets deleted without your say-so.
 
-### Survey baseline
+### Current state
 
-Taken 2026-07-26, so later sections can be sized against it.
+Updated as work lands. "At review start" is the 2026-07-26 survey, kept so
+progress is measurable rather than asserted.
 
-| Measure | Value |
-| --- | --- |
-| Python files | 20 (9,359 lines) |
-| Largest module | `app.py` — 5,318 lines, 61 routes, 205 functions |
-| Templates | 3 (5,362 lines, of which 3,304 are inline JS) |
-| Tests in repo | 19 files, ~424 assertions *(recovered — was **0**)* |
-| CI workflows | **0** |
-| Style violations (dividers, dead code, missing docstrings) | **0** |
-| Lines over 100 chars | 80 |
+| Measure | At review start | Now |
+| --- | --- | --- |
+| Python files | 20 (9,359 lines) | 38 (11,607 lines) |
+| `app.py` | 5,318 lines, 61 routes, 205 functions | **4,117 lines**, 61 routes, 134 functions |
+| Modules split out of `app.py` | 0 | 6 (`medialibrary/`, 1,604 lines) |
+| Templates | 3 (5,362 lines, 3,304 inline JS) | unchanged — Section F not started |
+| Tests in repo | **0** | 19 files, ~424 assertions |
+| CI workflows | **0** | 1 (lint, compile, test, startup) |
+| Lint findings (`ruff check .`) | n/a — no linter | **0** |
+| Lines over 100 chars | 80 (of a then-unset limit) | **0** |
+| Style violations (dividers, dead code, missing docstrings) | 0 | 0 |
 
-The style scan result is worth stating plainly: the Python already follows the
-commenting and docstring rules closely. This review is therefore mostly about
-**structure, safety nets and repo hygiene**, not a comment-cleaning exercise.
+The style scan result was worth stating plainly at the outset and still is: the
+Python already followed the commenting and docstring rules closely. This review
+was therefore always mostly about **structure, safety nets and repo hygiene**,
+not a comment-cleaning exercise — and that is where the real defects turned up.
+
+**Defects found by this review so far:** a leaked file descriptor on every failed
+playback start (E5), and the app returning 500 from any entry point other than
+`python app.py` (C2a). Both were surfaced by tooling, not by reading code.
 
 ---
 
@@ -279,16 +287,24 @@ worked one at a time:
   app.py: **5,386 → 4,299 lines, a fifth of the file moved out.** Verified after
   every cluster: ruff clean, 19/19 test files pass, the app answers with all 62
   routes and 352 items, and the full CI sequence passes from a clean checkout.
-- [ ] E1a. **The remaining clusters need dependency injection, not a move.** The
-  qBittorrent WebUI cluster (13 functions, 204 lines) is pure except for three
-  one-line config accessors that read `store.get_setting`. Moving it as-is would
-  make `medialibrary.qbt` import `app.store` while `app` imports
-  `medialibrary.qbt` — a circular import. The fix is for the module to take a
-  settings getter from the application at startup rather than reaching for the
-  singleton, which is a design change rather than a verbatim move. Deliberately
-  not attempted at the end of a long session, because this is the download path
-  that has already caused data loss twice. Same pattern will be needed for the
-  other `store`-bound and `tmdb`-bound groups.
+- [x] E1a. **qBittorrent extracted by injection. Done 2026-07-26.**
+  `medialibrary/qbt.py` (276 lines): 13 functions, `QBT_DONE_STATES` and
+  `QbtUnavailableError`. It was pure except for two one-line accessors reading
+  `store.get_setting`, and moving those as-is would have made `medialibrary.qbt`
+  import `app.store` while `app` imports `medialibrary.qbt` — circular.
+  Instead the module exposes `configure(get_setting)` and the application hands
+  it a getter once the store exists. With no getter it falls back to the
+  environment alone, which is what the maintenance scripts get. The module now
+  imports nothing from the application.
+  **The test suite caught a real flaw in the first attempt.** Passing
+  `store.get_setting` directly binds the store object existing at import, so when
+  a test swapped in a throwaway database this module carried on reading the real
+  settings — `_qbt_webui_enabled()` returned true against an empty test config
+  and two download-badge assertions failed. Fixed by injecting
+  `lambda key: store.get_setting(key)`, which resolves the current store per
+  call. This is the argument for keeping the suite green at every step rather
+  than at the end: the bug was silent and behavioural, not a crash.
+  This is the pattern for the remaining `store`- and `tmdb`-bound clusters.
 - [ ] E2. Auth and session handling — review for correctness and security.
 - [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
 - [ ] E4. Downloads and qBittorrent integration, including the finalisation path

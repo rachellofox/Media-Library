@@ -1,5 +1,3 @@
-import base64
-import binascii
 import ipaddress
 import json
 import os
@@ -8,7 +6,6 @@ import secrets
 import shutil
 import socket
 import threading
-import unicodedata
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
@@ -464,34 +461,11 @@ def _is_download_state_stale(updated_at_text: str | None, stale_after: timedelta
     return (datetime.now(timezone.utc) - updated_at) >= stale_after
 
 
-class QbtUnavailableError(RuntimeError):
-    """qBittorrent could not be reached, so its torrent state is unknown."""
-
-
-QBT_DONE_STATES = {'uploading', 'stalledup', 'seeding', 'pausedup', 'forcedup', 'checkingup'}
-
 # Finalisation moves files, and _auto_finalize runs on every page load, so
 # concurrent requests must not race each other into the same media item.
 _FINALIZE_LOCK = threading.Lock()
 
 
-def _torrent_is_complete(torrent: dict) -> bool:
-    """True only when qB reports the payload fully written to disk.
-
-    A 'done' state alone is not enough — qB reports seeding states while still
-    flushing/rechecking — so the byte counters have to agree as well.
-    """
-    if (torrent.get('state') or '').lower() not in QBT_DONE_STATES:
-        return False
-    try:
-        progress = float(torrent.get('progress') or 0)
-    except (TypeError, ValueError):
-        progress = 0.0
-    try:
-        amount_left = int(torrent.get('amount_left') or 0)
-    except (TypeError, ValueError):
-        amount_left = 1
-    return progress >= 1.0 and amount_left == 0
 
 
 def _library_root_for(media_type: str) -> str:
@@ -1071,6 +1045,10 @@ def import_from_configured_folders() -> int:
 # are re-exported for those callers rather than used here, hence the F401.
 # Moved to medialibrary.identify; imported by name so every existing
 # caller, including app.X in the scripts and tests, keeps working.
+# Moved to medialibrary.qbt; imported by name so every existing
+# caller, including app.X in the scripts and tests, keeps working. The module
+# itself is imported too, so its configure() can be called once the store exists.
+import medialibrary.qbt
 from medialibrary.identify import (  # noqa: F401
     _SEASON_DIR_EMBEDDED,
     _SEASON_DIR_EXACT,
@@ -1124,6 +1102,23 @@ from medialibrary.playback import (  # noqa: F401
     _stream_file_chunk,
     _transcode_jobs,
 )
+from medialibrary.qbt import (  # noqa: F401
+    QBT_DONE_STATES,
+    QbtUnavailableError,
+    _extract_btih_hash,
+    _norm_match_text,
+    _qbt_match_torrent_for_item,
+    _qbt_webui_add_download,
+    _qbt_webui_build_opener,
+    _qbt_webui_enabled,
+    _qbt_webui_open,
+    _qbt_webui_torrent_info,
+    _qbt_webui_torrents_info,
+    _qbt_webui_try_login,
+    _qbt_webui_url,
+    _qbt_webui_username,
+    _torrent_is_complete,
+)
 
 # Moved to medialibrary.subtitles; imported by name so every existing
 # caller, including app.X in the scripts and tests, keeps working.
@@ -1150,6 +1145,15 @@ store = Storage(DB_PATH)
 # meets a database with no tables and fails on the first query. The statements
 # are all CREATE TABLE IF NOT EXISTS, so running them every import costs nothing.
 store.initialize()
+# medialibrary.qbt reads its URL and username from settings, but must not import
+# this module to get at the store — that would be circular. It is handed a getter
+# instead, once the store exists.
+#
+# The lambda matters: passing `store.get_setting` directly would bind the store
+# object that exists right now, and anything that later rebinds `store` — the
+# tests swap in a throwaway database — would be ignored, leaving this module
+# reading the real settings while the rest of the app reads the test ones.
+medialibrary.qbt.configure(lambda key: store.get_setting(key))
 app.secret_key = _session_secret_key()
 app.permanent_session_lifetime = timedelta(days=SESSION_LIFETIME_DAYS)
 app.config.update(
@@ -1332,71 +1336,16 @@ def _torrent_candidates_for(meta: dict, limit: int = 25) -> list[dict]:
     return candidates[:limit]
 
 
-def _qbt_webui_enabled() -> bool:
-    return bool(_qbt_webui_url())
 
 
-def _qbt_webui_url() -> str:
-    return (store.get_setting('qbt_webui_url') or QBT_WEBUI_URL or '').strip().rstrip('/')
 
 
-def _qbt_webui_username() -> str:
-    return (store.get_setting('qbt_webui_username') or QBT_WEBUI_USERNAME or '').strip()
 
 
-def _qbt_webui_build_opener() -> urllib.request.OpenerDirector:
-    cookie_jar = urllib.request.HTTPCookieProcessor()
-    return urllib.request.build_opener(cookie_jar)
 
 
-def _qbt_webui_try_login(opener: urllib.request.OpenerDirector) -> bool:
-    qbt_url = _qbt_webui_url()
-    qbt_username = _qbt_webui_username()
-    if not qbt_url or not qbt_username or not QBT_WEBUI_PASSWORD:
-        return False
-    login_payload = urllib.parse.urlencode({
-        'username': qbt_username,
-        'password': QBT_WEBUI_PASSWORD,
-    }).encode('utf-8')
-    login_req = urllib.request.Request(
-        f'{qbt_url}/api/v2/auth/login',
-        data=login_payload,
-        method='POST',
-        headers={'Content-Type': 'application/x-www-form-urlencoded'},
-    )
-    try:
-        with opener.open(login_req, timeout=15) as resp:
-            login_body = resp.read().decode('utf-8', errors='replace').strip()
-        return login_body == 'Ok.'
-    except Exception:
-        return False
 
 
-def _qbt_webui_open(path: str, method: str = 'GET', data: bytes | None = None) -> bytes:
-    qbt_url = _qbt_webui_url()
-    if not qbt_url:
-        raise RuntimeError('qbt_webui_not_configured')
-
-    opener = _qbt_webui_build_opener()
-    req = urllib.request.Request(
-        f'{qbt_url}{path}',
-        data=data,
-        method=method,
-        headers={'Content-Type': 'application/x-www-form-urlencoded'} if data is not None else {},
-    )
-
-    # First try direct call.
-    try:
-        with opener.open(req, timeout=20) as resp:
-            return resp.read()
-    except Exception:
-        pass
-
-    # Fallback to explicit login only when creds are configured.
-    if not _qbt_webui_try_login(opener):
-        raise RuntimeError('qbt_auth_required_or_failed')
-    with opener.open(req, timeout=20) as resp:
-        return resp.read()
 
 
 def _is_local_or_private_host(hostname: str | None) -> bool:
@@ -1425,147 +1374,15 @@ def _sanitize_qbt_webui_url(raw: str) -> str | None:
     return f'{parsed.scheme}://{parsed.hostname}{port}'.rstrip('/')
 
 
-def _extract_btih_hash(download_url: str) -> str | None:
-    if not download_url:
-        return None
-
-    parsed = urllib.parse.urlparse(download_url)
-    if parsed.scheme.lower() != 'magnet':
-        return None
-
-    xt_values = urllib.parse.parse_qs(parsed.query).get('xt') or []
-    for xt in xt_values:
-        if not xt:
-            continue
-        lower_xt = xt.lower()
-        marker = 'urn:btih:'
-        pos = lower_xt.find(marker)
-        if pos == -1:
-            continue
-
-        raw_hash = xt[pos + len(marker):].strip()
-        if re.fullmatch(r'[0-9a-fA-F]{40}', raw_hash):
-            return raw_hash.upper()
-
-        # Some magnets use base32 info-hash (32 chars); convert to hex.
-        if re.fullmatch(r'[A-Za-z2-7]{32}', raw_hash):
-            try:
-                return base64.b32decode(raw_hash.upper()).hex().upper()
-            except (binascii.Error, ValueError):
-                continue
-    return None
 
 
-def _qbt_webui_torrent_info(info_hash: str) -> dict | None:
-    if not _qbt_webui_enabled():
-        return None
-    if not re.fullmatch(r'[0-9A-F]{40}', (info_hash or '').upper()):
-        return None
-
-    try:
-        body = _qbt_webui_open(
-            f'/api/v2/torrents/info?hashes={urllib.parse.quote(info_hash.upper())}',
-            method='GET',
-        ).decode('utf-8', errors='replace')
-    except Exception:
-        return None
-    try:
-        items = json.loads(body)
-    except Exception:
-        return None
-    if not isinstance(items, list) or not items:
-        return None
-    first = items[0]
-    return first if isinstance(first, dict) else None
-
-def _qbt_webui_torrents_info() -> list[dict]:
-    """Every torrent qBittorrent knows about.
-
-    Raises QbtUnavailableError when qBittorrent cannot be reached. Returning an
-    empty list there would be indistinguishable from "no torrents", and callers
-    that reconcile download state would treat a brief outage as proof that every
-    download had vanished.
-    """
-    if not _qbt_webui_enabled():
-        raise QbtUnavailableError('qbt_webui_not_configured')
-
-    try:
-        body = _qbt_webui_open('/api/v2/torrents/info?filter=all',
-                               method='GET').decode('utf-8', errors='replace')
-    except Exception as exc:
-        raise QbtUnavailableError(str(exc) or 'qbt_unreachable') from exc
-    try:
-        items = json.loads(body)
-    except Exception as exc:
-        raise QbtUnavailableError('qbt_bad_response') from exc
-    return [i for i in items if isinstance(i, dict)] if isinstance(items, list) else []
 
 
-def _norm_match_text(value: str | None) -> str:
-    text = unicodedata.normalize('NFKD', value or '').lower()
-    text = re.sub(r'[^a-z0-9]+', ' ', text)
-    return re.sub(r'\s+', ' ', text).strip()
 
 
-def _qbt_match_torrent_for_item(item: dict, torrents: list[dict] | None = None) -> dict | None:
-    if torrents is None:
-        try:
-            torrents = _qbt_webui_torrents_info()
-        except QbtUnavailableError:
-            return None
-    if not torrents:
-        return None
-
-    title_norm = _norm_match_text(item.get('title') or '')
-    year_str = str(item.get('year') or '').strip()
-    path = (item.get('path') or '').strip()
-    folder_norm = _norm_match_text(os.path.basename(path)) if path else ''
-
-    best: tuple[int, dict] | None = None
-    for t in torrents:
-        t_name_norm = _norm_match_text(t.get('name') or '')
-        t_save_norm = _norm_match_text(t.get('save_path') or '')
-        t_content_norm = _norm_match_text(t.get('content_path') or '')
-
-        score = 0
-        if title_norm and title_norm in t_name_norm:
-            score += 3
-        if year_str and year_str in t_name_norm:
-            score += 2
-        if folder_norm and (folder_norm in t_content_norm or folder_norm in t_save_norm
-                            or folder_norm in t_name_norm):
-            score += 4
-        if score == 0:
-            continue
-
-        # Prefer active/most recently added torrents when scores tie.
-        state = (t.get('state') or '').lower()
-        if state in {'downloading', 'stalleddl', 'metadl', 'forceddl'}:
-            score += 1
-        if best is None or score > best[0]:
-            best = (score, t)
-
-    return best[1] if best else None
 
 
-def _qbt_webui_add_download(download_url: str, save_path: str) -> bool:
-    if not _qbt_webui_enabled():
-        return False
 
-    add_payload = urllib.parse.urlencode({
-        'urls': download_url,
-        'savepath': save_path,
-        'autoTMM': 'false',
-    }).encode('utf-8')
-    try:
-        add_body = _qbt_webui_open(
-            '/api/v2/torrents/add', method='POST',
-            data=add_payload).decode('utf-8', errors='replace').strip()
-    except Exception:
-        return False
-
-    # qBittorrent may return an empty body for successful submissions.
-    return not add_body.lower().startswith('fails')
 
 
 @app.route('/api/debug/qbt-status')
@@ -1913,7 +1730,8 @@ def backfill_genres() -> dict:
     for item in store.list_media_items():
         # sqlite3.Row has no __contains__, so `in item` would test the column
         # *values*, not the column names. .keys() is required here.
-        current_1 = (item['genre_1'] or '').strip() if 'genre_1' in item.keys() else ''  # noqa: SIM118
+        has_genre_1 = 'genre_1' in item.keys()  # noqa: SIM118
+        current_1 = (item['genre_1'] or '').strip() if has_genre_1 else ''
         # A missing *second* genre is normal - plenty of titles carry only one
         # on TMDB - so only a missing first genre means the item never resolved.
         # Treating a single-genre title as incomplete would re-query TMDB for it

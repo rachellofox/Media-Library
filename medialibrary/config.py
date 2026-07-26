@@ -13,3 +13,13 @@ HLS_CACHE_DIR = os.path.join(BASE_DIR, 'tmp', 'hls')
 
 FFPROBE_EXE = os.environ.get('FFPROBE_EXE', 'ffprobe')
 FFMPEG_EXE = os.environ.get('FFMPEG_EXE', 'ffmpeg')
+
+# qBittorrent. The URL and username are also settable in the UI, and the stored
+# setting wins over the environment; the password is environment-only.
+QBT_NOVA_PATH = os.environ.get(
+    'QBT_NOVA_PATH',
+    os.path.expandvars(r'%LOCALAPPDATA%\\qBittorrent\\nova3'),
+)
+QBT_WEBUI_URL = os.environ.get('QBT_WEBUI_URL', '').strip().rstrip('/')
+QBT_WEBUI_USERNAME = os.environ.get('QBT_WEBUI_USERNAME', '').strip()
+QBT_WEBUI_PASSWORD = os.environ.get('QBT_WEBUI_PASSWORD', '').strip()
