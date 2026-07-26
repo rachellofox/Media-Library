@@ -61,6 +61,10 @@ Open: <http://127.0.0.1:5100>
 
 All configuration is done from the **Settings** tab inside the app. Nothing needs to be set in the environment before first run.
 
+By default the server listens on `127.0.0.1`, so only this machine can reach it. To use the library from other devices, set a username and password under **Settings → Public access**, turn public access on (a port can be set there too), and restart the app.
+
+Sign-in is only enforced while public access is on, so local-only use stays frictionless. Public access cannot be enabled without credentials. Anyone who signs in has full control of the library, so only expose it on a network you trust.
+
 ## Configure the torrent plugin
 
 The quality-search and upgrade features require a plugin for your torrent client. This repo uses a KAT plugin for qBittorrent's nova3 search framework.
@@ -118,6 +122,9 @@ Two variables can be set in `.env` or the shell to override Settings for `QBT_NO
 
 ## Project standards
 
+- Copilot guidance: `.github/copilot-instructions.md`
+- Security and coding rules: `.github/instructions/`
 - Runbook and operational procedures: [Common/Runbook.md](Common/Runbook.md)
+- UI state and badge semantics: [Common/Runbook.md#ui-state-semantics](Common/Runbook.md#ui-state-semantics)
 - Feature roadmap: [Common/Roadmap.md](Common/Roadmap.md)
 - Shipped changes: [Common/CHANGELOG.md](Common/CHANGELOG.md)

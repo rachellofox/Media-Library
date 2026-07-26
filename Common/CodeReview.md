@@ -1,0 +1,330 @@
+# Repository Review
+
+A working document for a full review of the repo: code correctness, dead code,
+structure, and consistency against the standards in `.github/instructions/`.
+
+Split into sections so it can be worked through over several sessions. Nothing
+here is a change already made — items are proposals until worked and marked.
+
+## How to use this
+
+Each section states **what is in scope**, **what we check for**, and a **findings**
+list. Findings carry a status:
+
+- `[ ]` open, not yet worked
+- `[~]` in progress
+- `[x]` done (say what changed)
+- `[?]` needs your decision — never actioned without you
+- `[-]` reviewed, no change needed (say why)
+
+Work one section at a time. At the end of a section, update the statuses here and
+record anything user-facing in `Common/CHANGELOG.md`.
+
+Deletions are **always** `[?]`. Nothing gets deleted without your say-so.
+
+### Survey baseline
+
+Taken 2026-07-26, so later sections can be sized against it.
+
+| Measure | Value |
+| --- | --- |
+| Python files | 20 (9,359 lines) |
+| Largest module | `app.py` — 5,318 lines, 61 routes, 205 functions |
+| Templates | 3 (5,362 lines, of which 3,304 are inline JS) |
+| Tests in repo | 19 files, ~424 assertions *(recovered — was **0**)* |
+| CI workflows | **0** |
+| Style violations (dividers, dead code, missing docstrings) | **0** |
+| Lines over 100 chars | 80 |
+
+The style scan result is worth stating plainly: the Python already follows the
+commenting and docstring rules closely. This review is therefore mostly about
+**structure, safety nets and repo hygiene**, not a comment-cleaning exercise.
+
+---
+
+## Section A — The standards themselves
+
+**Scope:** `.github/copilot-instructions.md` and the four files in
+`.github/instructions/`.
+
+**Check for:** whether the rules are sound, whether they are followed, whether
+they contradict each other or the code, and what they fail to cover.
+
+**Verdict on the existing rules: they are sound and worth keeping as the
+standard.** "Comment WHY not WHAT", no decorative dividers, no commented-out
+code, parameterised SQL only, module docstrings on `scripts/` — all of it is
+sensible, and the codebase already honours it. No rule needs reversing.
+
+The gaps are things the rules are silent on, which is why the code is consistent
+in some ways and not others.
+
+- [x] A1. **`.github/` was excluded by `.gitignore`.** The standards this review
+  is built on were not in version control. **Done 2026-07-26:** the `.github/`
+  rule is removed and `.vscode/` alone stays ignored, with a comment saying why,
+  so it is not "tidied" back in later. Verified with `git check-ignore`.
+- [ ] A2. **No line-length rule.** 80 lines exceed 100 characters, mostly in
+  `trakt_client.py` (12) and `storage.py` (9). Propose adopting 100 and stating
+  it, since that is roughly what the code already does by habit.
+- [ ] A3. **No formatter or linter is named.** `ci-and-quality-gates` mandates
+  "run lint checks" but nothing says which. Neither `ruff` nor `flake8` is
+  installed. Propose `ruff` (single tool, formats and lints, fast) with config
+  committed so the rule is enforceable rather than aspirational.
+- [ ] A4. **No test conventions.** No location, naming, or framework is stated,
+  which is part of why there is no suite (Section H).
+- [ ] A5. **No type-hint policy.** Usage is currently mixed — `naming.py` and
+  `episode_match.py` annotate thoroughly, much of `app.py` does not. Either is
+  defensible; the inconsistency is not. Propose: annotate new and touched
+  functions, no retrofit campaign.
+- [ ] A6. **`copilot-instructions.md` describes a repo that no longer exists.**
+  It lists `imdb_client.py` as the metadata client (it is dead — see B6, and
+  TMDB is the real client) and points at `docs/` (deleted — see C3). It omits
+  `naming.py`, `episode_match.py`, `subtitle_client.py`, `trakt_client.py` and
+  `tmdb_client.py` entirely.
+- [ ] A7. **No commit or branch conventions**, despite `main` being the only
+  branch and history being two commits.
+
+---
+
+## Section B — Git hygiene and stray files
+
+**Scope:** `.gitignore`, tracked vs untracked files, files on disk that should
+not be there.
+
+**Check for:** secrets or data at risk of being committed, files that should be
+tracked but are not, and leftovers.
+
+- [x] B1. **`media.db` was not ignored.** `.gitignore` covered `library.db`, but
+  the app's actual database is `media.db`. One `git add -A` would have committed
+  the entire library database. **Done 2026-07-26:** `media.db` and
+  `media.backup*.db` added, with the old `library.db` rules kept so a stale copy
+  cannot be committed either. Verified with `git check-ignore`.
+- [ ] B2. **`library.db` still exists on disk** alongside `media.db`. Almost
+  certainly a leftover from a rename. Needs confirming as dead before removal.
+  Now ignored either way, so it is no longer a risk — just clutter.
+- [x] B3. **`tmp/` was not ignored.** It holds `tmp/hls/`, the live transcode
+  cache, which must never be committed. **Done 2026-07-26:** `tmp/` ignored.
+  The stray `.cs` file inside it is still a decision — see B7.
+- [ ] B4. **13 files are untracked** that are real source: `episode_match.py`,
+  `naming.py`, `subtitle_client.py`, `templates/login.html`, `templates/player.html`,
+  `Common/Workflow.md`, and 5 `scripts/`. The repo's committed state does not
+  currently build or run. Everything from the last several sessions is uncommitted.
+- [ ] B5. **`docs/README.md` is deleted on disk but still tracked** — a pending
+  deletion sitting in the working tree.
+- [?] B6. **`imdb_client.py` (88 lines) is imported by nothing.** TMDB replaced
+  it. Propose deletion. *Your call.*
+- [?] B7. **`tmp/reference/TranscodeManager.cs`** — propose deletion or move out
+  of the repo, unless you still want it as a reference. *Your call.*
+
+---
+
+## Section C — Repo structure against GitHub practice
+
+**Scope:** root layout, missing standard files, packaging.
+
+**Check for:** what a well-formed public Python repo is expected to carry.
+
+- [ ] C1. **No `LICENSE`.** Without one the code is "all rights reserved" by
+  default, which matters if the repo is public. Needs a decision on which licence.
+- [ ] C2. **No CI workflow** (`.github/workflows/`), despite
+  `ci-and-quality-gates.instructions.md` requiring install, lint, test and
+  startup validation. The rule cannot pass because nothing runs it.
+- [ ] C3. **`docs/` is referenced by two instruction files but no longer exists.**
+  Either recreate it or amend the instructions — currently the docs rule points
+  into a void.
+- [ ] C4. **No `pyproject.toml`** to hold tool config (ruff, pytest) in one place.
+- [ ] C5. **No `.editorconfig`**, so indentation and newline handling depend on
+  whatever editor is open.
+- [ ] C6. **No `CONTRIBUTING.md`, issue or PR templates.** Lower priority for a
+  personal repo; list them so the decision is deliberate rather than accidental.
+- [ ] C7. **`scripts/` naming.** Every script is `_`-prefixed, which in Python
+  signals "private". They are in fact operator tools. Propose either dropping the
+  prefix or documenting what it means — and adding `scripts/README.md`, since
+  there are now 10 of them with no index.
+- [ ] C8. **Root is crowded** — 9 Python modules at top level. A `medialibrary/`
+  package would be conventional, but this is a real refactor with import churn.
+  Raised for a decision, not assumed. *Related to E1.*
+
+---
+
+## Section D — Dependencies
+
+**Scope:** `requirements.txt` against actual imports.
+
+- [ ] D1. **`babelfish` is imported directly** (`subtitle_client.py`) but not
+  declared. It arrives only as a transitive dependency of `subliminal`; if
+  subliminal ever drops it, subtitles break with an ImportError.
+- [ ] D2. **`werkzeug` is imported directly** (password hashing in `app.py`) but
+  not declared. Same reasoning — it is Flask's dependency, not ours on paper.
+- [ ] D3. **Pinning is inconsistent** — `Flask==3.0.3` exact, everything else
+  `>=`. Pick one policy.
+- [ ] D4. **No dev dependencies file** for test and lint tooling.
+- [-] D5. `Send2Trash` declared and used; `keyring`, `python-dotenv`, `subliminal`
+  all declared and used. No unused declarations found.
+
+---
+
+## Section E — `app.py`
+
+**Scope:** 5,318 lines, 61 routes, 205 functions — over half the Python in the repo.
+
+**Check for:** correctness bugs, dead code, duplicated logic, and whether the
+module should be split.
+
+This section is large enough that it needs sub-sections. Proposed split, to be
+worked one at a time:
+
+- [ ] E1. **Decide the split first.** Everything else in this section is easier
+  once the file is divided. Natural seams, by inspection: auth/session, settings,
+  library scan and import, downloads and qBittorrent, playback and HLS, TV and
+  episodes, Discover, and the routes themselves. Proposal is a `medialibrary/`
+  package with `app.py` reduced to app setup and route registration. **Big
+  change — needs your agreement before any code moves.**
+- [ ] E2. Auth and session handling — review for correctness and security.
+- [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
+- [ ] E4. Downloads and qBittorrent integration, including the finalisation path
+  that has caused two data-loss bugs already.
+- [ ] E5. Playback, HLS and cache handling.
+- [ ] E6. TV and episode logic (`scan_local_episodes`, missing-episode discovery).
+- [ ] E7. Discover and TMDB caching.
+- [ ] E8. Route layer — consistency of error shapes and status codes across 61 routes.
+- [ ] E9. Sweep for dead code across the whole module once the above are done.
+
+---
+
+## Section F — Templates and front end
+
+**Scope:** `templates/` — 5,362 lines, 3,304 of them inline JavaScript.
+
+**Check for:** dead JS, duplicated logic, and whether the JS should move to
+`static/`.
+
+- [ ] F1. **`index.html` is 4,055 lines with 2,619 lines of inline `<script>`.**
+  It cannot be linted, tested, or cached by the browser separately. This is the
+  front-end equivalent of E1 and the largest single maintainability problem after
+  `app.py`.
+- [ ] F2. **`player.html` holds a further 685 lines of inline JS**, some of which
+  duplicates `index.html` (playback URL building, subtitle handling).
+- [ ] F3. No JS linting or formatting standard exists at all — there is no
+  instructions file covering `**/*.js` or `**/*.html`.
+- [ ] F4. Review for genuinely dead JS — functions no longer called by any handler.
+
+---
+
+## Section G — `scripts/`
+
+**Scope:** 10 maintenance scripts, 1,523 lines.
+
+**Check for:** which are one-off and spent, which are ongoing tools, and whether
+the destructive ones are safe.
+
+- [-] G1. All 10 carry module docstrings, as the standard requires. Verified by scan.
+- [ ] G2. **Classify each as ongoing tool or spent one-off.** Several were written
+  for a single migration that has now been applied. Candidates for deletion once
+  classified — `[?]` each, since a spent script is still a record of what was done.
+- [ ] G3. **Audit the destructive ones** (`_consolidate_duplicates`, `_split_packs`,
+  `_qbt_prune_broken`, `_plan_tv_naming --apply`) for dry-run-by-default and for
+  `os.rename` rather than `shutil.move` — the latter caused a 10 GB duplication
+  incident and the fix must not regress.
+- [ ] G4. `_debug_missing.py` (30 lines) and `_debug_query.py` (58 lines) look
+  like scratch debugging kept by accident. *Deletion candidates, your call.*
+- [ ] G5. Add `scripts/README.md` — what each script is for, and which are safe
+  to run. *(Also C7.)*
+
+---
+
+## Section H — Tests
+
+**Scope:** the whole repo. There is no test suite.
+
+**Check for:** what exists, what it should be, and what is at risk today.
+
+- [x] H1. **No tests were in the repo.** Every test written across recent
+  sessions lived in a **temporary scratchpad directory**. The survey found this
+  was not a hypothetical risk: of seven session scratchpads on disk, **six were
+  already empty** — the loss had happened five times over, and only the current
+  session's files survived. The count was far larger than first estimated: **19
+  files, 2,466 lines, ~424 assertions**, covering episode identification and the
+  download-finalisation path, which are precisely where the two data-loss bugs
+  occurred.
+- [x] H2. **Recovered into `tests/`. Done 2026-07-26.** All 19 files moved and
+  made portable — they hardcoded `c:\Users\rache\Documents\...`, so a test that
+  only ran on one machine is no safety net. Python files now derive `REPO_ROOT`
+  from `__file__`; JS files resolve the template through `__dirname`. Added
+  `tests/run_all.py` (runs each as a subprocess, reads their tallies, skips JS
+  with a notice when `node` is absent) and `tests/README.md`. **All 19 pass.**
+- [ ] H3. Move to `pytest`. Deliberately *not* done as part of the recovery: the
+  suite is dependency-free and passing, and converting 424 assertions is a
+  separate piece of work with its own risk. Sequence it after C4 (`pyproject.toml`),
+  so the config has somewhere to live.
+- [x] H4. The TMDB-stubbing and sandbox conventions are now written down in
+  `tests/README.md`, including why the JS tests read the shipped template rather
+  than a copy.
+- [ ] H5. Decide what a "behaviour change needs a test" rule means in practice,
+  so `ci-and-quality-gates` becomes enforceable.
+- [ ] H6. `test_tv_upgrade_hazard.py` does not print the standard tally line, so
+  it reports blank in the runner summary despite passing. Minor inconsistency.
+- [ ] H7. No coverage measurement.
+
+---
+
+## Section I — Security
+
+**Scope:** whole repo. `security-and-owasp.instructions.md` exists and should be
+read in full when this section is worked.
+
+**Check for:** secret handling, authentication, injection, and the public-access
+path specifically, since the app can be exposed to the network.
+
+- [ ] I1. Verify no secrets in tracked files or git history (`.env` is ignored;
+  `keyring` is used for the Trakt secret — confirm nothing else is stored plainly).
+- [ ] I2. Review the auth added for public access: session handling, lockout,
+  password storage, and that every route and stream is actually covered.
+- [ ] I3. Confirm all SQL is parameterised, per the style rule. `storage.py` is
+  the file to audit.
+- [ ] I4. Review path handling on every route that takes a file path — directory
+  traversal is the obvious risk in a media server.
+- [ ] I5. Confirm the TMDB image-prefix restriction still holds and cannot be
+  bypassed by a lookalike host.
+- [ ] I6. Check debug mode cannot be enabled while public access is on.
+
+---
+
+## Section J — Documentation consistency
+
+**Scope:** `README.md`, `Common/*.md`.
+
+- [ ] J1. `README.md` — verify setup steps still work from a clean clone, given
+  B4 means the tracked state is incomplete.
+- [ ] J2. `copilot-instructions.md` repo map is stale *(same as A6)*.
+- [ ] J3. `Common/Workflow.md` is untracked — decide whether it is part of the
+  governance set alongside Roadmap/Runbook/CHANGELOG.
+- [ ] J4. Check Runbook against current behaviour, particularly the public-access
+  and auth sections which are recent.
+- [ ] J5. Confirm CHANGELOG and Roadmap agree on what has shipped.
+
+---
+
+## Suggested order
+
+Ordered by risk and by what unblocks other work.
+
+1. ~~**B1** — `media.db` ignore rule.~~ **Done.**
+2. ~~**A1** — un-ignore `.github/`.~~ **Done.**
+3. ~~**H1/H2** — rescue the tests out of the scratchpad.~~ **Done** — 19 files,
+   424 assertions, all passing.
+4. **B4** — get the untracked source committed so the repo builds. ← **next**
+5. **Section D** — declare the two undeclared dependencies.
+6. **A2–A5, C4** — settle the tooling and write it down.
+7. **C2** — CI, once there is a lint config and a test suite for it to run.
+8. **Sections E and F** — the two large refactors, only after tests exist to
+   catch regressions.
+9. **Sections I, G, J** — audit passes.
+
+Items 4–5 are small, mechanical, and remove real risk. Items 8 onward are the
+substantial work, and are now unblocked by item 3.
+
+## Progress log
+
+- **2026-07-26** — A1, B1, B3, H1, H2, H4 done. Two `.gitignore` fixes (the live
+  database and the transcode cache were both exposed; the standards directory was
+  hidden), and the test suite recovered from temporary storage into `tests/`.
