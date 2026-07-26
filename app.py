@@ -1552,6 +1552,11 @@ def _cleanup_hls_cache(media_id: int | None = None) -> None:
 
 app = Flask(__name__)
 store = Storage(DB_PATH)
+# Schema creation belongs here rather than under __main__: anything that imports
+# this module — a WSGI server, the maintenance scripts, the tests — otherwise
+# meets a database with no tables and fails on the first query. The statements
+# are all CREATE TABLE IF NOT EXISTS, so running them every import costs nothing.
+store.initialize()
 app.secret_key = _session_secret_key()
 app.permanent_session_lifetime = timedelta(days=SESSION_LIFETIME_DAYS)
 app.config.update(
@@ -5358,7 +5363,6 @@ def _scan_missing_quality_items() -> int:
 
 
 if __name__ == '__main__':
-    store.initialize()
     t = threading.Thread(target=_startup_library_sync, daemon=True, name='startup-library-sync')
     t.start()
 

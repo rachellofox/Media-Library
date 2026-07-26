@@ -122,14 +122,21 @@ not be there.
 **Check for:** secrets or data at risk of being committed, files that should be
 tracked but are not, and leftovers.
 
-- [x] B1. **`media.db` was not ignored.** `.gitignore` covered `library.db`, but
-  the app's actual database is `media.db`. One `git add -A` would have committed
-  the entire library database. **Done 2026-07-26:** `media.db` and
-  `media.backup*.db` added, with the old `library.db` rules kept so a stale copy
-  cannot be committed either. Verified with `git check-ignore`.
-- [ ] B2. **`library.db` still exists on disk** alongside `media.db`. Almost
-  certainly a leftover from a rename. Needs confirming as dead before removal.
-  Now ignored either way, so it is no longer a risk — just clutter.
+- [x] B1. **`media.db` was not ignored, and is now.** Done 2026-07-26.
+  **CORRECTION — the original finding had this backwards, and it was overstated.**
+  It claimed `media.db` was "the app's actual database" and that committing it was
+  the most urgent item in the review. Checking properly while working C2:
+  `DB_PATH` is `library.db` (app.py:44), which holds 13 tables and 352 media
+  items and **was already ignored**. `media.db` is a **zero-byte file with no
+  tables** — a stray, not a database. So the library was never at risk; the
+  exposure was an empty file.
+  The change itself still stands: an unignored `.db` in the repo root is worth
+  closing off whatever it contains, and `media.backup*.db` is covered too.
+  The lesson is the one this review keeps re-learning — a claim asserted from a
+  filename rather than from the file's contents.
+- [?] B2. **`media.db` is an empty stray** (0 bytes, no tables). Nothing reads or
+  writes it — `DB_PATH` points at `library.db`. Propose deletion. *Your call.*
+  `library.db` is the live database and must stay.
 - [x] B3. **`tmp/` was not ignored.** It holds `tmp/hls/`, the live transcode
   cache, which must never be committed. **Done 2026-07-26:** `tmp/` ignored.
   The stray `.cs` file inside it is still a decision — see B7.
@@ -160,9 +167,30 @@ tracked but are not, and leftovers.
 
 - [ ] C1. **No `LICENSE`.** Without one the code is "all rights reserved" by
   default, which matters if the repo is public. Needs a decision on which licence.
-- [ ] C2. **No CI workflow** (`.github/workflows/`), despite
-  `ci-and-quality-gates.instructions.md` requiring install, lint, test and
-  startup validation. The rule cannot pass because nothing runs it.
+- [x] C2. **CI workflow added. Done 2026-07-26.** `.github/workflows/ci.yml`
+  covers exactly what `ci-and-quality-gates.instructions.md` asks for: install
+  from `requirements-dev.txt`, lint, compile (the syntax gate), the test suite,
+  and a startup check that fetches a page rather than merely importing the
+  module. Runs on push to `main` and on every pull request, on Python 3.10 and
+  3.13 — the ends of the range `requires-python` claims.
+  Node is installed explicitly and then *asserted*, because `run_all.py` skips
+  the JavaScript tests with a notice when node is missing, which would silently
+  halve the suite while still reporting success.
+  **Not yet executed on GitHub** — there is no remote wired up here, so the
+  workflow is verified by parsing the YAML and running every step by hand
+  against a clean checkout, not by a green tick. The 3.10 leg in particular is
+  unproven: this machine has 3.14 only, so if a dependency has no 3.10 wheel
+  that leg will fail on first run and the matrix should drop to 3.11+.
+- [x] C2a. **Startup was broken outside `python app.py`, and CI found it.**
+  Simulating the workflow against a clean checkout returned **500, `no such
+  table: settings`**. `store.initialize()` was called only inside
+  `if __name__ == '__main__'`, so any import-based entry point — a WSGI server
+  such as gunicorn or waitress, the maintenance scripts, the tests — met a
+  database with no schema. Moved to module scope beside `store = Storage(...)`;
+  the statements are all `CREATE TABLE IF NOT EXISTS`, so repeating them on
+  every import costs nothing. A clean checkout now answers 200 with 62 routes.
+  This is the first defect CI caught before a human did, which is the argument
+  for having it.
 - [ ] C3. **`docs/` is referenced by two instruction files but no longer exists.**
   Either recreate it or amend the instructions — currently the docs rule points
   into a void.
@@ -380,8 +408,7 @@ Ordered by risk and by what unblocks other work.
    adopted, 101 violations fixed, D4 unblocked and also done.
 7. ~~**A8** — clear the 141 remaining lint findings.~~ **Done** — `ruff check .`
    passes clean.
-8. **C2** — CI. Now unblocked: the lint gate passes, and the suite runs from one
-   command. ← **next**
+8. ~~**C2** — CI.~~ **Done** — and it immediately found a startup bug (C2a).
 9. **Sections E and F** — the two large refactors, only after tests exist to
    catch regressions.
 10. **Sections I, G, J** — audit passes.
@@ -394,6 +421,12 @@ the test suite recovered in item 3.
 - **2026-07-26** — A1, B1, B3, H1, H2, H4 done. Two `.gitignore` fixes (the live
   database and the transcode cache were both exposed; the standards directory was
   hidden), and the test suite recovered from temporary storage into `tests/`.
+- **2026-07-26** — C2 done, plus C2a. CI workflow added and validated by running
+  every step by hand against a clean checkout, which found that the app returned
+  500 from any entry point other than `python app.py` because the schema was only
+  created under `__main__`. Also corrected B1: `library.db` is the live database
+  and was always ignored; `media.db` is an empty stray. The original finding was
+  stated from a filename rather than the file's contents.
 - **2026-07-26** — A8 done. `ruff check .` passes clean across all 20 Python
   files: 27 substantive findings resolved (two of them refused as wrong, with the
   reason recorded at the line) and 114 long lines rewrapped by hand across 23

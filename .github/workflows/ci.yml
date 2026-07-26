@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push makes an in-flight run redundant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The ends of the supported range from pyproject.toml's requires-python.
+        python-version: ['3.10', '3.13']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      # The JavaScript tests read the shipped template and evaluate its script
+      # block. Without node they would be skipped rather than run, which would
+      # quietly halve the suite.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: python -m ruff check .
+
+      - name: Compile all sources
+        run: python -m compileall -q app.py storage.py tmdb_client.py trakt_client.py
+          imdb_client.py qb_search.py quality.py naming.py episode_match.py
+          subtitle_client.py scripts tests
+
+      - name: Tests
+        run: python tests/run_all.py
+
+      # Import alone proves little: it is the request path that breaks when a
+      # template or route is wrong, so the app is actually asked for a page.
+      - name: Validate app startup
+        run: |
+          python - <<'PY'
+          import app
+          response = app.app.test_client().get('/')
+          # 302 is expected when sign-in is enabled, 200 when it is not.
+          assert response.status_code in (200, 302), response.status_code
+          print('app responded', response.status_code,
+                'with', len(list(app.app.url_map.iter_rules())), 'routes')
+          PY
+
+      - name: Fail if the JavaScript tests were skipped
+        run: |
+          python - <<'PY'
+          import shutil
+          import sys
+          if not shutil.which('node'):
+              sys.exit('node missing: the JavaScript tests would be silently skipped')
+          print('node present, JavaScript tests ran')
+          PY
