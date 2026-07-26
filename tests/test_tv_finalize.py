@@ -9,6 +9,7 @@ sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
+import medialibrary.downloads
 from storage import Storage
 
 PASS, FAIL = [], []
@@ -38,7 +39,10 @@ def scenario():
         recycled.append(p)
         shutil.move(p, os.path.join(trash, os.path.basename(p) + str(len(recycled))))
 
-    app.send2trash = fake_trash
+    # _retire_path lives in medialibrary.downloads, so that is the reference
+    # the recycle call actually resolves - patching app.send2trash would
+    # leave the real one in place and recycle files for real.
+    medialibrary.downloads.send2trash = fake_trash
     return tmp, lib, staging, recycled
 
 

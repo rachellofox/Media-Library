@@ -30,8 +30,8 @@ progress is measurable rather than asserted.
 | Measure | At review start | Now |
 | --- | --- | --- |
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
-| `app.py` | 5,318 lines, 61 routes, 205 functions | **3,895 lines**, 61 routes, 128 functions |
-| Modules split out of `app.py` | 0 | 7 (`medialibrary/`, 1,911 lines) |
+| `app.py` | 5,318 lines, 61 routes, 205 functions | **3,522 lines**, 61 routes, 118 functions |
+| Modules split out of `app.py` | 0 | 8 (`medialibrary/`, 2,397 lines) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | unchanged — Section F not started |
 | Tests in repo | **0** | 19 files, ~424 assertions |
 | CI workflows | **0** | 1 (lint, compile, test, startup) |
@@ -321,6 +321,31 @@ worked one at a time:
   Verified against the real library rather than only by import: 8 incomplete
   collections and 9 shows with missing episodes came back through the moved path,
   and both getters were confirmed to resolve to the live objects.
+- [x] E1c. **Download finalisation extracted. Done 2026-07-26.**
+  `medialibrary/downloads.py` (486 lines): finalising a completed download,
+  filing a TV episode, auto-finalising what qBittorrent has finished, re-adopting
+  orphaned downloads, placing a file in the library, and retiring the one it
+  replaces — plus the lock that stops concurrent page loads racing into the same
+  item. `store` and the logger are injected as getters.
+  This is the path that has caused data loss twice, and the extraction was worth
+  doing carefully: **five test failures appeared and every one was a real
+  problem, not a test being fussy.**
+  The cause in all five was the same and is the central hazard of this kind of
+  refactor: a test stubs `app.X`, but once the code moves, `app.X` is only a
+  re-export and the moved code resolves its own reference. Worse than a broken
+  test — `test_finalize` patches `send2trash`, so the real one ran and genuinely
+  recycled its temporary files. A refactor that silently disarms a safety stub is
+  exactly how the earlier data loss happened.
+  Two fixes, both structural rather than papering over:
+  - the three tests that stub `send2trash` now patch it in the module that owns
+    `_retire_path`, with a comment saying why;
+  - `downloads.py` and `app.py` now call qBittorrent through `medialibrary.qbt`
+    rather than by from-imported name, because a from-import binds at import time
+    and ignores any later stub. The names stay re-exported from `app` so
+    `scripts/_qbt_prune_broken.py` keeps working.
+  **Lesson worth carrying:** re-exporting a name keeps callers working but does
+  *not* keep monkeypatching working. Anything a test stubs has to be reached
+  through its module.
 - [ ] E2. Auth and session handling — review for correctness and security.
 - [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
 - [ ] E4. Downloads and qBittorrent integration, including the finalisation path

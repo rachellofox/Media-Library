@@ -12,6 +12,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 
 import app
+import medialibrary.downloads
 from storage import Storage
 
 PASS, FAIL = [], []
@@ -51,7 +52,10 @@ def setup(tmp):
         dest = os.path.join(trash, os.path.basename(p))
         shutil.move(p, dest)
 
-    app.send2trash = fake_trash
+    # _retire_path lives in medialibrary.downloads, so that is the reference
+    # the recycle call actually resolves - patching app.send2trash would
+    # leave the real one in place and recycle files for real.
+    medialibrary.downloads.send2trash = fake_trash
     return lib, staging, recycled
 
 
@@ -236,7 +240,7 @@ with tempfile.TemporaryDirectory() as tmp:
 print('\n=== 7. Failure to recycle leaves the original intact ===')
 with tempfile.TemporaryDirectory() as tmp:
     lib, staging, recycled = setup(tmp)
-    app.send2trash = None  # simulate send2trash unavailable
+    medialibrary.downloads.send2trash = None  # simulate send2trash unavailable
 
     old_folder = os.path.join(lib, 'Hanna (2011)')
     old_file = os.path.join(old_folder, 'Hanna (2011).mkv')

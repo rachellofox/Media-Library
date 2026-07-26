@@ -8,6 +8,7 @@ sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
+import medialibrary.qbt
 from storage import Storage
 
 PASS, FAIL = [], []
@@ -25,7 +26,7 @@ app.store.initialize()
 app.store.set_setting('movies_path', os.path.join(tmp, 'Movies'))
 os.makedirs(os.path.join(tmp, 'Movies'), exist_ok=True)
 
-app._qbt_webui_enabled = lambda: True
+medialibrary.qbt._qbt_webui_enabled = lambda: True
 
 
 def add(imdb, title, year, path=None):
@@ -56,7 +57,7 @@ def boom():
     raise app.QbtUnavailableError('connection refused')
 
 
-app._qbt_webui_torrents_info = boom
+medialibrary.qbt._qbt_webui_torrents_info = boom
 app._auto_finalize_qb_completed_downloads()
 check('state survives the outage', (row_for(mid)['download_status'] or '') == 'downloading',
       row_for(mid)['download_status'])
@@ -65,7 +66,7 @@ check('item still visible in the library view',
       {'starting', 'handed_off', 'downloading'})
 
 print('\n=== 2. qB reachable and genuinely empty: stale state IS cleared ===')
-app._qbt_webui_torrents_info = lambda: []
+medialibrary.qbt._qbt_webui_torrents_info = lambda: []
 app._auto_finalize_qb_completed_downloads()
 check('stale state cleared when qB really has nothing',
       (row_for(mid)['download_status'] or '') == '', row_for(mid)['download_status'])
@@ -77,7 +78,7 @@ running = [{
     'save_path': os.path.join(tmp, 'Downloads'),
     'content_path': os.path.join(tmp, 'Downloads', 'x'),
 }]
-app._qbt_webui_torrents_info = lambda: running
+medialibrary.qbt._qbt_webui_torrents_info = lambda: running
 app._auto_finalize_qb_completed_downloads()
 r = row_for(mid)
 check('download state rebuilt', (r['download_status'] or '') == 'downloading', r['download_status'])
@@ -97,7 +98,7 @@ os.makedirs(have_folder, exist_ok=True)
 with open(os.path.join(have_folder, 'Owned (2001).mkv'), 'wb') as fh:
     fh.write(b'\x00' * 2048)
 mid3 = add('tt1111111', 'Owned', 2001, have_folder)
-app._qbt_webui_torrents_info = lambda: [{
+medialibrary.qbt._qbt_webui_torrents_info = lambda: [{
     'hash': 'C' * 40, 'name': 'Owned 2001 1080p', 'state': 'downloading',
     'progress': 0.1, 'amount_left': 10, 'save_path': tmp, 'content_path': tmp,
 }]
@@ -107,8 +108,8 @@ check('item with a local file not re-adopted',
 
 print('\n=== 6. qbt-test reports a failure instead of "0 torrents" ===')
 app.app.config['TESTING'] = True
-app._qbt_webui_url = lambda: 'http://127.0.0.1:8090'
-app._qbt_webui_torrents_info = boom
+medialibrary.qbt._qbt_webui_url = lambda: 'http://127.0.0.1:8090'
+medialibrary.qbt._qbt_webui_torrents_info = boom
 r = app.app.test_client().get('/api/settings/qbt-test')
 check('unreachable qB returns 502, not ok/0', r.status_code == 502, r.status_code)
 
