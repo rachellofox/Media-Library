@@ -11,7 +11,9 @@ Run with just the path for a dry run (no files changed).
 Run with  --execute  to apply changes.
 Usage: python scripts/_cleanup_movies.py path\\to\\movies [--execute]
 """
-import os, sys, shutil
+import os
+import shutil
+import sys
 
 _path_args = [a for a in sys.argv[1:] if a != '--execute']
 if not _path_args:

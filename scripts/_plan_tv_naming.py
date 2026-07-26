@@ -25,12 +25,15 @@ except AttributeError:
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import app  # noqa: E402
-from episode_match import (  # noqa: E402
-    is_extras_path, match_episode_files, match_episode_title, names_other_show,
+import app
+from episode_match import (
+    is_extras_path,
+    match_episode_files,
+    match_episode_title,
+    names_other_show,
     normalise_episode_title,
 )
-from naming import canonical_episode_name, canonical_season_folder  # noqa: E402
+from naming import canonical_episode_name, canonical_season_folder
 
 APPLY = '--apply' in sys.argv
 ONLY_SHOW = None

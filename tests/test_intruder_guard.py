@@ -7,7 +7,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-from episode_match import names_other_show  # noqa: E402
+from episode_match import names_other_show
 
 PASS, FAIL = [], []
 
@@ -63,7 +63,7 @@ print('\n=== 5. Nothing is refused when the title is unknown ===')
 check('no show title means no opinion', names_other_show('Chernobyl.S01E01.mkv', '') is False)
 
 print('\n=== 6. End to end: the scan reports it as unmatched, not as an episode ===')
-import app  # noqa: E402
+import app
 
 with tempfile.TemporaryDirectory() as root:
     show = os.path.join(root, 'Parks and Recreation')

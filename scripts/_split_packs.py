@@ -25,8 +25,8 @@ except AttributeError:
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import app  # noqa: E402
-from naming import canonical_paths  # noqa: E402
+import app
+from naming import canonical_paths
 
 APPLY = '--apply' in sys.argv
 SUB_EXTS = {'.srt', '.sub', '.ass', '.ssa', '.vtt', '.idx', '.sup'}

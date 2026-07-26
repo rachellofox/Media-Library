@@ -71,11 +71,38 @@ x = price * 0.08  # apply tax
 tax = price * TAX_RATE
 ```
 
+## Line length
+
+Maximum 100 characters. This codifies what the code already does — 99% of
+existing lines fit — rather than imposing a new shape on it.
+
+## Linting
+
+`ruff` is the linter and the single source of tool configuration, which lives in
+`pyproject.toml`. Install it with `pip install -r requirements-dev.txt`.
+
+```bash
+python -m ruff check .          # report
+python -m ruff check . --fix    # apply safe fixes
+```
+
+Rules that contradict a rule in this document are switched off in
+`pyproject.toml`, with a comment saying why — this document wins, not the tool's
+defaults. Where a rule is right in general but wrong in one place, suppress it at
+that line with `# noqa: RULE` and a comment explaining the exception.
+
+## Type hints
+
+Annotate new functions and functions you are already changing. Do not open a
+retrofit campaign across untouched code — mixed annotation is acceptable, a churn
+commit that touches everything is not.
+
 ## Imports
 
 - One logical group per section (stdlib, then third-party, then local), separated by blank lines.
 - Prefer explicit imports over `import os, sys` on the same line when clarity benefits from it.
 - `import os, sys` on one line is acceptable in short utility scripts.
+  (`E401` is disabled for this reason.)
 
 ## Constants
 
@@ -90,3 +117,17 @@ VIDEO_EXTS = {'.mkv', '.mp4', '.avi'}  # no comment needed — name is clear
 ## SQL
 
 - Use parameterized queries only (`?` placeholders). Never concatenate user input into SQL strings.
+
+## Tests
+
+Live in `tests/`, one file per area, named `test_<area>.py` or `.js`. Run the
+suite with `python tests/run_all.py`.
+
+- Never touch the network. Stub TMDB with a fake client exposing only the methods
+  under test.
+- Never touch the real library or database. Use `tempfile.TemporaryDirectory()`
+  and a throwaway SQLite file.
+- Front-end tests read the shipped template, extract its `<script>` block and
+  evaluate it, so they test what actually ships rather than a copy.
+
+`tests/README.md` has the detail and the current coverage map.

@@ -1,6 +1,8 @@
+import base64
+import binascii
 import hashlib
-import json
 import ipaddress
+import json
 import os
 import re
 import secrets
@@ -9,25 +11,24 @@ import socket
 import subprocess
 import threading
 import unicodedata
-import base64
-import binascii
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 
 import keyring
 from dotenv import load_dotenv
+
 load_dotenv()
 
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for, Response
+from flask import Flask, Response, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from tmdb_client import TmdbClient
 from episode_match import names_other_show
 from naming import canonical_paths, canonical_stem
 from qb_search import DEFAULT_MIRROR_URLS, QBSearch, SearchEngineError
 from quality import compare_quality, detect_quality, detect_quality_from_file
 from storage import Storage
+from tmdb_client import TmdbClient
 from trakt_client import TraktClient, TraktRequestError
 
 try:
@@ -517,7 +518,7 @@ def _retire_path(path: str) -> bool:
     try:
         send2trash(os.path.abspath(target))
         return True
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         app.logger.warning('Could not recycle %s: %s', target, exc)
         return False
 
@@ -654,7 +655,7 @@ def _place_video_in_library(source_video: str, dest_file: str) -> str | None:
     """
     try:
         os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         app.logger.warning('Could not create library folder for %s: %s', dest_file, exc)
         return None
 
@@ -673,7 +674,7 @@ def _place_video_in_library(source_video: str, dest_file: str) -> str | None:
     try:
         shutil.copy2(source_video, dest_file)
         return 'copy'
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         app.logger.warning('Could not place %s into library: %s', source_video, exc)
         return None
 
@@ -753,7 +754,7 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
     if landing != dest_file:
         try:
             os.replace(landing, dest_file)
-        except OSError as exc:  # noqa: BLE001
+        except OSError as exc:
             app.logger.warning('Could not rename %s into place: %s', landing, exc)
             return
 
@@ -849,7 +850,7 @@ def _finalize_completed_download(row, torrent: dict) -> None:
             return
         try:
             os.replace(landing, dest_file)
-        except OSError as exc:  # noqa: BLE001
+        except OSError as exc:
             app.logger.warning('Could not rename %s into place: %s', landing, exc)
             return
         outgoing_video = None  # retired above; skip the generic retire below
@@ -989,7 +990,7 @@ def _auto_finalize_qb_completed_downloads() -> None:
 
             try:
                 _finalize_completed_download(row, torrent)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 app.logger.warning('Finalising download for media %s failed: %s', media_id, exc)
 
         _readopt_orphaned_downloads(torrents)
@@ -1236,11 +1237,7 @@ def scan_media_entries(folder_path: str, media_type: str) -> list[dict[str, str]
                     continue
                 entries.append({'name': entry.name, 'path': entry.path})
                 continue
-            if media_type == 'movie' and entry.is_file():
-                _, ext = os.path.splitext(entry.name)
-                if ext.lower() in VIDEO_EXTENSIONS:
-                    entries.append({'name': entry.name, 'path': entry.path})
-            elif media_type == 'tv' and entry.is_file():
+            if (media_type == 'movie' and entry.is_file()) or (media_type == 'tv' and entry.is_file()):
                 _, ext = os.path.splitext(entry.name)
                 if ext.lower() in VIDEO_EXTENSIONS:
                     entries.append({'name': entry.name, 'path': entry.path})
@@ -3211,7 +3208,7 @@ def check_all():
             # rest will fail identically - stop rather than retry hundreds of
             # times against a dead mirror.
             break
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             failed += 1
             app.logger.warning('Quality check failed for "%s": %s', item['title'], exc)
 
@@ -3455,11 +3452,11 @@ def _find_video_file(media_path: str | None) -> str | None:
     """
     if not media_path or not os.path.exists(media_path):
         return None
-    
+
     if os.path.isfile(media_path):
         _, ext = os.path.splitext(media_path)
         return media_path if ext.lower() in VIDEO_EXTENSIONS else None
-    
+
     if os.path.isdir(media_path):
         candidates = []
         try:
@@ -3475,11 +3472,11 @@ def _find_video_file(media_path: str | None) -> str | None:
                             pass
         except Exception:
             return None
-        
+
         if not candidates:
             return None
         return max(candidates, key=lambda t: t[0])[1]
-    
+
     return None
 
 
@@ -3572,10 +3569,10 @@ def _find_subtitle_files(media_path: str | None, media_id: int | None = None) ->
     video_file = _find_video_file(media_path)
     if not video_file:
         return []
-    
+
     video_dir = os.path.dirname(video_file)
     video_stem = os.path.splitext(os.path.basename(video_file))[0]
-    
+
     subtitles = []
     entries = []
     lang_map = {
@@ -3587,7 +3584,7 @@ def _find_subtitle_files(media_path: str | None, media_id: int | None = None) ->
         'idx': 'en',
         'sup': 'en',
     }
-    
+
     try:
         for fname in os.listdir(video_dir):
             _, ext = os.path.splitext(fname)
@@ -3631,11 +3628,11 @@ def _find_subtitle_files(media_path: str | None, media_id: int | None = None) ->
             })
     except Exception:
         pass
-    
+
     # Cache the file paths if media_id provided
     if media_id and entries:
         _subtitle_cache[media_id] = entries
-    
+
     return subtitles
 
 
@@ -4055,12 +4052,12 @@ def watch_video(media_id: int):
     item = store.get_media_item(media_id)
     if not item:
         return 'Not found', 404
-    
+
     item = dict(item)
     video_file = _request_video_file(item)
     if not video_file:
         return 'Video file not found', 404
-    
+
     # Get playback position
     playback = store.get_playback_position(media_id)
     playback = dict(playback) if playback else None
@@ -4072,7 +4069,7 @@ def watch_video(media_id: int):
     video_info = _get_video_info(video_file)
     if video_info and video_info.get('duration'):
         duration_seconds = video_info['duration']
-    
+
     # Resolve subtitles from the episode being played, not the show folder, or a
     # series would offer every episode's sidecars at once.
     subtitles = _find_subtitle_files(video_file, media_id)
@@ -4206,7 +4203,7 @@ def _is_hls_complete(manifest_path: str) -> bool:
     if not os.path.isfile(manifest_path):
         return False
     try:
-        with open(manifest_path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(manifest_path, encoding='utf-8', errors='replace') as f:
             content = f.read()
         return '#EXT-X-ENDLIST' in content
     except Exception:
@@ -4218,7 +4215,7 @@ def _is_hls_playable(manifest_path: str, min_segments: int = 3) -> bool:
     if not os.path.isfile(manifest_path):
         return False
     try:
-        with open(manifest_path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(manifest_path, encoding='utf-8', errors='replace') as f:
             content = f.read()
         if not content.startswith('#EXTM3U'):
             return False
@@ -4431,7 +4428,9 @@ def _start_hls_transcode(media_id: int, video_file: str, start_segment: int = 0)
 
     log_path = os.path.join(cache_dir, 'ffmpeg.log')
     try:
-        log_handle = open(log_path, 'ab')
+        # Deliberately not a context manager: the handle is ffmpeg's stdout and
+        # has to outlive this function, so it is closed when the job is stopped.
+        log_handle = open(log_path, 'ab')  # noqa: SIM115
     except Exception:
         return None
 
@@ -4526,9 +4525,12 @@ def _start_direct_stream(media_id: int, video_file: str) -> str | None:
         shutil.rmtree(cache_dir, ignore_errors=True)
         os.makedirs(cache_dir, exist_ok=True)
 
+    log_handle = None
     try:
         log_path = os.path.join(cache_dir, 'ffmpeg.log')
-        log_handle = open(log_path, 'ab')
+        # Deliberately not a context manager: the handle is ffmpeg's stdout and
+        # has to outlive this function, so it is closed when the job is stopped.
+        log_handle = open(log_path, 'ab')  # noqa: SIM115
 
         cmd = [
             FFMPEG_EXE,
@@ -4573,10 +4575,15 @@ def _start_direct_stream(media_id: int, video_file: str) -> str | None:
 
         return master_m3u8
     except Exception:
-        try:
-            shutil.rmtree(cache_dir, ignore_errors=True)
-        except Exception:
-            pass
+        # The log handle must be closed before the directory can go: on Windows
+        # an open file keeps ffmpeg.log locked, so rmtree would quietly leave the
+        # cache behind — and every failed start would leak a file descriptor.
+        if log_handle:
+            try:
+                log_handle.close()
+            except Exception:
+                pass
+        shutil.rmtree(cache_dir, ignore_errors=True)
         return None
 
 
@@ -4586,27 +4593,27 @@ def stream_video(media_id: int):
     item = store.get_media_item(media_id)
     if not item:
         return 'Not found', 404
-    
+
     item = dict(item)
     video_file = _request_video_file(item)
     if not video_file or not os.path.isfile(video_file):
         return 'Video file not found', 404
-    
+
     try:
         file_size = os.path.getsize(video_file)
     except Exception:
         return 'Cannot access file', 403
-    
+
     # Detect MIME type from file extension
     mime_type = _get_video_mime_type(video_file)
-    
+
     # Parse Range header for seeking support
     range_header = request.headers.get('Range')
     if range_header:
         try:
             start_byte = 0
             end_byte = file_size - 1
-            
+
             # Parse "bytes=0-1023" or "bytes=512-"
             if range_header.startswith('bytes='):
                 range_spec = range_header[6:]
@@ -4616,11 +4623,11 @@ def stream_video(media_id: int):
                         start_byte = int(parts[0])
                     if parts[1]:
                         end_byte = int(parts[1])
-                    
+
                     # Validate range
                     if start_byte > file_size - 1 or end_byte < start_byte:
                         return 'Range not satisfiable', 416
-                    
+
                     content_length = end_byte - start_byte + 1
                     resp = Response(
                         _stream_file_chunk(video_file, start_byte, end_byte),
@@ -4634,7 +4641,7 @@ def stream_video(media_id: int):
                     return resp
         except Exception:
             pass
-    
+
     # No range request — serve whole file
     resp = Response(
         _stream_file(video_file),
@@ -4702,7 +4709,7 @@ def subtitle_file(media_id: int, index: int):
     ext = ext.lower()
 
     try:
-        with open(sub_path, 'r', encoding='utf-8', errors='replace') as f:
+        with open(sub_path, encoding='utf-8', errors='replace') as f:
             content = f.read()
 
         if ext == '.vtt':
@@ -4827,7 +4834,7 @@ def direct_stream_master_playlist(media_id: int):
     while elapsed < max_wait:
         if _is_hls_playable(manifest_path, min_segments=1):
             try:
-                with open(manifest_path, 'r') as f:
+                with open(manifest_path) as f:
                     content = f.read()
                 if content and content.startswith('#EXTM3U'):
                     return _rewrite_playlist_segments(content), 200, {
@@ -4842,7 +4849,7 @@ def direct_stream_master_playlist(media_id: int):
             _cleanup_finished_direct_stream_job(media_id)
             if os.path.isfile(manifest_path):
                 try:
-                    with open(manifest_path, 'r') as f:
+                    with open(manifest_path) as f:
                         content = f.read()
                     if content and content.startswith('#EXTM3U'):
                         return _rewrite_playlist_segments(content), 200, {
@@ -4873,7 +4880,7 @@ def direct_stream_segment(media_id: int, filename: str):
 
     try:
         if filename.endswith('.m3u8'):
-            with open(file_path, 'r') as f:
+            with open(file_path) as f:
                 content = f.read()
             return content, 200, {
                 'Content-Type': 'application/vnd.apple.mpegurl',
@@ -5221,7 +5228,7 @@ def playback_position_api(media_id: int):
         item = store.get_media_item(media_id)
         if not item:
             return jsonify({'ok': False, 'error': 'not_found'}), 404
-        
+
         playback = store.get_playback_position(media_id)
         playback = dict(playback) if playback else None
         if playback:
@@ -5232,25 +5239,25 @@ def playback_position_api(media_id: int):
                 'last_updated': playback.get('last_updated'),
             })
         return jsonify({'ok': True, 'position_seconds': 0, 'duration_seconds': None})
-    
+
     elif request.method == 'POST':
         item = store.get_media_item(media_id)
         if not item:
             return jsonify({'ok': False, 'error': 'not_found'}), 404
-        
+
         payload = request.get_json(silent=True) or {}
         position_seconds = payload.get('position_seconds', 0)
         duration_seconds = payload.get('duration_seconds')
-        
+
         try:
             position_seconds = float(position_seconds) if position_seconds is not None else 0
             duration_seconds = float(duration_seconds) if duration_seconds is not None else None
         except Exception:
             return jsonify({'ok': False, 'error': 'invalid_format'}), 400
-        
+
         store.set_playback_position(media_id, position_seconds, duration_seconds)
         return jsonify({'ok': True, 'position_seconds': position_seconds})
-    
+
     return jsonify({'ok': False, 'error': 'method_not_allowed'}), 405
 
 
@@ -5266,7 +5273,7 @@ def _startup_library_sync():
         scanned = _scan_missing_quality_items()
         if scanned:
             app.logger.info('Startup quality scan: %d missing-quality item(s) updated.', scanned)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         app.logger.warning('Startup library sync failed: %s', exc)
 
 

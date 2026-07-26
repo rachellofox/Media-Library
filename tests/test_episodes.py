@@ -7,7 +7,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-import app  # noqa: E402
+import app
 
 PASS, FAIL = [], []
 

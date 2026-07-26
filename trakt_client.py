@@ -3,7 +3,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-
 TRAKT_API_BASE = 'https://api.trakt.tv'
 
 

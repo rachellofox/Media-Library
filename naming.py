@@ -17,7 +17,6 @@ entry.
 import os
 import re
 
-
 # Windows forbids  < > : " / \ | ? *  in path components. Anything not listed
 # here is dropped. Keep this map in one place so the house style stays
 # reviewable — change a value and every future rename follows.

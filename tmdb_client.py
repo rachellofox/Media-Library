@@ -1,6 +1,7 @@
 import json
 import urllib.parse
 import urllib.request
+from typing import ClassVar
 
 TMDB_API_BASE = 'https://api.themoviedb.org/3'
 IMAGE_BASE_THUMB = 'https://image.tmdb.org/t/p/w342'
@@ -255,8 +256,10 @@ class TmdbClient:
 
     # TMDB's episode group types. 1 is the default air order, which is already
     # what `season_episodes` returns, so it is not offered as an alternative.
-    ORDERING_TYPES = {2: 'Absolute', 3: 'DVD', 4: 'Digital', 5: 'Story arc',
-                      6: 'Production', 7: 'TV'}
+    ORDERING_TYPES: ClassVar[dict[int, str]] = {
+        2: 'Absolute', 3: 'DVD', 4: 'Digital', 5: 'Story arc',
+        6: 'Production', 7: 'TV',
+    }
 
     def episode_orderings(self, tv_id: int | str) -> list[dict]:
         """Alternative episode numberings a show has been released in.

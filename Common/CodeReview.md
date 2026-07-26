@@ -62,19 +62,33 @@ in some ways and not others.
   is built on were not in version control. **Done 2026-07-26:** the `.github/`
   rule is removed and `.vscode/` alone stays ignored, with a comment saying why,
   so it is not "tidied" back in later. Verified with `git check-ignore`.
-- [ ] A2. **No line-length rule.** 80 lines exceed 100 characters, mostly in
-  `trakt_client.py` (12) and `storage.py` (9). Propose adopting 100 and stating
-  it, since that is roughly what the code already does by habit.
-- [ ] A3. **No formatter or linter is named.** `ci-and-quality-gates` mandates
-  "run lint checks" but nothing says which. Neither `ruff` nor `flake8` is
-  installed. Propose `ruff` (single tool, formats and lints, fast) with config
-  committed so the rule is enforceable rather than aspirational.
-- [ ] A4. **No test conventions.** No location, naming, or framework is stated,
-  which is part of why there is no suite (Section H).
-- [ ] A5. **No type-hint policy.** Usage is currently mixed — `naming.py` and
-  `episode_match.py` annotate thoroughly, much of `app.py` does not. Either is
-  defensible; the inconsistency is not. Propose: annotate new and touched
-  functions, no retrofit campaign.
+- [x] A2. **Line length set to 100. Done 2026-07-26.** Chosen from the data, not
+  taste: 92% of lines already fit in 79 and **99% in 100**, so this codifies the
+  code's existing shape. Only 114 lines exceed it — see A8.
+- [x] A3. **`ruff` adopted. Done 2026-07-26.** Config in `pyproject.toml`,
+  installed via a new `requirements-dev.txt`. Rule set is E/W/F/I/UP/B/C4/SIM/RUF.
+  **101 violations fixed automatically** (unsorted imports, unused imports,
+  trailing whitespace, redundant open modes, f-strings without placeholders),
+  verified by the full suite and an app start afterwards.
+  Three rules are switched off *because this document's rules win over the tool's
+  defaults*, each with the reason in `pyproject.toml`: `E401` (the guide permits
+  `import os, sys` in short scripts), `RUF001-003` (the code matches en dashes
+  deliberately — `[-–]` in a regex is not a typo), and `SIM105` (28 rewrites of
+  readable `try/except/pass` for no gain).
+- [x] A4. **Test conventions written down. Done 2026-07-26.** Location, naming,
+  the no-network rule, the sandbox rule, and why the front-end tests read the
+  shipped template. In the style guide, with detail in `tests/README.md`.
+- [x] A5. **Type-hint policy set. Done 2026-07-26.** Annotate new and touched
+  functions; no retrofit campaign. Mixed annotation is acceptable, a commit that
+  churns every file is not.
+- [ ] A8. **114 lines still exceed 100 characters** (`app.py` 43,
+  `trakt_client.py` 12, `storage.py` 9, the rest scattered), plus 27 smaller
+  findings — `RUF015` (8), `SIM102` (4), `E741` (3), `W293` (3), `E731` (2),
+  `RUF012` (2), `SIM118` (2), and one each of `RUF005`, `SIM108`, `SIM115`.
+  141 in total, none of them behavioural. Left as a deliberate, separate pass:
+  mechanical rewrapping of 114 lines is churn best done on its own, where the
+  diff can be read as exactly that. **This is what stops `ruff check` passing
+  clean, so C2 (CI) should either follow it or start with the gate advisory.**
 - [ ] A6. **`copilot-instructions.md` describes a repo that no longer exists.**
   It lists `imdb_client.py` as the metadata client (it is dead — see B6, and
   TMDB is the real client) and points at `docs/` (deleted — see C3). It omits
@@ -137,7 +151,10 @@ tracked but are not, and leftovers.
 - [ ] C3. **`docs/` is referenced by two instruction files but no longer exists.**
   Either recreate it or amend the instructions — currently the docs rule points
   into a void.
-- [ ] C4. **No `pyproject.toml`** to hold tool config (ruff, pytest) in one place.
+- [x] C4. **`pyproject.toml` added. Done 2026-07-26.** Holds project metadata,
+  `requires-python = ">=3.10"` (the code uses `X | None` unions), and all ruff
+  configuration. Dependencies are read from `requirements.txt` rather than
+  duplicated, so there is still one list.
 - [ ] C5. **No `.editorconfig`**, so indentation and newline handling depend on
   whatever editor is open.
 - [ ] C6. **No `CONTRIBUTING.md`, issue or PR templates.** Lower priority for a
@@ -171,10 +188,10 @@ tracked but are not, and leftovers.
   edit.
   Verified: all 7 requirements satisfied by the current environment, `pip
   install --dry-run` resolves, and the test suite still passes.
-- [ ] D4. **No dev dependencies file.** Deliberately left open — it would hold
-  the linter and test runner, and neither is chosen yet (A3, H3). Blocked on
-  those, not forgotten. Note the test suite itself needs **no** Python
-  dependencies today, only `node` for the JavaScript files.
+- [x] D4. **`requirements-dev.txt` added. Done 2026-07-26**, once A3 settled what
+  belongs in it. Pulls in `requirements.txt` and adds `ruff`. Records that the
+  test suite needs no Python dependencies at all — only `node` on PATH for the
+  JavaScript files.
 - [x] D5. **No unused declarations, and no others missing.** Re-checked with an
   AST scan rather than grep, which matters: the first pass missed `send2trash`
   entirely because it is imported inside a `try` block, and would have missed any
@@ -203,7 +220,15 @@ worked one at a time:
 - [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
 - [ ] E4. Downloads and qBittorrent integration, including the finalisation path
   that has caused two data-loss bugs already.
-- [ ] E5. Playback, HLS and cache handling.
+- [~] E5. Playback, HLS and cache handling. **One bug already fixed
+  (2026-07-26)**, surfaced by adopting ruff: `_start_direct_stream` opened
+  `ffmpeg.log` and, if `Popen` or anything after it raised, returned through an
+  `except` that removed the cache directory but never closed the handle — leaking
+  a file descriptor on every failed playback start. On Windows the open handle
+  also kept the log locked, so the `shutil.rmtree(..., ignore_errors=True)`
+  cleanup silently left the directory behind. `_start_hls_transcode` had the
+  matching close all along; the two paths had simply drifted. The rest of this
+  section is still to review.
 - [ ] E6. TV and episode logic (`scan_local_episodes`, missing-episode discovery).
 - [ ] E7. Discover and TMDB caching.
 - [ ] E8. Route layer — consistency of error shapes and status codes across 61 routes.
@@ -336,21 +361,30 @@ Ordered by risk and by what unblocks other work.
    verified by a clean clone.
 5. ~~**Section D** — declare the two undeclared dependencies.~~ **Done** (D4
    remains, blocked on the tooling choice below).
-6. **A2–A5, C4** — settle the tooling and write it down. ← **next**, and it
-   unblocks D4 and H3.
-7. **C2** — CI, once there is a lint config and a test suite for it to run.
-8. **Sections E and F** — the two large refactors, only after tests exist to
+6. ~~**A2–A5, C4** — settle the tooling and write it down.~~ **Done** — ruff
+   adopted, 101 violations fixed, D4 unblocked and also done.
+7. **A8** — clear the 141 remaining lint findings (114 of them line length), so
+   `ruff check` passes clean. ← **next**, and it unblocks a meaningful CI gate.
+8. **C2** — CI, once the lint gate can actually pass.
+9. **Sections E and F** — the two large refactors, only after tests exist to
    catch regressions.
-9. **Sections I, G, J** — audit passes.
+10. **Sections I, G, J** — audit passes.
 
-Items 4–5 are small, mechanical, and remove real risk. Items 8 onward are the
-substantial work, and are now unblocked by item 3.
+Items 1–6 are done. Items 9 onward are the substantial work, and are unblocked by
+the test suite recovered in item 3.
 
 ## Progress log
 
 - **2026-07-26** — A1, B1, B3, H1, H2, H4 done. Two `.gitignore` fixes (the live
   database and the transcode cache were both exposed; the standards directory was
   hidden), and the test suite recovered from temporary storage into `tests/`.
+- **2026-07-26** — A2, A3, A4, A5, C4, D4 done, and one real bug fixed in E5.
+  `ruff` adopted with config in `pyproject.toml`; 101 violations fixed
+  automatically, verified by the suite and an app start. Three rules disabled
+  where they contradicted the style guide, on the principle that the guide is the
+  standard and the tool serves it. Adopting the linter is what surfaced the
+  file-descriptor leak in `_start_direct_stream`. 141 findings remain, logged as
+  A8.
 - **2026-07-26** — D1, D2, D3, D5 done. Two directly-imported packages were
   relying on someone else's dependency list; both now declared, and a single
   pinning policy applied. D4 left open behind the tooling choice.

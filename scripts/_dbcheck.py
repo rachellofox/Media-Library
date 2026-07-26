@@ -7,8 +7,9 @@ Reports:
   - DB movie entries with bad/missing IMDb IDs
   - DB movie entries with no poster
 """
-import os, sys
+import os
 import sqlite3
+import sys
 
 if len(sys.argv) < 2:
     print('Usage: python scripts/_dbcheck.py path\\to\\movies')
@@ -80,7 +81,7 @@ print(f"\n=== No poster ({len(no_poster)}) ===")
 for r in no_poster:
     print(f"  id={r['id']}  imdb_id={r['imdb_id']!r}  title={r['title']!r}")
 
-print(f"\n--- Summary ---")
+print("\n--- Summary ---")
 print(f"  Disk entries  : {len(disk_paths)}")
 print(f"  DB movies     : {len(db_movies)}")
 print(f"  Missing from DB: {len(missing_from_db)}")

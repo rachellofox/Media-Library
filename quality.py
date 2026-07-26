@@ -3,7 +3,6 @@ import re
 import struct
 import subprocess
 
-
 QUALITY_ORDER = {
     '480p': 1,
     '720p': 2,

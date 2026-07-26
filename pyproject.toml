@@ -1,0 +1,48 @@
+[project]
+name = "media-library"
+version = "0.1.2"
+description = "Local-first media library web app built with Flask and SQLite."
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.ruff]
+# 99% of the existing code already fits inside 100 columns, so this codifies
+# what the code does rather than imposing a new shape on it.
+line-length = 100
+target-version = "py310"
+extend-exclude = [".venv", "tmp", "static"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I import order, UP outdated syntax, B likely bugs,
+# C4 comprehensions, SIM simplifications, RUF ruff's own checks.
+select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "RUF"]
+
+ignore = [
+    # The style guide states that `import os, sys` is acceptable in short utility
+    # scripts. The guide is the standard here, so the rule that contradicts it is
+    # switched off rather than the scripts rewritten.
+    "E401",
+    # This codebase matches en dashes and em dashes deliberately — release names
+    # contain them, and `[-–]` inside a regex is not a typo for a hyphen.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # try/except/pass reads perfectly well and is used consistently throughout;
+    # contextlib.suppress would be 28 rewrites for no gain in clarity.
+    "SIM105",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# These files import after running code at module level, which is deliberate and
+# cannot be reordered: app.py must call load_dotenv() before Flask is imported so
+# the environment is populated, and the scripts and tests put the repo root on
+# sys.path before importing from it.
+"app.py" = ["E402"]
+"tests/*" = ["E402"]
+"scripts/*" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "single"

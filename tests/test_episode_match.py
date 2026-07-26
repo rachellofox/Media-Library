@@ -6,8 +6,11 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-from episode_match import (  # noqa: E402
-    is_extras_path, match_episode_files, match_episode_title, normalise_episode_title,
+from episode_match import (
+    is_extras_path,
+    match_episode_files,
+    match_episode_title,
+    normalise_episode_title,
 )
 
 PASS, FAIL = [], []

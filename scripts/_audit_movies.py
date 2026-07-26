@@ -10,7 +10,8 @@ For each subfolder in the given folder, reports:
 
 Does NOT modify anything.
 """
-import os, sys
+import os
+import sys
 
 if len(sys.argv) < 2:
     print('Usage: python scripts/_audit_movies.py path\\to\\movies')
@@ -99,7 +100,7 @@ for p in loose_files:
     print(f"  {p}")
 
 print(f"\n{'='*70}")
-print(f"SUMMARY")
+print("SUMMARY")
 print(f"  Misnamed video files  : {len(misnamed_video)}")
 print(f"  Extra files to remove : {len(extra_files)}")
 print(f"  Folders with no video : {len(no_video)}")

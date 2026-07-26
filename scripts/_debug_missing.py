@@ -3,7 +3,8 @@ Search library.db for items matching one or more title/path keywords.
 Usage: python scripts/_debug_missing.py <keyword> [<keyword> ...]
 Example: python scripts/_debug_missing.py venom spider
 """
-import sqlite3, sys
+import sqlite3
+import sys
 
 if len(sys.argv) < 2:
     print('Usage: python scripts/_debug_missing.py <keyword> [<keyword> ...]')

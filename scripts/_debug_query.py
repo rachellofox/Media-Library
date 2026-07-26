@@ -2,7 +2,8 @@
 Poster-fetch diagnostic script.
 Run with a temporary TMDB API key argument to get live API results.
 """
-import sqlite3, os, sys
+import sqlite3
+import sys
 
 conn = sqlite3.connect('library.db')
 conn.row_factory = sqlite3.Row
@@ -30,6 +31,7 @@ if not api_key:
     sys.exit(0)
 
 from tmdb_client import TmdbClient
+
 tmdb = TmdbClient(api_key=api_key)
 
 # --- 2. Test the four specific user-requested titles via search ---

@@ -3,8 +3,7 @@ import re
 import subprocess
 import urllib.request
 
-from quality import detect_quality, compare_quality
-
+from quality import compare_quality, detect_quality
 
 DEFAULT_MIRROR_URLS = [
     'https://kickasstorrents.bz',
@@ -71,9 +70,9 @@ class QBSearch:
             return
 
         urls_literal = ',\n    '.join(repr(url) for url in self.mirror_urls)
-        replacement = 'MIRROR_URLS = [\n    {urls},\n]'.format(urls=urls_literal)
+        replacement = f'MIRROR_URLS = [\n    {urls_literal},\n]'
 
-        with open(engine_file, 'r', encoding='utf-8', errors='replace') as fh:
+        with open(engine_file, encoding='utf-8', errors='replace') as fh:
             content = fh.read()
 
         updated, count = re.subn(

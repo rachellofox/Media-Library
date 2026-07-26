@@ -27,7 +27,7 @@ except AttributeError:
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import app  # noqa: E402
+import app
 
 APPLY = '--apply' in sys.argv
 ONLY = [
@@ -97,7 +97,7 @@ for t in broken:
         app._qbt_webui_open('/api/v2/torrents/delete', method='POST', data=payload)
         removed += 1
         print(f'  removed: {t.get("name", "")[:66]}')
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f'  FAILED  {t.get("name", "")[:60]}: {exc}')
 
 print(f'\nRemoved {removed} torrent(s). No files were deleted.')

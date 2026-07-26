@@ -26,9 +26,9 @@ except AttributeError:
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import app  # noqa: E402  (reuses the same placement/recycle safety logic)
-from naming import canonical_paths  # noqa: E402
-from quality import QUALITY_ORDER, detect_quality_from_file  # noqa: E402
+import app
+from naming import canonical_paths
+from quality import QUALITY_ORDER, detect_quality_from_file
 
 APPLY = '--apply' in sys.argv
 VIDEO_EXTS = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv'}

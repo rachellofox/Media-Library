@@ -4,9 +4,9 @@ Uses a throwaway library root, staging dir and sqlite DB. Never touches the
 real D:\\Movies or library.db.
 """
 import os
+import shutil
 import sys
 import tempfile
-import shutil
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)

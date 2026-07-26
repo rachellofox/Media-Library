@@ -3,7 +3,6 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 
-
 SCHEMA_SQL = '''
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,

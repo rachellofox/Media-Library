@@ -21,8 +21,8 @@ except AttributeError:
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from naming import canonical_stem  # noqa: E402
-from storage import Storage  # noqa: E402
+from naming import canonical_stem
+from storage import Storage
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VIDEO_EXTS = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv'}

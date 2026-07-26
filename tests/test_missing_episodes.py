@@ -8,8 +8,8 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-import app  # noqa: E402
-from storage import Storage  # noqa: E402
+import app
+from storage import Storage
 
 PASS, FAIL = [], []
 
@@ -152,6 +152,7 @@ check('skipped rather than reported as entirely missing', 'Mystery Show' not in 
 print('\n=== 5. Airing shows sort above ended ones ===')
 # Give the ended show a real gap by replacing its double file with only E01.
 import shutil
+
 shutil.rmtree(os.path.join(ended, 'Season 01'))
 make(os.path.join(ended, 'Season 01', 'Ended Show - S01E01.mkv'))
 ordered = [s['title'] for s in app._discover_missing_episodes()]

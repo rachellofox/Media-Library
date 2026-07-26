@@ -1,5 +1,4 @@
 """Detecting which episode numbering a download actually uses."""
-import importlib.util
 import os
 import sys
 
@@ -18,16 +17,17 @@ def check(name, cond, detail=''):
 
 # The script runs its whole plan at import, so pull the two functions out of the
 # source rather than importing it.
-import app  # noqa: E402
+import app
 
 source = open(PLAN, encoding='utf-8').read()
 start = source.index('DURATION_TOLERANCE = 0.5')
 end = source.index("SUBTITLE_EXTENSIONS = {'.srt'")
 from episode_match import normalise_episode_title
+
 namespace = {'app': app, 'os': __import__('os'), 'json': __import__('json'),
              'subprocess': __import__('subprocess'),
              'normalise_episode_title': normalise_episode_title}
-exec(compile(source[start:end], 'ordering', 'exec'), namespace)  # noqa: S102
+exec(compile(source[start:end], 'ordering', 'exec'), namespace)
 resolve, score = namespace['_resolve_ordering'], namespace['_score_ordering']
 
 

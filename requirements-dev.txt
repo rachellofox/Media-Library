@@ -1,0 +1,11 @@
+# Development tooling. Not needed to run the app.
+#
+#   pip install -r requirements-dev.txt
+#
+# The test suite itself needs nothing from here — every test is a standalone
+# script — except `node`, which is not a Python package and has to be on PATH for
+# the JavaScript tests. run_all.py skips those with a notice if it is missing.
+
+-r requirements.txt
+
+ruff>=0.16,<1

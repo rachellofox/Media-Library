@@ -11,8 +11,8 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-import app  # noqa: E402
-from storage import Storage  # noqa: E402
+import app
+from storage import Storage
 
 tmp = tempfile.mkdtemp()
 lib = os.path.join(tmp, 'TV Shows')
