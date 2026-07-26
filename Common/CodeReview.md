@@ -30,8 +30,8 @@ progress is measurable rather than asserted.
 | Measure | At review start | Now |
 | --- | --- | --- |
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
-| `app.py` | 5,318 lines, 61 routes, 205 functions | **4,117 lines**, 61 routes, 134 functions |
-| Modules split out of `app.py` | 0 | 6 (`medialibrary/`, 1,604 lines) |
+| `app.py` | 5,318 lines, 61 routes, 205 functions | **3,895 lines**, 61 routes, 128 functions |
+| Modules split out of `app.py` | 0 | 7 (`medialibrary/`, 1,911 lines) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | unchanged — Section F not started |
 | Tests in repo | **0** | 19 files, ~424 assertions |
 | CI workflows | **0** | 1 (lint, compile, test, startup) |
@@ -305,6 +305,22 @@ worked one at a time:
   call. This is the argument for keeping the suite green at every step rather
   than at the end: the bug was silent and behavioural, not a crash.
   This is the pattern for the remaining `store`- and `tmdb`-bound clusters.
+- [x] E1b. **Discover extracted. Done 2026-07-26.** `medialibrary/discover.py`
+  (302 lines): incomplete collections, the Trakt watchlist, aired-but-missing
+  episodes, and the TMDB season/status caches those depend on.
+  It needs three things from the application, all injected as **getters** rather
+  than objects — `configure(get_store=, get_tmdb=, get_trakt_client=)`. That is
+  the E1a lesson applied before it could bite: `tmdb` is rebuilt by
+  `_refresh_tmdb_client()` whenever the API key changes, so handing over the
+  client itself would have left this module holding a stale one after any key
+  change, and `store` is swapped wholesale by the tests.
+  The bodies were rewritten mechanically from `store.`/`tmdb.` to `_store()`/
+  `_tmdb()`. The module deliberately defines no bare `store` or `tmdb`, so any
+  reference the rewrite missed fails as an undefined name rather than silently
+  reading nothing — ruff reported none.
+  Verified against the real library rather than only by import: 8 incomplete
+  collections and 9 shows with missing episodes came back through the moved path,
+  and both getters were confirmed to resolve to the live objects.
 - [ ] E2. Auth and session handling — review for correctness and security.
 - [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
 - [ ] E4. Downloads and qBittorrent integration, including the finalisation path

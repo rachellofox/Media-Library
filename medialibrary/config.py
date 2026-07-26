@@ -23,3 +23,8 @@ QBT_NOVA_PATH = os.environ.get(
 QBT_WEBUI_URL = os.environ.get('QBT_WEBUI_URL', '').strip().rstrip('/')
 QBT_WEBUI_USERNAME = os.environ.get('QBT_WEBUI_USERNAME', '').strip()
 QBT_WEBUI_PASSWORD = os.environ.get('QBT_WEBUI_PASSWORD', '').strip()
+
+# How long Discover's TMDB lookups stay cached. Checking every show cold takes
+# about a minute, so these are deliberately generous.
+DISCOVER_COLLECTION_CACHE_HOURS = int(os.environ.get('DISCOVER_COLLECTION_CACHE_HOURS', '24'))
+DISCOVER_WATCHLIST_CACHE_HOURS = int(os.environ.get('DISCOVER_WATCHLIST_CACHE_HOURS', '24'))
