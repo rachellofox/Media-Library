@@ -9,8 +9,15 @@ __pycache__/
 .venv/
 venv/
 
-# Local runtime data
+# Local runtime data. media.db is the live database; library.db is its former
+# name, kept ignored so an old copy cannot be committed either.
+media.db
+media.backup*.db
 library.db
+library.backup*.db
+
+# Transcode cache and scratch working files
+tmp/
 
 # Cached poster images (populated at runtime)
 static/posters/*
@@ -19,9 +26,13 @@ static/posters/*
 # Log files
 *.log
 
-# Copilot and VS Code workspace files (personal/team-specific)
-.github/
+# Editor settings are personal. .github/ is deliberately NOT ignored: it holds
+# the coding standards in .github/instructions/, which have to travel with the
+# repo to mean anything.
 .vscode/
 
 # Local secrets
 .env
+
+# Internal dev log (implementation notes, not for public repo)
+Common/DevLog.md
