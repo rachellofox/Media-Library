@@ -104,12 +104,18 @@ tracked but are not, and leftovers.
 - [x] B3. **`tmp/` was not ignored.** It holds `tmp/hls/`, the live transcode
   cache, which must never be committed. **Done 2026-07-26:** `tmp/` ignored.
   The stray `.cs` file inside it is still a decision — see B7.
-- [ ] B4. **13 files are untracked** that are real source: `episode_match.py`,
-  `naming.py`, `subtitle_client.py`, `templates/login.html`, `templates/player.html`,
-  `Common/Workflow.md`, and 5 `scripts/`. The repo's committed state does not
-  currently build or run. Everything from the last several sessions is uncommitted.
-- [ ] B5. **`docs/README.md` is deleted on disk but still tracked** — a pending
-  deletion sitting in the working tree.
+- [x] B4. **Untracked source committed. Done 2026-07-26.** 50 files were
+  outstanding — not 13 as first counted, since the tracked files also carried
+  ~6,400 lines of uncommitted change. Committed to branch
+  `commit-outstanding-work` in seven logical commits (ignore rules, standards,
+  tests, new modules, application work, scripts, docs) rather than one, so the
+  history stays reviewable.
+  Verified by cloning the branch to a clean directory: everything compiles and
+  **all 19 test files pass from the fresh clone**, with `.github/` present and no
+  `.db` file or `tmp/` leaked. The committed state now builds and runs.
+  *Branch is unmerged — merging into `main` is your call.*
+- [x] B5. **`docs/README.md` deleted.** The pending deletion is committed. Two
+  instruction files still point at `docs/` — that remains open as C3.
 - [?] B6. **`imdb_client.py` (88 lines) is imported by nothing.** TMDB replaced
   it. Propose deletion. *Your call.*
 - [?] B7. **`tmp/reference/TranscodeManager.cs`** — propose deletion or move out
@@ -312,8 +318,9 @@ Ordered by risk and by what unblocks other work.
 2. ~~**A1** — un-ignore `.github/`.~~ **Done.**
 3. ~~**H1/H2** — rescue the tests out of the scratchpad.~~ **Done** — 19 files,
    424 assertions, all passing.
-4. **B4** — get the untracked source committed so the repo builds. ← **next**
-5. **Section D** — declare the two undeclared dependencies.
+4. ~~**B4** — get the untracked source committed so the repo builds.~~ **Done** —
+   verified by a clean clone.
+5. **Section D** — declare the two undeclared dependencies. ← **next**
 6. **A2–A5, C4** — settle the tooling and write it down.
 7. **C2** — CI, once there is a lint config and a test suite for it to run.
 8. **Sections E and F** — the two large refactors, only after tests exist to
@@ -328,3 +335,7 @@ substantial work, and are now unblocked by item 3.
 - **2026-07-26** — A1, B1, B3, H1, H2, H4 done. Two `.gitignore` fixes (the live
   database and the transcode cache were both exposed; the standards directory was
   hidden), and the test suite recovered from temporary storage into `tests/`.
+- **2026-07-26** — B4, B5 done. 50 outstanding files committed to branch
+  `commit-outstanding-work` in seven logical commits. Verified by clean clone:
+  compiles, 19/19 test files pass, standards included, no database leaked.
+  **Branch is not merged** — that decision is yours.
