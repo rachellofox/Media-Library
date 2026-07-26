@@ -1,4 +1,5 @@
 """Missing-episode discovery. Stubbed TMDB, throwaway DB and temp folders."""
+
 import datetime
 import os
 import sys
@@ -40,27 +41,42 @@ class StubTmdb:
     """Two shows: one airing with a part-aired season, one ended with a gap."""
 
     SHOWS: ClassVar[dict] = {
-        100: {'status': 'Returning Series', 'in_production': True, 'next_air_date': NEXT_WEEK,
-              'seasons': [
-                  {'season_number': 0, 'name': 'Specials', 'episode_count': 2},
-                  {'season_number': 1, 'name': 'Season 1', 'episode_count': 3},
-                  {'season_number': 2, 'name': 'Season 2', 'episode_count': 4},
-              ]},
-        200: {'status': 'Ended', 'in_production': False, 'next_air_date': None,
-              'seasons': [{'season_number': 1, 'name': 'Season 1', 'episode_count': 2}]},
+        100: {
+            'status': 'Returning Series',
+            'in_production': True,
+            'next_air_date': NEXT_WEEK,
+            'seasons': [
+                {'season_number': 0, 'name': 'Specials', 'episode_count': 2},
+                {'season_number': 1, 'name': 'Season 1', 'episode_count': 3},
+                {'season_number': 2, 'name': 'Season 2', 'episode_count': 4},
+            ],
+        },
+        200: {
+            'status': 'Ended',
+            'in_production': False,
+            'next_air_date': None,
+            'seasons': [{'season_number': 1, 'name': 'Season 1', 'episode_count': 2}],
+        },
     }
     EPISODES: ClassVar[dict] = {
-        (100, 0): [{'episode_number': 1, 'title': 'Special', 'air_date': YESTERDAY},
-                   {'episode_number': 2, 'title': 'Special 2', 'air_date': YESTERDAY}],
-        (100, 1): [{'episode_number': n, 'title': f'S1 Ep{n}', 'air_date': YESTERDAY}
-                   for n in (1, 2, 3)],
+        (100, 0): [
+            {'episode_number': 1, 'title': 'Special', 'air_date': YESTERDAY},
+            {'episode_number': 2, 'title': 'Special 2', 'air_date': YESTERDAY},
+        ],
+        (100, 1): [
+            {'episode_number': n, 'title': f'S1 Ep{n}', 'air_date': YESTERDAY} for n in (1, 2, 3)
+        ],
         # Season 2 is mid-broadcast: E1 and E2 aired, E3 has no date, E4 is future.
-        (100, 2): [{'episode_number': 1, 'title': 'S2 Ep1', 'air_date': YESTERDAY},
-                   {'episode_number': 2, 'title': 'S2 Ep2', 'air_date': YESTERDAY},
-                   {'episode_number': 3, 'title': 'S2 Ep3', 'air_date': None},
-                   {'episode_number': 4, 'title': 'S2 Ep4', 'air_date': NEXT_WEEK}],
-        (200, 1): [{'episode_number': 1, 'title': 'Part One', 'air_date': YESTERDAY},
-                   {'episode_number': 2, 'title': 'Part Two', 'air_date': YESTERDAY}],
+        (100, 2): [
+            {'episode_number': 1, 'title': 'S2 Ep1', 'air_date': YESTERDAY},
+            {'episode_number': 2, 'title': 'S2 Ep2', 'air_date': YESTERDAY},
+            {'episode_number': 3, 'title': 'S2 Ep3', 'air_date': None},
+            {'episode_number': 4, 'title': 'S2 Ep4', 'air_date': NEXT_WEEK},
+        ],
+        (200, 1): [
+            {'episode_number': 1, 'title': 'Part One', 'air_date': YESTERDAY},
+            {'episode_number': 2, 'title': 'Part Two', 'air_date': YESTERDAY},
+        ],
     }
 
     def tv_status(self, tv_id):
@@ -82,9 +98,17 @@ def make(path):
 
 
 def add(imdb, title, tmdb_id, path):
-    app.store.add_media_item(imdb_id=imdb, tmdb_id=tmdb_id, title=title, year=2010,
-                             media_type='tv', collection_id=None, collection_name=None,
-                             current_quality='1080p', path=path)
+    app.store.add_media_item(
+        imdb_id=imdb,
+        tmdb_id=tmdb_id,
+        title=title,
+        year=2010,
+        media_type='tv',
+        collection_id=None,
+        collection_name=None,
+        current_quality='1080p',
+        path=path,
+    )
 
 
 # Airing show: owns all of S1, and S2E01 only.
@@ -103,12 +127,18 @@ print('\n=== 1. Only aired, unowned episodes are reported ===')
 shows = app._discover_missing_episodes()
 by_title = {s['title']: s for s in shows}
 check('the airing show is listed', 'Airing Show' in by_title, list(by_title))
-check('the multi-episode file counts as owning both, so no gap',
-      'Ended Show' not in by_title, by_title.get('Ended Show'))
+check(
+    'the multi-episode file counts as owning both, so no gap',
+    'Ended Show' not in by_title,
+    by_title.get('Ended Show'),
+)
 
 airing_show = by_title.get('Airing Show', {})
-check('only S02E02 is missing', airing_show.get('missing_count') == 1,
-      airing_show.get('missing_count'))
+check(
+    'only S02E02 is missing',
+    airing_show.get('missing_count') == 1,
+    airing_show.get('missing_count'),
+)
 seasons = {s['season_number']: s for s in airing_show.get('seasons', [])}
 check('season 1 is complete so absent', 1 not in seasons, list(seasons))
 check('season 2 reported', 2 in seasons)
@@ -124,26 +154,39 @@ check('owned count is per season', seasons.get(2, {}).get('owned_count') == 1)
 print('\n=== 2. Results are cached in the database ===')
 before = dict(requests)
 app._discover_missing_episodes()
-check('no further status requests', requests['status'] == before['status'],
-      f"{before['status']} -> {requests['status']}")
-check('no further episode requests', requests['episodes'] == before['episodes'],
-      f"{before['episodes']} -> {requests['episodes']}")
-check('cache survives a new Storage instance',
-      app.store.get_cached_season(100, 2, 24) is not None)
+check(
+    'no further status requests',
+    requests['status'] == before['status'],
+    f'{before["status"]} -> {requests["status"]}',
+)
+check(
+    'no further episode requests',
+    requests['episodes'] == before['episodes'],
+    f'{before["episodes"]} -> {requests["episodes"]}',
+)
+check('cache survives a new Storage instance', app.store.get_cached_season(100, 2, 24) is not None)
 
 print('\n=== 3. Ignoring a season, then a whole show ===')
 app.store.ignore_tv_season(100, 2, 'Airing Show')
-check('ignored season removes the show entirely (it was its only gap)',
-      'Airing Show' not in {s['title'] for s in app._discover_missing_episodes()})
+check(
+    'ignored season removes the show entirely (it was its only gap)',
+    'Airing Show' not in {s['title'] for s in app._discover_missing_episodes()},
+)
 app.store.unignore_tv(100, 2)
-check('unignoring restores it',
-      'Airing Show' in {s['title'] for s in app._discover_missing_episodes()})
+check(
+    'unignoring restores it',
+    'Airing Show' in {s['title'] for s in app._discover_missing_episodes()},
+)
 app.store.ignore_tv_season(100, Storage.IGNORE_WHOLE_SHOW, 'Airing Show')
-check('whole-show ignore hides it',
-      'Airing Show' not in {s['title'] for s in app._discover_missing_episodes()})
+check(
+    'whole-show ignore hides it',
+    'Airing Show' not in {s['title'] for s in app._discover_missing_episodes()},
+)
 app.store.unignore_tv(100)
-check('clearing all ignores restores it',
-      'Airing Show' in {s['title'] for s in app._discover_missing_episodes()})
+check(
+    'clearing all ignores restores it',
+    'Airing Show' in {s['title'] for s in app._discover_missing_episodes()},
+)
 
 print('\n=== 4. A show with no identifiable local episodes is skipped ===')
 mystery = os.path.join(lib, 'Mystery Show')
@@ -160,15 +203,28 @@ shutil.rmtree(os.path.join(ended, 'Season 01'))
 make(os.path.join(ended, 'Season 01', 'Ended Show - S01E01.mkv'))
 ordered = [s['title'] for s in app._discover_missing_episodes()]
 check('both shows now listed', {'Airing Show', 'Ended Show'} <= set(ordered), ordered)
-check('the airing show comes first', ordered.index('Airing Show') < ordered.index('Ended Show'),
-      ordered)
+check(
+    'the airing show comes first',
+    ordered.index('Airing Show') < ordered.index('Ended Show'),
+    ordered,
+)
 
 print('\n=== 6. Movies are never considered ===')
-app.store.add_media_item(imdb_id='tt900', tmdb_id=100, title='A Movie', year=2001,
-                         media_type='movie', collection_id=None, collection_name=None,
-                         current_quality='1080p', path=os.path.join(tmp, 'Movies'))
-check('movie absent from the results',
-      'A Movie' not in {s['title'] for s in app._discover_missing_episodes()})
+app.store.add_media_item(
+    imdb_id='tt900',
+    tmdb_id=100,
+    title='A Movie',
+    year=2001,
+    media_type='movie',
+    collection_id=None,
+    collection_name=None,
+    current_quality='1080p',
+    path=os.path.join(tmp, 'Movies'),
+)
+check(
+    'movie absent from the results',
+    'A Movie' not in {s['title'] for s in app._discover_missing_episodes()},
+)
 
 print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
 if FAIL:

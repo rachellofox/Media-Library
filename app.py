@@ -68,7 +68,14 @@ QBT_WEBUI_URL = os.environ.get('QBT_WEBUI_URL', '').strip().rstrip('/')
 QBT_WEBUI_USERNAME = os.environ.get('QBT_WEBUI_USERNAME', '').strip()
 QBT_WEBUI_PASSWORD = os.environ.get('QBT_WEBUI_PASSWORD', '').strip()
 TRUSTED_RELEASE_GROUPS = (
-    'qxr', 'tigole', 'ctrlhd', 'framestor', 'flux', 'ntb', 'rarbg', 'yts',
+    'qxr',
+    'tigole',
+    'ctrlhd',
+    'framestor',
+    'flux',
+    'ntb',
+    'rarbg',
+    'yts',
 )
 TRAKT_TOKEN_SETTING = 'trakt_oauth_token'
 TRAKT_PROFILE_SETTING = 'trakt_oauth_profile'
@@ -83,9 +90,6 @@ AUTH_SECRET_ACCOUNT = 'session_secret_key'
 SESSION_LIFETIME_DAYS = 30
 AUTH_MAX_ATTEMPTS = 5
 AUTH_LOCKOUT = timedelta(minutes=5)
-
-
-
 
 
 def _utc_now() -> datetime:
@@ -303,29 +307,11 @@ def _trakt_context() -> dict:
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 def _is_local_media_missing(media_path: str | None) -> bool:
     path = (media_path or '').strip()
     if not path:
         return True
     return _best_local_video_path(path) is None
-
-
-
-
-
-
 
 
 def _public_access_enabled() -> bool:
@@ -352,8 +338,7 @@ def _lan_ip_addresses() -> list[str]:
     """
     try:
         candidates = {
-            info[4][0]
-            for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
+            info[4][0] for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
         }
     except OSError:
         return []
@@ -403,26 +388,6 @@ def _upgrade_available(item) -> bool:
     except (KeyError, IndexError):
         current = None
     return compare_quality(current, best_found) > 0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def cache_poster(key: str, remote_url: str, force_replace: bool = False) -> str:
@@ -480,22 +445,6 @@ def scan_folder(folder_path: str) -> list[str]:
     return sorted(entries)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def scan_media_entries(folder_path: str, media_type: str) -> list[dict[str, str]]:
     """Return importable media entries from a configured library folder."""
     if not folder_path or not os.path.isdir(folder_path):
@@ -537,23 +486,11 @@ def scan_media_entries(folder_path: str, media_type: str) -> list[dict[str, str]
     return sorted(entries, key=lambda item: item['name'].lower())
 
 
-
-
-
-
-
-
-
-
-
-
 def import_media_from_paths(folder_path: str, media_type: str) -> int:
     """Import missing items from a configured media folder into the local library."""
     existing_items = store.list_media_items()
     existing_paths = {
-        os.path.normcase(os.path.normpath(item['path']))
-        for item in existing_items
-        if item['path']
+        os.path.normcase(os.path.normpath(item['path'])) for item in existing_items if item['path']
     }
     existing_by_imdb = {item['imdb_id']: item for item in existing_items}
     imported = 0
@@ -569,7 +506,8 @@ def import_media_from_paths(folder_path: str, media_type: str) -> int:
 
         query = title  # year in folder name can confuse TMDB ranking; search by title alone
         match = choose_search_result(
-            tmdb.search(query, max_results=10) if tmdb else [], title, media_type, year)
+            tmdb.search(query, max_results=10) if tmdb else [], title, media_type, year
+        )
         if not match:
             continue
 
@@ -586,8 +524,9 @@ def import_media_from_paths(folder_path: str, media_type: str) -> int:
             existing_paths.add(normalized_path)
             continue
 
-        poster_url = cache_poster(meta.get('imdb_id') or entry['name'],
-                                  meta.get('poster_url') or '') or meta.get('poster_url')
+        poster_url = cache_poster(
+            meta.get('imdb_id') or entry['name'], meta.get('poster_url') or ''
+        ) or meta.get('poster_url')
 
         # Resolve the actual video file for quality detection; entry path may be a
         # folder (e.g. TV show)
@@ -610,8 +549,10 @@ def import_media_from_paths(folder_path: str, media_type: str) -> int:
             media_type=meta['media_type'],
             collection_id=meta.get('collection_id'),
             collection_name=meta.get('collection_name'),
-            current_quality=(detect_quality_from_file(quality_target, ffprobe_exe=FFPROBE_EXE)
-                             or detect_quality(entry['name'])),
+            current_quality=(
+                detect_quality_from_file(quality_target, ffprobe_exe=FFPROBE_EXE)
+                or detect_quality(entry['name'])
+            ),
             path=entry['path'],
             poster_url=poster_url,
             synopsis=meta.get('synopsis'),
@@ -636,8 +577,6 @@ def import_from_configured_folders() -> int:
     if tv_path:
         imported += import_media_from_paths(tv_path, 'tv')
     return imported
-
-
 
 
 # Playback lives in medialibrary.playback. The names are imported rather than
@@ -889,7 +828,8 @@ def login():
         return render_template(
             'login.html',
             error=f'Too many attempts. Try again in {wait_seconds // 60 + 1} minute(s).',
-                               next_target=request.args.get('next', '')), 429
+            next_target=request.args.get('next', ''),
+        ), 429
 
     if request.method == 'POST':
         username = (request.form.get('username') or '').strip()
@@ -907,8 +847,11 @@ def login():
 
         _record_failed_login(address)
         app.logger.warning('Failed sign-in for %r from %s', username, address)
-        return render_template('login.html', error='Incorrect username or password.',
-                               next_target=request.form.get('next', '')), 401
+        return render_template(
+            'login.html',
+            error='Incorrect username or password.',
+            next_target=request.form.get('next', ''),
+        ), 401
 
     return render_template('login.html', error=None, next_target=request.args.get('next', ''))
 
@@ -921,8 +864,9 @@ def logout():
 
 def _cache_meta_poster(cache_key: str, meta: dict, force_replace: bool = False) -> str | None:
     remote_url = meta.get('poster_url') or ''
-    return (cache_poster(cache_key, remote_url, force_replace=force_replace)
-            or meta.get('poster_url'))
+    return cache_poster(cache_key, remote_url, force_replace=force_replace) or meta.get(
+        'poster_url'
+    )
 
 
 def _torrent_candidates_for(meta: dict, limit: int = 25) -> list[dict]:
@@ -942,17 +886,19 @@ def _torrent_candidates_for(meta: dict, limit: int = 25) -> list[dict]:
         name = row.get('name') or ''
         lowered_name = name.lower()
         trusted = any(group in lowered_name for group in TRUSTED_RELEASE_GROUPS)
-        candidates.append({
-            'name': name,
-            'size': row.get('size') or '',
-            'seeds': row.get('seeds') or '0',
-            'leech': row.get('leech') or '0',
-            'desc_link': row.get('desc_link') or '',
-            'link': row.get('link') or '',
-            'pub_date': row.get('pub_date') or '',
-            'quality': quality,
-            'trusted': trusted,
-        })
+        candidates.append(
+            {
+                'name': name,
+                'size': row.get('size') or '',
+                'seeds': row.get('seeds') or '0',
+                'leech': row.get('leech') or '0',
+                'desc_link': row.get('desc_link') or '',
+                'link': row.get('link') or '',
+                'pub_date': row.get('pub_date') or '',
+                'quality': quality,
+                'trusted': trusted,
+            }
+        )
 
     def _seed_count(item: dict) -> int:
         try:
@@ -984,18 +930,6 @@ def _torrent_candidates_for(meta: dict, limit: int = 25) -> list[dict]:
     return candidates[:limit]
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 def _is_local_or_private_host(hostname: str | None) -> bool:
     host = (hostname or '').strip().lower()
     if not host:
@@ -1020,17 +954,6 @@ def _sanitize_qbt_webui_url(raw: str) -> str | None:
         return None
     port = f':{parsed.port}' if parsed.port else ''
     return f'{parsed.scheme}://{parsed.hostname}{port}'.rstrip('/')
-
-
-
-
-
-
-
-
-
-
-
 
 
 @app.route('/api/debug/qbt-status')
@@ -1060,21 +983,23 @@ def debug_qbt_status():
     except Exception:
         progress = 0.0
 
-    return jsonify({
-        'ok': True,
-        'found': True,
-        'hash': info_hash,
-        'name': torrent.get('name') or '',
-        'state': torrent.get('state') or '',
-        'progress': progress,
-        'progress_percent': round(progress * 100, 2),
-        'eta': torrent.get('eta'),
-        'save_path': torrent.get('save_path') or '',
-        'dlspeed': torrent.get('dlspeed'),
-        'upspeed': torrent.get('upspeed'),
-        'num_seeds': torrent.get('num_seeds'),
-        'num_leechs': torrent.get('num_leechs'),
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'found': True,
+            'hash': info_hash,
+            'name': torrent.get('name') or '',
+            'state': torrent.get('state') or '',
+            'progress': progress,
+            'progress_percent': round(progress * 100, 2),
+            'eta': torrent.get('eta'),
+            'save_path': torrent.get('save_path') or '',
+            'dlspeed': torrent.get('dlspeed'),
+            'upspeed': torrent.get('upspeed'),
+            'num_seeds': torrent.get('num_seeds'),
+            'num_leechs': torrent.get('num_leechs'),
+        }
+    )
 
 
 @app.route('/api/settings/qbt-test')
@@ -1098,15 +1023,21 @@ def settings_tmdb_test():
         payload = client.ping() or {}
     except Exception:
         return jsonify({'ok': False, 'error': 'tmdb_connection_failed'}), 502
-    return jsonify({'ok': True, 'reachable': True,
-                    'has_images_config': bool((payload.get('images') or {}).get('base_url'))})
+    return jsonify(
+        {
+            'ok': True,
+            'reachable': True,
+            'has_images_config': bool((payload.get('images') or {}).get('base_url')),
+        }
+    )
 
 
 @app.route('/api/settings/trakt-test', methods=['POST'])
 def settings_trakt_test():
     client_id = (request.form.get('trakt_client_id') or '').strip() or _trakt_client_id()
-    client_secret = ((request.form.get('trakt_client_secret') or '').strip()
-                     or _trakt_client_secret())
+    client_secret = (
+        request.form.get('trakt_client_secret') or ''
+    ).strip() or _trakt_client_secret()
     if not client_id or not client_secret:
         return jsonify({'ok': False, 'error': 'trakt_oauth_not_configured'}), 409
     try:
@@ -1125,21 +1056,13 @@ def settings_trakt_test():
         if exc.code in {'forbidden', 'unauthorized', 'http_error'}:
             error = 'trakt_error_forbidden'
         return jsonify({'ok': False, 'error': error}), 502
-    return jsonify({
-        'ok': True,
-        'reachable': True,
-        'verification_url': flow.get('verification_url', 'https://trakt.tv/activate'),
-    })
-
-
-
-
-
-
-
-
-
-
+    return jsonify(
+        {
+            'ok': True,
+            'reachable': True,
+            'verification_url': flow.get('verification_url', 'https://trakt.tv/activate'),
+        }
+    )
 
 
 def backfill_genres() -> dict:
@@ -1188,6 +1111,7 @@ def backfill_genres() -> dict:
             skipped += 1
     return {'updated': updated, 'skipped': skipped}
 
+
 def _run_genre_backfill_once() -> None:
     """Fill in genres for any item that never resolved one.
 
@@ -1203,8 +1127,9 @@ def _run_genre_backfill_once() -> None:
     result = backfill_genres()
     if result.get('error'):
         return
-    app.logger.info('Genre backfill: %s updated, %s skipped.',
-                    result.get('updated'), result.get('skipped'))
+    app.logger.info(
+        'Genre backfill: %s updated, %s skipped.', result.get('updated'), result.get('skipped')
+    )
 
 
 @app.route('/')
@@ -1236,13 +1161,14 @@ def index():
 
     all_flagged = with_flags(all_items)
     local_flagged = [
-        i for i in all_flagged
+        i
+        for i in all_flagged
         if (i.get('path') or '').strip() or i.get('download_status') in _active_dl
     ]
     movies = [i for i in local_flagged if i['media_type'] == 'movie']
     tv_shows = [i for i in local_flagged if i['media_type'] == 'tv']
     _run_genre_backfill_once()
-    favourites   = [i for i in all_flagged if i['favourite']]
+    favourites = [i for i in all_flagged if i['favourite']]
 
     movies_path = store.get_setting('movies_path') or ''
     tv_path = store.get_setting('tv_path') or ''
@@ -1300,9 +1226,7 @@ def search_imdb():
     query = request.args.get('q', '').strip()
     results = tmdb.search(query) if (query and tmdb) else []
     library_tmdb_ids = {
-        item['tmdb_id']
-        for item in store.list_media_items()
-        if item['tmdb_id'] is not None
+        item['tmdb_id'] for item in store.list_media_items() if item['tmdb_id'] is not None
     }
     payload = []
     for result in results:
@@ -1315,14 +1239,16 @@ def search_imdb():
 @app.route('/api/discover')
 def discover_data():
     trakt = _trakt_context()
-    return jsonify({
-        'watchlist': _discover_watchlist(),
-        'collections': _discover_incomplete_collections(),
-        'trending': tmdb.trending() if tmdb else [],
-        'trakt_configured': trakt['configured'],
-        'trakt_connected': trakt['connected'],
-        'tmdb_configured': bool(tmdb),
-    })
+    return jsonify(
+        {
+            'watchlist': _discover_watchlist(),
+            'collections': _discover_incomplete_collections(),
+            'trending': tmdb.trending() if tmdb else [],
+            'trakt_configured': trakt['configured'],
+            'trakt_connected': trakt['connected'],
+            'tmdb_configured': bool(tmdb),
+        }
+    )
 
 
 @app.route('/api/discover/hero')
@@ -1340,26 +1266,28 @@ def discover_hero_data():
         return jsonify({'ok': False, 'error': 'invalid_tmdb_id'}), 400
 
     meta = tmdb.metadata_by_tmdb_id(tmdb_id, media_type)
-    return jsonify({
-        'ok': True,
-        'item': {
-            'tmdb_id': meta.get('tmdb_id') or tmdb_id,
-            'imdb_id': meta.get('imdb_id'),
-            'title': meta.get('title') or request.args.get('title') or str(tmdb_id),
-            'year': meta.get('year'),
-            'media_type': meta.get('media_type') or media_type,
-            'poster_url': meta.get('poster_url'),
-            'synopsis': meta.get('synopsis'),
-            'actors': meta.get('actors'),
-            'genre_1': meta.get('genre_1'),
-            'genre_2': meta.get('genre_2'),
-            'rating': meta.get('rating'),
-            'current_quality': None,
-            'subtitles': None,
-            'found': 0,
-            'favourite': 0,
-        },
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'item': {
+                'tmdb_id': meta.get('tmdb_id') or tmdb_id,
+                'imdb_id': meta.get('imdb_id'),
+                'title': meta.get('title') or request.args.get('title') or str(tmdb_id),
+                'year': meta.get('year'),
+                'media_type': meta.get('media_type') or media_type,
+                'poster_url': meta.get('poster_url'),
+                'synopsis': meta.get('synopsis'),
+                'actors': meta.get('actors'),
+                'genre_1': meta.get('genre_1'),
+                'genre_2': meta.get('genre_2'),
+                'rating': meta.get('rating'),
+                'current_quality': None,
+                'subtitles': None,
+                'found': 0,
+                'favourite': 0,
+            },
+        }
+    )
 
 
 @app.route('/api/discover/add-and-search', methods=['POST'])
@@ -1369,8 +1297,9 @@ def discover_add_and_search():
 
     payload = request.get_json(silent=True) or {}
     tmdb_id_raw = str(request.form.get('tmdb_id') or payload.get('tmdb_id') or '').strip()
-    media_type = str(request.form.get('media_type')
-                     or payload.get('media_type') or 'movie').strip().lower()
+    media_type = (
+        str(request.form.get('media_type') or payload.get('media_type') or 'movie').strip().lower()
+    )
     if media_type not in {'movie', 'tv'}:
         return jsonify({'ok': False, 'error': 'invalid_media_type'}), 400
 
@@ -1406,20 +1335,24 @@ def discover_add_and_search():
     try:
         candidates = _torrent_candidates_for(meta)
     except SearchEngineError as exc:
-        return jsonify({
-            'ok': False,
-            'error': 'search_unavailable',
-            'message': str(exc),
-            'media_id': media_id,
-        }), 503
+        return jsonify(
+            {
+                'ok': False,
+                'error': 'search_unavailable',
+                'message': str(exc),
+                'media_id': media_id,
+            }
+        ), 503
 
-    return jsonify({
-        'ok': True,
-        'media_id': media_id,
-        'title': meta.get('title') or '',
-        'year': meta.get('year'),
-        'candidates': candidates,
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'media_id': media_id,
+            'title': meta.get('title') or '',
+            'year': meta.get('year'),
+            'candidates': candidates,
+        }
+    )
 
 
 @app.route('/api/library/retry-download/<int:media_id>')
@@ -1430,8 +1363,11 @@ def library_retry_download(media_id: int):
 
     status = (item['download_status'] or '').strip().lower()
     has_upgrade = bool(item.get('upgrade_available'))
-    if (status not in {'starting', 'handed_off', 'downloading'}
-            and not item.get('file_missing') and not has_upgrade):
+    if (
+        status not in {'starting', 'handed_off', 'downloading'}
+        and not item.get('file_missing')
+        and not has_upgrade
+    ):
         return jsonify({'ok': False, 'error': 'not_missing_or_active'}), 409
 
     meta = {
@@ -1441,18 +1377,22 @@ def library_retry_download(media_id: int):
     try:
         candidates = _torrent_candidates_for(meta)
     except SearchEngineError as exc:
-        return jsonify({
-            'ok': False,
-            'error': 'search_unavailable',
-            'message': str(exc),
+        return jsonify(
+            {
+                'ok': False,
+                'error': 'search_unavailable',
+                'message': str(exc),
+                'media_id': int(item['id']),
+            }
+        ), 503
+    return jsonify(
+        {
+            'ok': True,
             'media_id': int(item['id']),
-        }), 503
-    return jsonify({
-        'ok': True,
-        'media_id': int(item['id']),
-        'title': item['title'] or item['imdb_id'] or 'Title',
-        'candidates': candidates,
-    })
+            'title': item['title'] or item['imdb_id'] or 'Title',
+            'candidates': candidates,
+        }
+    )
 
 
 @app.route('/api/discover/start-download', methods=['POST'])
@@ -1503,13 +1443,15 @@ def discover_start_download():
                         message=f'Destination: {target_path}',
                         torrent_hash=torrent_hash,
                     )
-                    return jsonify({
-                        'ok': True,
-                        'mode': 'qbittorrent',
-                        'save_path': target_path,
-                        'section': 'tv' if media_type == 'tv' else 'movies',
-                        'torrent_hash': torrent_hash,
-                    })
+                    return jsonify(
+                        {
+                            'ok': True,
+                            'mode': 'qbittorrent',
+                            'save_path': target_path,
+                            'section': 'tv' if media_type == 'tv' else 'movies',
+                            'torrent_hash': torrent_hash,
+                        }
+                    )
             except Exception:
                 pass
 
@@ -1553,25 +1495,49 @@ def library_download_progress(media_id: int):
             except Exception:
                 progress = 0.0
             qbt_state = (torrent.get('state') or '').lower()
-            done_states = {'uploading', 'stalledup', 'seeding', 'pausedup',
-                           'forcedup', 'checkingup'}
-            return jsonify({
-                'ok': True,
-                'source': 'qbittorrent',
-                'state': qbt_state,
-                'progress': progress,
-                'progress_percent': round(progress * 100, 2),
-                'eta': torrent.get('eta'),
-                'name': torrent.get('name') or '',
-                'dlspeed': torrent.get('dlspeed'),
-                'is_complete': qbt_state in done_states,
-            })
+            done_states = {
+                'uploading',
+                'stalledup',
+                'seeding',
+                'pausedup',
+                'forcedup',
+                'checkingup',
+            }
+            return jsonify(
+                {
+                    'ok': True,
+                    'source': 'qbittorrent',
+                    'state': qbt_state,
+                    'progress': progress,
+                    'progress_percent': round(progress * 100, 2),
+                    'eta': torrent.get('eta'),
+                    'name': torrent.get('name') or '',
+                    'dlspeed': torrent.get('dlspeed'),
+                    'is_complete': qbt_state in done_states,
+                }
+            )
         if source == 'qb_webui' and torrent_hash:
-            return jsonify({'ok': True, 'source': 'qbittorrent', 'state': 'queued',
-                            'progress': 0.0, 'progress_percent': 0.0, 'is_complete': False})
+            return jsonify(
+                {
+                    'ok': True,
+                    'source': 'qbittorrent',
+                    'state': 'queued',
+                    'progress': 0.0,
+                    'progress_percent': 0.0,
+                    'is_complete': False,
+                }
+            )
 
-    return jsonify({'ok': True, 'source': source or 'external', 'state': status,
-                    'progress': None, 'progress_percent': None, 'is_complete': False})
+    return jsonify(
+        {
+            'ok': True,
+            'source': source or 'external',
+            'state': status,
+            'progress': None,
+            'progress_percent': None,
+            'is_complete': False,
+        }
+    )
 
 
 @app.route('/api/library/mark-downloaded/<int:media_id>', methods=['POST'])
@@ -1595,8 +1561,9 @@ def discover_ignore_title():
     tmdb_id_raw = request.form.get('tmdb_id') or payload.get('tmdb_id')
     collection_id_raw = request.form.get('collection_id') or payload.get('collection_id')
     title = (request.form.get('title') or payload.get('title') or '').strip() or None
-    collection_name = (request.form.get('collection_name')
-                       or payload.get('collection_name') or '').strip() or None
+    collection_name = (
+        request.form.get('collection_name') or payload.get('collection_name') or ''
+    ).strip() or None
     try:
         tmdb_id = int(tmdb_id_raw)
     except Exception:
@@ -1622,8 +1589,9 @@ def discover_ignore_title():
 def discover_ignore_collection():
     payload = request.get_json(silent=True) or {}
     collection_id_raw = request.form.get('collection_id') or payload.get('collection_id')
-    collection_name = (request.form.get('collection_name')
-                       or payload.get('collection_name') or '').strip() or None
+    collection_name = (
+        request.form.get('collection_name') or payload.get('collection_name') or ''
+    ).strip() or None
     try:
         collection_id = int(collection_id_raw)
     except Exception:
@@ -1635,10 +1603,12 @@ def discover_ignore_collection():
 
 @app.route('/api/discover/ignored')
 def discover_ignored():
-    return jsonify({
-        'titles': store.list_discover_ignored_titles(),
-        'collections': store.list_discover_ignored_collections(),
-    })
+    return jsonify(
+        {
+            'titles': store.list_discover_ignored_titles(),
+            'collections': store.list_discover_ignored_collections(),
+        }
+    )
 
 
 @app.route('/api/discover/unignore-title', methods=['POST'])
@@ -1690,9 +1660,11 @@ def add():
     if not meta.get('imdb_id'):
         if request.headers.get('X-Requested-With') == 'fetch':
             return jsonify({'ok': False, 'error': 'missing_imdb_id'}), 400
-        return redirect(url_for('index',
-                                section=request.form.get('return_section', 'discover'),
-                                status='add_failed'))
+        return redirect(
+            url_for(
+                'index', section=request.form.get('return_section', 'discover'), status='add_failed'
+            )
+        )
 
     store.add_media_item(
         imdb_id=meta['imdb_id'],
@@ -1823,12 +1795,11 @@ def _fetch_best_metadata(item) -> dict:
     if meta.get('poster_url'):
         same_type = (meta.get('media_type') or media_type) == media_type
         expected_title = fallback_title or item.get('title')
-        title_matches = (_titles_likely_match(expected_title, meta.get('title'))
-                         if expected_title else True)
+        title_matches = (
+            _titles_likely_match(expected_title, meta.get('title')) if expected_title else True
+        )
         year_matches = (
-            year is None
-            or meta.get('year') is None
-            or abs(int(meta.get('year')) - int(year)) <= 1
+            year is None or meta.get('year') is None or abs(int(meta.get('year')) - int(year)) <= 1
         )
         if same_type and title_matches and year_matches:
             return meta
@@ -1879,8 +1850,11 @@ def _ui_item_payload(media_id: int) -> dict | None:
         payload = dict(row)
         path = payload.get('path') or ''
         status = (payload.get('download_status') or '').strip().lower()
-        payload['file_missing'] = (_is_local_media_missing(path)
-                                   and status not in {'starting', 'handed_off', 'downloading'})
+        payload['file_missing'] = _is_local_media_missing(path) and status not in {
+            'starting',
+            'handed_off',
+            'downloading',
+        }
         payload['upgrade_available'] = _upgrade_available(row)
         return payload
     return None
@@ -1895,8 +1869,9 @@ def refresh_metadata(media_id: int):
         return redirect(url_for('index'))
     meta = _fetch_best_metadata(item)
     poster_key = meta.get('imdb_id') or item['imdb_id'] or str(media_id)
-    poster_url = (cache_poster(poster_key, meta.get('poster_url') or '', force_replace=True)
-                  or meta.get('poster_url'))
+    poster_url = cache_poster(
+        poster_key, meta.get('poster_url') or '', force_replace=True
+    ) or meta.get('poster_url')
     store.update_metadata(
         media_id=media_id,
         imdb_id=meta.get('imdb_id'),
@@ -1943,11 +1918,19 @@ def refresh_all_metadata():
     for item in all_items:
         try:
             # Skip items that already have complete metadata
-            title_ok = (item['title'] and not item['title'].startswith('tt')
-                        and not item['title'].startswith('nm')
-                        and item['title'] != '/spotlight/')
-            if (not force_refresh and title_ok and item['poster_url']
-                    and item['synopsis'] and item['year']):
+            title_ok = (
+                item['title']
+                and not item['title'].startswith('tt')
+                and not item['title'].startswith('nm')
+                and item['title'] != '/spotlight/'
+            )
+            if (
+                not force_refresh
+                and title_ok
+                and item['poster_url']
+                and item['synopsis']
+                and item['year']
+            ):
                 continue
             meta = _fetch_best_metadata(item)
             if not meta.get('poster_url') and not meta.get('title'):
@@ -2035,6 +2018,7 @@ def fetch_subtitles_api(media_id: int):
 
     try:
         from subtitle_client import fetch_subtitles
+
         found = fetch_subtitles(
             video_path,
             title=item.get('title'),
@@ -2056,8 +2040,9 @@ def check_all():
     """Run a quality search for all items, or a specific media_type if supplied."""
     media_type = request.form.get('media_type') or None
     all_items = store.list_media_items()
-    items = ([i for i in all_items if i['media_type'] == media_type]
-             if media_type else list(all_items))
+    items = (
+        [i for i in all_items if i['media_type'] == media_type] if media_type else list(all_items)
+    )
 
     qb.set_mirror_urls(configured_mirror_urls())
 
@@ -2198,11 +2183,14 @@ def trakt_connect_poll():
         return jsonify({'ok': True, 'status': 'connected', 'profile': profile})
     except TraktRequestError as exc:
         if exc.code in {'pending', 'slow_down'}:
-            return jsonify({
-                'ok': True,
-                'status': 'pending',
-                'interval': int(flow.get('interval') or 5) + (5 if exc.code == 'slow_down' else 0),
-            })
+            return jsonify(
+                {
+                    'ok': True,
+                    'status': 'pending',
+                    'interval': int(flow.get('interval') or 5)
+                    + (5 if exc.code == 'slow_down' else 0),
+                }
+            )
         if exc.code in {'expired', 'denied', 'already_used', 'not_found'}:
             _save_json_setting(TRAKT_DEVICE_SETTING, None)
             return jsonify({'ok': False, 'error': f'trakt_oauth_{exc.code}'}), 400
@@ -2298,8 +2286,9 @@ def save_settings():
             store.set_setting('server_port', str(port))
         return redirect(url_for('index', section='settings', status='public_access_saved'))
     if mirror_urls_raw is not None:
-        mirror_urls = [line.strip().rstrip('/')
-                       for line in mirror_urls_raw.splitlines() if line.strip()]
+        mirror_urls = [
+            line.strip().rstrip('/') for line in mirror_urls_raw.splitlines() if line.strip()
+        ]
         store.set_setting('mirror_urls', '\n'.join(mirror_urls))
 
     if qbt_webui_url_raw is not None:
@@ -2317,11 +2306,14 @@ def save_settings():
     if trakt_client_secret_raw is not None and trakt_client_secret_raw.strip():
         _set_trakt_client_secret(trakt_client_secret_raw)
 
-    changed_client_id = (trakt_client_id_raw is not None
-                         and trakt_client_id_raw.strip() != prev_trakt_client_id)
-    changed_client_secret = (trakt_client_secret_raw is not None
-                             and trakt_client_secret_raw.strip()
-                             and trakt_client_secret_raw.strip() != prev_trakt_secret)
+    changed_client_id = (
+        trakt_client_id_raw is not None and trakt_client_id_raw.strip() != prev_trakt_client_id
+    )
+    changed_client_secret = (
+        trakt_client_secret_raw is not None
+        and trakt_client_secret_raw.strip()
+        and trakt_client_secret_raw.strip() != prev_trakt_secret
+    )
     if changed_client_id or changed_client_secret:
         _clear_trakt_auth()
 
@@ -2332,18 +2324,6 @@ def save_settings():
         imported = import_from_configured_folders()
         return redirect(url_for('index', section='settings', status=f'settings_saved_{imported}'))
     return redirect(url_for('index', section='settings', status='settings_saved'))
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def _resolve_episode_file(show_path: str, relative: str) -> str | None:
@@ -2365,12 +2345,6 @@ def _resolve_episode_file(show_path: str, relative: str) -> str | None:
     return target
 
 
-
-
-
-
-
-
 def _request_video_file(item) -> str | None:
     """The video file this playback request refers to.
 
@@ -2384,8 +2358,6 @@ def _request_video_file(item) -> str | None:
     if episode:
         return _resolve_episode_file(path, episode)
     return _find_video_file(path)
-
-
 
 
 @app.route('/api/library/<int:media_id>/posters')
@@ -2405,12 +2377,14 @@ def library_poster_options(media_id: int):
         target = None if wanted == 'none' else wanted
         posters = [p for p in posters if (p['language'] or None) == target]
 
-    return jsonify({
-        'ok': True,
-        'media_id': media_id,
-        'current_poster_url': item['poster_url'],
-        'posters': posters[:60],
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'media_id': media_id,
+            'current_poster_url': item['poster_url'],
+            'posters': posters[:60],
+        }
+    )
 
 
 @app.route('/api/library/<int:media_id>/poster', methods=['POST'])
@@ -2441,12 +2415,14 @@ def discover_missing_episodes():
     if not tmdb:
         return jsonify({'ok': False, 'error': 'tmdb_not_configured'}), 503
     shows = _discover_missing_episodes()
-    return jsonify({
-        'ok': True,
-        'shows': shows,
-        'show_count': len(shows),
-        'episode_count': sum(show['missing_count'] for show in shows),
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'shows': shows,
+            'show_count': len(shows),
+            'episode_count': sum(show['missing_count'] for show in shows),
+        }
+    )
 
 
 @app.route('/api/discover/ignore-tv', methods=['POST'])
@@ -2500,13 +2476,15 @@ def tv_missing_episodes(media_id: int):
 
     ignored = store.list_ignored_tv().get(int(item['tmdb_id'] or 0), set())
     show = _missing_episodes_for_show(item, ignored)
-    return jsonify({
-        'ok': True,
-        'media_id': media_id,
-        'title': item['title'],
-        'show': show,
-        'missing_count': show['missing_count'] if show else 0,
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'media_id': media_id,
+            'title': item['title'],
+            'show': show,
+            'missing_count': show['missing_count'] if show else 0,
+        }
+    )
 
 
 @app.route('/api/tv/<int:media_id>/episode-candidates')
@@ -2537,24 +2515,28 @@ def tv_episode_candidates(media_id: int):
     candidates = []
     for row in rows:
         name = row.get('name') or ''
-        candidates.append({
-            'name': name,
-            'size': row.get('size') or '',
-            'seeds': row.get('seeds') or '0',
-            'leech': row.get('leech') or '0',
-            'desc_link': row.get('desc_link') or '',
-            'link': row.get('link') or '',
-            'quality': detect_quality(name),
-            'trusted': any(group in name.lower() for group in TRUSTED_RELEASE_GROUPS),
-        })
+        candidates.append(
+            {
+                'name': name,
+                'size': row.get('size') or '',
+                'seeds': row.get('seeds') or '0',
+                'leech': row.get('leech') or '0',
+                'desc_link': row.get('desc_link') or '',
+                'link': row.get('link') or '',
+                'quality': detect_quality(name),
+                'trusted': any(group in name.lower() for group in TRUSTED_RELEASE_GROUPS),
+            }
+        )
     candidates.sort(key=lambda c: (not c['trusted'], -int(c['seeds'] or 0)))
-    return jsonify({
-        'ok': True,
-        'media_id': media_id,
-        'query': query,
-        'title': f'{title} S{season:02d}E{episode:02d}',
-        'candidates': candidates[:25],
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'media_id': media_id,
+            'query': query,
+            'title': f'{title} S{season:02d}E{episode:02d}',
+            'candidates': candidates[:25],
+        }
+    )
 
 
 @app.route('/api/tv/<int:media_id>/seasons')
@@ -2590,23 +2572,29 @@ def tv_seasons_listing(media_id: int):
         else:
             featurette_seasons[season] = featurette_seasons.get(season, 0) + 1
 
-    seasons = [{
-        'season_number': number,
-        'name': tmdb_names.get(number) or ('Specials' if number == 0 else f'Season {number}'),
-        'owned_count': count,
-        'episode_count': tmdb_counts.get(number) or count,
-        'featurette_count': featurette_seasons.get(number, 0),
-    } for number, count in sorted(owned_counts.items())]
+    seasons = [
+        {
+            'season_number': number,
+            'name': tmdb_names.get(number) or ('Specials' if number == 0 else f'Season {number}'),
+            'owned_count': count,
+            'episode_count': tmdb_counts.get(number) or count,
+            'featurette_count': featurette_seasons.get(number, 0),
+        }
+        for number, count in sorted(owned_counts.items())
+    ]
 
     # Seasons that hold only featurettes still deserve an entry.
     for number in sorted(set(featurette_seasons) - set(owned_counts)):
-        seasons.append({
-            'season_number': number,
-            'name': tmdb_names.get(number) or ('Specials' if number == 0 else f'Season {number}'),
-            'owned_count': 0,
-            'episode_count': tmdb_counts.get(number) or 0,
-            'featurette_count': featurette_seasons[number],
-        })
+        seasons.append(
+            {
+                'season_number': number,
+                'name': tmdb_names.get(number)
+                or ('Specials' if number == 0 else f'Season {number}'),
+                'owned_count': 0,
+                'episode_count': tmdb_counts.get(number) or 0,
+                'featurette_count': featurette_seasons[number],
+            }
+        )
     seasons.sort(key=lambda entry: entry['season_number'])
 
     # Included so the hero can offer its "missing" action to any show with gaps,
@@ -2614,18 +2602,20 @@ def tv_seasons_listing(media_id: int):
     ignored = store.list_ignored_tv().get(int(item['tmdb_id'] or 0), set())
     gaps = _missing_episodes_for_show(item, ignored)
 
-    return jsonify({
-        'ok': True,
-        'media_id': media_id,
-        'title': item['title'],
-        'seasons': seasons,
-        'extras_count': show_level_extras,
-        'unmatched_count': len(unmatched),
-        'status': overview.get('status'),
-        'in_production': bool(overview.get('in_production')),
-        'next_air_date': overview.get('next_air_date'),
-        'missing_count': gaps['missing_count'] if gaps else 0,
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'media_id': media_id,
+            'title': item['title'],
+            'seasons': seasons,
+            'extras_count': show_level_extras,
+            'unmatched_count': len(unmatched),
+            'status': overview.get('status'),
+            'in_production': bool(overview.get('in_production')),
+            'next_air_date': overview.get('next_air_date'),
+            'missing_count': gaps['missing_count'] if gaps else 0,
+        }
+    )
 
 
 @app.route('/api/tv/<int:media_id>/season/<int:season_number>')
@@ -2638,8 +2628,9 @@ def tv_season_episodes(media_id: int, season_number: int):
     matched, unmatched = scan_local_episodes(show_path, item['title'] or '')
     metadata = {
         entry['episode_number']: entry
-        for entry in (_cached_season_episodes(item['tmdb_id'], season_number)
-                      if item['tmdb_id'] else [])
+        for entry in (
+            _cached_season_episodes(item['tmdb_id'], season_number) if item['tmdb_id'] else []
+        )
     }
 
     owned = {number: path for (season, number), path in matched.items() if season == season_number}
@@ -2647,33 +2638,39 @@ def tv_season_episodes(media_id: int, season_number: int):
     episodes = []
     for number in sorted(owned):
         meta = metadata.get(number, {})
-        episodes.append({
-            'season_number': season_number,
-            'episode_number': number,
-            'title': meta.get('title') or f'Episode {number}',
-            'synopsis': meta.get('synopsis'),
-            'air_date': meta.get('air_date'),
-            'runtime': meta.get('runtime'),
-            'still_url': meta.get('still_url'),
-            'file': os.path.relpath(owned[number], show_path),
-        })
+        episodes.append(
+            {
+                'season_number': season_number,
+                'episode_number': number,
+                'title': meta.get('title') or f'Episode {number}',
+                'synopsis': meta.get('synopsis'),
+                'air_date': meta.get('air_date'),
+                'runtime': meta.get('runtime'),
+                'still_url': meta.get('still_url'),
+                'file': os.path.relpath(owned[number], show_path),
+            }
+        )
 
     # Files with no SxxExx are listed for the specials/unknown view only, so a
     # show that uses another convention is still playable rather than invisible.
-    extras = [] if season_number != 0 else [
-        {'name': os.path.basename(path), 'file': os.path.relpath(path, show_path)}
-        for path in unmatched
-    ]
+    extras = (
+        []
+        if season_number != 0
+        else [
+            {'name': os.path.basename(path), 'file': os.path.relpath(path, show_path)}
+            for path in unmatched
+        ]
+    )
 
-    return jsonify({
-        'ok': True,
-        'media_id': media_id,
-        'season_number': season_number,
-        'episodes': episodes,
-        'unmatched': extras,
-    })
-
-
+    return jsonify(
+        {
+            'ok': True,
+            'media_id': media_id,
+            'season_number': season_number,
+            'episodes': episodes,
+            'unmatched': extras,
+        }
+    )
 
 
 @app.route('/api/tv/<int:media_id>/unmatched')
@@ -2702,12 +2699,14 @@ def tv_unmatched_files(media_id: int):
         elif requested and str(season) != requested:
             continue
         basename = os.path.basename(path)
-        files.append({
-            'name': basename,
-            'label': _featurette_label(basename),
-            'season': season,
-            'file': os.path.relpath(path, show_path),
-        })
+        files.append(
+            {
+                'name': basename,
+                'label': _featurette_label(basename),
+                'season': season,
+                'file': os.path.relpath(path, show_path),
+            }
+        )
     return jsonify({'ok': True, 'media_id': media_id, 'files': files})
 
 
@@ -2750,9 +2749,6 @@ def watch_video(media_id: int):
     )
 
 
-
-
-
 # Per-media lock guards segment-endpoint restarts so concurrent hls.js requests cooperate.
 _hls_segment_locks: dict[int, threading.Lock] = {}
 _hls_segment_locks_guard = threading.Lock()
@@ -2766,18 +2762,6 @@ def _hls_lock_for(media_id: int) -> threading.Lock:
             lock = threading.Lock()
             _hls_segment_locks[media_id] = lock
         return lock
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def _is_hls_playable(manifest_path: str, min_segments: int = 3) -> bool:
@@ -2797,20 +2781,6 @@ def _is_hls_playable(manifest_path: str, min_segments: int = 3) -> bool:
         return False
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def _is_direct_play_compatible(info: dict) -> bool:
     """Return True when the file can be served directly without any transcoding.
 
@@ -2821,12 +2791,6 @@ def _is_direct_play_compatible(info: dict) -> bool:
         info.get('video_codec') in _DIRECT_PLAY_VIDEO_CODECS
         and info.get('audio_codec') in _DIRECT_PLAY_AUDIO_CODECS
     )
-
-
-
-
-
-
 
 
 @app.route('/api/video/<int:media_id>/stream')
@@ -2894,10 +2858,6 @@ def stream_video(media_id: int):
     return resp
 
 
-
-
-
-
 @app.route('/api/video/<int:media_id>/subtitle/<int:index>')
 def subtitle_file(media_id: int, index: int):
     """Serve a subtitle file by media_id and subtitle index."""
@@ -2960,29 +2920,35 @@ def video_strategy(media_id: int):
         return jsonify({'ok': True, 'strategy': 'hls', 'reason': 'probe_failed'})
 
     if _is_direct_play_compatible(info):
-        return jsonify({
-            'ok': True,
-            'strategy': 'direct_play',
-            'video_codec': info['video_codec'],
-            'audio_codec': info['audio_codec'],
-        })
+        return jsonify(
+            {
+                'ok': True,
+                'strategy': 'direct_play',
+                'video_codec': info['video_codec'],
+                'audio_codec': info['audio_codec'],
+            }
+        )
 
     if info.get('video_codec') in _DIRECT_PLAY_VIDEO_CODECS:
-        return jsonify({
+        return jsonify(
+            {
+                'ok': True,
+                'strategy': 'direct_stream',
+                'video_codec': info['video_codec'],
+                'audio_codec': info['audio_codec'],
+                'reason': 'audio_codec_incompatible',
+            }
+        )
+
+    return jsonify(
+        {
             'ok': True,
-            'strategy': 'direct_stream',
+            'strategy': 'hls',
             'video_codec': info['video_codec'],
             'audio_codec': info['audio_codec'],
-            'reason': 'audio_codec_incompatible',
-        })
-
-    return jsonify({
-        'ok': True,
-        'strategy': 'hls',
-        'video_codec': info['video_codec'],
-        'audio_codec': info['audio_codec'],
-        'reason': 'codec_incompatible',
-    })
+            'reason': 'codec_incompatible',
+        }
+    )
 
 
 @app.route('/api/video/<int:media_id>/direct-stream/status')
@@ -3003,8 +2969,6 @@ def direct_stream_status(media_id: int):
 
     ready = _is_hls_playable(manifest_path, min_segments=2)
     return jsonify({'ok': True, 'ready': ready})
-
-
 
 
 @app.route('/api/video/<int:media_id>/direct-stream/master.m3u8')
@@ -3035,10 +2999,14 @@ def direct_stream_master_playlist(media_id: int):
                 with open(manifest_path) as f:
                     content = f.read()
                 if content and content.startswith('#EXTM3U'):
-                    return _rewrite_playlist_segments(content), 200, {
-                        'Content-Type': 'application/vnd.apple.mpegurl',
-                        'Cache-Control': 'no-store, max-age=0',
-                    }
+                    return (
+                        _rewrite_playlist_segments(content),
+                        200,
+                        {
+                            'Content-Type': 'application/vnd.apple.mpegurl',
+                            'Cache-Control': 'no-store, max-age=0',
+                        },
+                    )
             except Exception:
                 pass
 
@@ -3050,10 +3018,14 @@ def direct_stream_master_playlist(media_id: int):
                     with open(manifest_path) as f:
                         content = f.read()
                     if content and content.startswith('#EXTM3U'):
-                        return _rewrite_playlist_segments(content), 200, {
-                            'Content-Type': 'application/vnd.apple.mpegurl',
-                            'Cache-Control': 'no-store, max-age=0',
-                        }
+                        return (
+                            _rewrite_playlist_segments(content),
+                            200,
+                            {
+                                'Content-Type': 'application/vnd.apple.mpegurl',
+                                'Cache-Control': 'no-store, max-age=0',
+                            },
+                        )
                 except Exception:
                     pass
             return 'Direct streaming error', 500
@@ -3068,7 +3040,8 @@ def direct_stream_master_playlist(media_id: int):
 def direct_stream_segment(media_id: int, filename: str):
     """Serve direct-stream HLS segments and playlists."""
     cache_dir = os.path.realpath(
-        os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id), 'direct_stream'))
+        os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id), 'direct_stream')
+    )
 
     # Rejecting '..' is not enough on its own: os.path.join discards the base
     # when the second part is absolute, so a filename like "C:/…/anything.mp4"
@@ -3086,28 +3059,40 @@ def direct_stream_segment(media_id: int, filename: str):
         if filename.endswith('.m3u8'):
             with open(file_path) as f:
                 content = f.read()
-            return content, 200, {
-                'Content-Type': 'application/vnd.apple.mpegurl',
-                'Cache-Control': 'no-store, max-age=0',
-            }
+            return (
+                content,
+                200,
+                {
+                    'Content-Type': 'application/vnd.apple.mpegurl',
+                    'Cache-Control': 'no-store, max-age=0',
+                },
+            )
         if filename.endswith('.m4s'):
             with open(file_path, 'rb') as f:
                 content = f.read()
-            return content, 200, {
-                'Content-Type': 'video/iso.segment',
-                'Cache-Control': 'no-store, max-age=0',
-                'Pragma': 'no-cache',
-                'Expires': '0',
-            }
+            return (
+                content,
+                200,
+                {
+                    'Content-Type': 'video/iso.segment',
+                    'Cache-Control': 'no-store, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                },
+            )
         if filename.endswith('.mp4'):
             with open(file_path, 'rb') as f:
                 content = f.read()
-            return content, 200, {
-                'Content-Type': 'video/mp4',
-                'Cache-Control': 'no-store, max-age=0',
-                'Pragma': 'no-cache',
-                'Expires': '0',
-            }
+            return (
+                content,
+                200,
+                {
+                    'Content-Type': 'video/mp4',
+                    'Cache-Control': 'no-store, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                },
+            )
         return 'Unsupported file type', 400
     except Exception:
         return 'Error reading file', 500
@@ -3200,35 +3185,39 @@ def video_compatibility_report():
             status = 'codec_incompatible'
             strategy = 'hls'
 
-        report_items.append({
-            'media_id': media_id,
-            'title': title,
-            'year': year,
-            'status': status,
-            'strategy': strategy,
-            'issues': issues,
-            'video_file': video_file,
-            'container': info.get('container') or '',
-            'video_codec': info.get('video_codec') or '',
-            'audio_codec': info.get('audio_codec') or '',
-            'width': info.get('width'),
-            'height': info.get('height'),
-            'duration': info.get('duration'),
-        })
+        report_items.append(
+            {
+                'media_id': media_id,
+                'title': title,
+                'year': year,
+                'status': status,
+                'strategy': strategy,
+                'issues': issues,
+                'video_file': video_file,
+                'container': info.get('container') or '',
+                'video_codec': info.get('video_codec') or '',
+                'audio_codec': info.get('audio_codec') or '',
+                'width': info.get('width'),
+                'height': info.get('height'),
+                'duration': info.get('duration'),
+            }
+        )
 
         if limit and len(report_items) >= limit:
             break
 
-    return jsonify({
-        'ok': True,
-        'summary': counts,
-        'total_returned': len(report_items),
-        'filters': {
-            'only_issues': only_issues,
-            'limit': limit,
-        },
-        'items': report_items,
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'summary': counts,
+            'total_returned': len(report_items),
+            'filters': {
+                'only_issues': only_issues,
+                'limit': limit,
+            },
+            'items': report_items,
+        }
+    )
 
 
 @app.route('/api/video/<int:media_id>/hls/ping', methods=['POST'])
@@ -3274,12 +3263,14 @@ def hls_status(media_id: int):
     if not info or not info.get('duration'):
         return jsonify({'ok': False, 'error': 'probe_failed'}), 500
 
-    return jsonify({
-        'ok': True,
-        'ready': True,
-        'duration': info.get('duration'),
-        'segment_length': _HLS_SEGMENT_LENGTH,
-    })
+    return jsonify(
+        {
+            'ok': True,
+            'ready': True,
+            'duration': info.get('duration'),
+            'segment_length': _HLS_SEGMENT_LENGTH,
+        }
+    )
 
 
 @app.route('/api/video/<int:media_id>/hls/master.m3u8')
@@ -3305,10 +3296,14 @@ def hls_master_playlist(media_id: int):
         return 'Probe failed', 500
 
     playlist = _build_vod_playlist(duration, segment_query=_segment_query_suffix())
-    return playlist, 200, {
-        'Content-Type': 'application/vnd.apple.mpegurl',
-        'Cache-Control': 'no-store, max-age=0',
-    }
+    return (
+        playlist,
+        200,
+        {
+            'Content-Type': 'application/vnd.apple.mpegurl',
+            'Cache-Control': 'no-store, max-age=0',
+        },
+    )
 
 
 @app.route('/api/video/<int:media_id>/hls/<path:filename>')
@@ -3417,12 +3412,16 @@ def hls_segment(media_id: int, filename: str):
     except Exception:
         return 'Error reading segment', 500
 
-    return content, 200, {
-        'Content-Type': 'video/mp2t',
-        'Cache-Control': 'no-store, max-age=0',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-    }
+    return (
+        content,
+        200,
+        {
+            'Content-Type': 'video/mp2t',
+            'Cache-Control': 'no-store, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+        },
+    )
 
 
 @app.route('/api/video/<int:media_id>/playback', methods=['GET', 'POST'])
@@ -3436,12 +3435,14 @@ def playback_position_api(media_id: int):
         playback = store.get_playback_position(media_id)
         playback = dict(playback) if playback else None
         if playback:
-            return jsonify({
-                'ok': True,
-                'position_seconds': playback.get('position_seconds', 0),
-                'duration_seconds': playback.get('duration_seconds'),
-                'last_updated': playback.get('last_updated'),
-            })
+            return jsonify(
+                {
+                    'ok': True,
+                    'position_seconds': playback.get('position_seconds', 0),
+                    'duration_seconds': playback.get('duration_seconds'),
+                    'last_updated': playback.get('last_updated'),
+                }
+            )
         return jsonify({'ok': True, 'position_seconds': 0, 'duration_seconds': None})
 
     elif request.method == 'POST':
@@ -3522,7 +3523,8 @@ if __name__ == '__main__':
         app.logger.warning(
             'Public access is ON: listening on %s:%s with no authentication. '
             'Anyone who can reach this port can browse, stream and control downloads.',
-            bind_host, RUNNING_PORT,
+            bind_host,
+            RUNNING_PORT,
         )
 
     app.run(debug=debug_enabled, host=bind_host, port=RUNNING_PORT)

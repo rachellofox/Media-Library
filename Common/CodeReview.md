@@ -36,6 +36,7 @@ progress is measurable rather than asserted.
 | Tests in repo | **0** | 20 files, ~438 assertions |
 | CI workflows | **0** | 1 (lint, compile, test, startup) |
 | Lint findings (`ruff check .`) | n/a — no linter | **0** |
+| Formatting (`ruff format --check`) | n/a — no formatter | **53 files conform** |
 | Lines over 100 chars | 80 (of a then-unset limit) | **0** |
 | Style violations (dividers, dead code, missing docstrings) | 0 | 0 |
 
@@ -104,15 +105,14 @@ in some ways and not others.
     but the outer test is what makes `os.path.samefile` safe to call, and that is
     the path that has caused data loss twice.
   The other 114 were line length, rewrapped by hand across 23 files.
-- [?] A9. **Adopt `ruff format` as well?** Measured rather than guessed: running
-  it would fix 88 of the 114 long lines automatically and the suite still passed
-  afterwards — but it rewrites **3,794 lines across 34 files**, converting `'''`
-  to `"""` and exploding deliberately grouped argument lists to one per line.
-  That is a formatter adoption, which is a bigger decision than clearing lint,
-  and it overrides layout you chose on purpose. Reverted, and the 114 lines were
-  wrapped by hand instead. Worth revisiting as its own decision: a formatter
-  makes consistency permanent and ends line-length debate, at the cost of one
-  large diff and some hand-tuned layout. *Your call.*
+- [x] A9. **`ruff format` adopted. Done 2026-07-26, on your decision.** 40 files
+  reformatted, 4,123 lines changed, 13 already conforming. Lint stayed clean and
+  all 20 test files passed afterwards, with the app answering on 62 routes and
+  352 items.
+  The style guide now says the formatter *owns* layout — spacing, line breaks and
+  argument alignment are not to be hand-tuned — and CI runs
+  `ruff format --check` alongside `ruff check`, so consistency is enforced rather
+  than remembered. This is what makes A2's line-length rule self-maintaining.
 - [ ] A6. **`copilot-instructions.md` describes a repo that no longer exists.**
   It lists `imdb_client.py` as the metadata client (it is dead — see B6, and
   TMDB is the real client) and points at `docs/` (deleted — see C3). It omits
@@ -143,9 +143,14 @@ tracked but are not, and leftovers.
   closing off whatever it contains, and `media.backup*.db` is covered too.
   The lesson is the one this review keeps re-learning — a claim asserted from a
   filename rather than from the file's contents.
-- [?] B2. **`media.db` is an empty stray** (0 bytes, no tables). Nothing reads or
-  writes it — `DB_PATH` points at `library.db`. Propose deletion. *Your call.*
-  `library.db` is the live database and must stay.
+- [x] B2. **`media.db` deleted. Done 2026-07-26, on your decision.** Confirmed
+  empty first — 0 bytes, no tables — and `DB_PATH` points at `library.db`. The
+  only mention anywhere was a line in `tests/README.md` naming it as the database
+  tests must not touch; corrected to `library.db`.
+  Worth recording how it probably got there: verifying it, I ran
+  `sqlite3.connect('media.db')`, which **created the file I was checking for**.
+  An earlier probe script of mine almost certainly created the original the same
+  way. `sqlite3.connect` is not a read-only operation.
 - [x] B3. **`tmp/` was not ignored.** It holds `tmp/hls/`, the live transcode
   cache, which must never be committed. **Done 2026-07-26:** `tmp/` ignored.
   The stray `.cs` file inside it is still a decision — see B7.
@@ -167,8 +172,11 @@ tracked but are not, and leftovers.
   as "retained", and a docstring in `tmdb_client.py` describing its return shape
   as "the IMDbClient.metadata() contract". Recoverable from history if ever
   needed.
-- [?] B7. **`tmp/reference/TranscodeManager.cs`** — propose deletion or move out
-  of the repo, unless you still want it as a reference. *Your call.*
+- [x] B7. **`tmp/reference/TranscodeManager.cs` deleted. Done 2026-07-26, on your
+  decision.** 28 KB of C# from another project, referenced by nothing in the
+  codebase or the docs. It was **not tracked by git** — `tmp/` is ignored — so
+  unlike the other deletions this one is not recoverable from history. Flagged
+  before removing. `tmp/` now holds only the live HLS cache.
 
 ---
 

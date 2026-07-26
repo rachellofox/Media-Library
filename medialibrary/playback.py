@@ -32,6 +32,7 @@ def _cleanup_hls_cache(media_id: int | None = None) -> None:
         try:
             if os.path.isdir(cache_path):
                 import shutil
+
                 shutil.rmtree(cache_path, ignore_errors=True)
         except Exception:
             pass
@@ -40,9 +41,11 @@ def _cleanup_hls_cache(media_id: int | None = None) -> None:
         try:
             if os.path.isdir(HLS_CACHE_DIR):
                 import shutil
+
                 shutil.rmtree(HLS_CACHE_DIR, ignore_errors=True)
         except Exception:
             pass
+
 
 def _request_episode() -> str:
     # Transcode helpers are also reached from background threads, where there is
@@ -64,6 +67,7 @@ def _playback_cache_key(media_id: int) -> str:
         return str(media_id)
     return f'{media_id}-{hashlib.sha1(episode.encode("utf-8")).hexdigest()[:12]}'
 
+
 def _get_video_mime_type(filepath: str) -> str:
     """Return the MIME type for a video file based on extension."""
     _, ext = os.path.splitext(filepath)
@@ -78,6 +82,7 @@ def _get_video_mime_type(filepath: str) -> str:
     }
     return mime_map.get(ext, 'video/mp4')
 
+
 # Track active HLS transcoding jobs: media_id -> {'process': Popen, 'started': timestamp}
 _transcode_jobs: dict[int, dict] = {}
 
@@ -86,6 +91,7 @@ _direct_stream_jobs: dict[int, dict] = {}
 
 # Jellyfin-style segment-on-demand HLS settings.
 _HLS_SEGMENT_LENGTH = 6  # seconds per segment for the generated VOD playlist.
+
 
 def _segment_lengths_for(duration: float, seg_len: int = _HLS_SEGMENT_LENGTH) -> list[float]:
     """Return per-segment durations covering the full source runtime.
@@ -104,6 +110,7 @@ def _segment_lengths_for(duration: float, seg_len: int = _HLS_SEGMENT_LENGTH) ->
         out.append(round(float(duration), 3))
     return out
 
+
 def _segment_query_suffix() -> str:
     """Query string to append to segment URLs inside a playlist.
 
@@ -115,8 +122,9 @@ def _segment_query_suffix() -> str:
     return f'?episode={urllib.parse.quote(episode)}' if episode else ''
 
 
-def _build_vod_playlist(duration: float, seg_len: int = _HLS_SEGMENT_LENGTH,
-                        segment_query: str = '') -> str:
+def _build_vod_playlist(
+    duration: float, seg_len: int = _HLS_SEGMENT_LENGTH, segment_query: str = ''
+) -> str:
     """Generate a complete HLS VOD playlist listing every segment up front."""
     seg_lens = _segment_lengths_for(duration, seg_len)
     target = max(1, int(seg_len))
@@ -134,7 +142,9 @@ def _build_vod_playlist(duration: float, seg_len: int = _HLS_SEGMENT_LENGTH,
     lines.append('#EXT-X-ENDLIST')
     return '\n'.join(lines) + '\n'
 
+
 _SEGMENT_FILE_RE = re.compile(r'^segment_(\d+)\.ts$')
+
 
 def _highest_completed_segment(cache_dir: str) -> int | None:
     """Scan cache_dir for the largest fully-written segment_NNNNN.ts index.
@@ -159,6 +169,7 @@ def _highest_completed_segment(cache_dir: str) -> int | None:
     # All but the highest are guaranteed complete (FFmpeg moves on after closing them).
     return indices[-2] if len(indices) > 1 else None
 
+
 def _is_hls_complete(manifest_path: str) -> bool:
     """Return True when an HLS VOD manifest has finished writing."""
     if not os.path.isfile(manifest_path):
@@ -169,6 +180,7 @@ def _is_hls_complete(manifest_path: str) -> bool:
         return '#EXT-X-ENDLIST' in content
     except Exception:
         return False
+
 
 def _cleanup_finished_transcode_job(media_id: int) -> None:
     """Remove completed/failed jobs and close any open log file handles."""
@@ -188,6 +200,7 @@ def _cleanup_finished_transcode_job(media_id: int) -> None:
 
     _transcode_jobs.pop(media_id, None)
 
+
 def _cleanup_finished_direct_stream_job(media_id: int) -> None:
     """Remove completed/failed direct-stream jobs and close open log handles."""
     job = _direct_stream_jobs.get(media_id)
@@ -205,6 +218,7 @@ def _cleanup_finished_direct_stream_job(media_id: int) -> None:
             pass
 
     _direct_stream_jobs.pop(media_id, None)
+
 
 def _stop_hls_transcode_job(media_id: int) -> None:
     """Stop an active HLS transcode process and release resources."""
@@ -232,8 +246,10 @@ def _stop_hls_transcode_job(media_id: int) -> None:
 
     _transcode_jobs.pop(media_id, None)
 
+
 # Jellyfin-style keep-alive: kill idle HLS jobs after this many seconds with no ping.
 _HLS_JOB_PING_TIMEOUT = 60.0
+
 
 def _start_job_kill_timer(media_id: int) -> None:
     """Start a background watchdog thread for an HLS transcode job.
@@ -243,8 +259,10 @@ def _start_job_kill_timer(media_id: int) -> None:
     ping, falling back to the job start time so newly created jobs are
     also reaped if the player never connects.
     """
+
     def _watch() -> None:
         import time as _time
+
         while True:
             _time.sleep(10)
             job = _transcode_jobs.get(media_id)
@@ -265,6 +283,7 @@ def _start_job_kill_timer(media_id: int) -> None:
     t = threading.Thread(target=_watch, daemon=True, name=f'hls-kill-timer-{media_id}')
     t.start()
 
+
 def _get_video_info(video_file: str) -> dict | None:
     """Get video stream info using ffprobe.
 
@@ -272,9 +291,21 @@ def _get_video_info(video_file: str) -> dict | None:
     """
     try:
         result = subprocess.run(
-            [FFPROBE_EXE, '-v', 'quiet', '-print_format', 'json',
-             '-show_streams', '-show_format', video_file],
-            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30,
+            [
+                FFPROBE_EXE,
+                '-v',
+                'quiet',
+                '-print_format',
+                'json',
+                '-show_streams',
+                '-show_format',
+                video_file,
+            ],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            timeout=30,
         )
         if result.returncode != 0:
             return None
@@ -307,11 +338,13 @@ def _get_video_info(video_file: str) -> dict | None:
     except Exception:
         return None
 
+
 # Video codecs browsers reliably decode natively (H.264 is universally supported).
 _DIRECT_PLAY_VIDEO_CODECS = {'h264', 'avc', 'avc1'}
 
 # Audio codecs browsers handle natively.
 _DIRECT_PLAY_AUDIO_CODECS = {'aac', 'mp3', 'mpeg', 'opus', 'vorbis'}
+
 
 def _direct_play_issues(info: dict) -> list[str]:
     """Return a list of compatibility issues for direct browser playback."""
@@ -327,6 +360,7 @@ def _direct_play_issues(info: dict) -> list[str]:
         issues.append('audio_codec_unsupported')
 
     return issues
+
 
 def _start_hls_transcode(media_id: int, video_file: str, start_segment: int = 0) -> str | None:
     """Spawn an FFmpeg job that produces HLS segments starting at start_segment.
@@ -365,40 +399,69 @@ def _start_hls_transcode(media_id: int, video_file: str, start_segment: int = 0)
     cmd = [
         FFMPEG_EXE,
         '-hide_banner',
-        '-loglevel', 'warning',
-        '-ss', f'{start_seconds:.3f}',
-        '-i', video_file,
-        '-map_metadata', '-1',
-        '-map_chapters', '-1',
-        '-map', '0:v:0',
-        '-map', '0:a:0?',
+        '-loglevel',
+        'warning',
+        '-ss',
+        f'{start_seconds:.3f}',
+        '-i',
+        video_file,
+        '-map_metadata',
+        '-1',
+        '-map_chapters',
+        '-1',
+        '-map',
+        '0:v:0',
+        '-map',
+        '0:a:0?',
         '-sn',
         '-dn',
-        '-max_muxing_queue_size', '2048',
-        '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-crf', '23',
-        '-pix_fmt', 'yuv420p',
-        '-force_key_frames:0', f'expr:gte(t,n_forced*{seg_len})',
-        '-sc_threshold:v:0', '0',
-        '-g', str(gop_size),
-        '-keyint_min', str(seg_len),
-        '-c:a', 'aac',
-        '-ac', '2',
-        '-ar', '48000',
-        '-b:a', '192k',
+        '-max_muxing_queue_size',
+        '2048',
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-crf',
+        '23',
+        '-pix_fmt',
+        'yuv420p',
+        '-force_key_frames:0',
+        f'expr:gte(t,n_forced*{seg_len})',
+        '-sc_threshold:v:0',
+        '0',
+        '-g',
+        str(gop_size),
+        '-keyint_min',
+        str(seg_len),
+        '-c:a',
+        'aac',
+        '-ac',
+        '2',
+        '-ar',
+        '48000',
+        '-b:a',
+        '192k',
         # Keep input timestamps and align the output timeline from the seek point.
         '-copyts',
-        '-avoid_negative_ts', 'disabled',
+        '-avoid_negative_ts',
+        'disabled',
         '-start_at_zero',
-        '-f', 'hls',
-        '-hls_time', str(seg_len),
-        '-hls_list_size', '0',
-        '-hls_playlist_type', 'vod',
-        '-hls_segment_type', 'mpegts',
-        '-hls_flags', 'independent_segments+temp_file',
-        '-start_number', str(start_segment),
-        '-hls_segment_filename', os.path.join(cache_dir, 'segment_%05d.ts'),
+        '-f',
+        'hls',
+        '-hls_time',
+        str(seg_len),
+        '-hls_list_size',
+        '0',
+        '-hls_playlist_type',
+        'vod',
+        '-hls_segment_type',
+        'mpegts',
+        '-hls_flags',
+        'independent_segments+temp_file',
+        '-start_number',
+        str(start_segment),
+        '-hls_segment_filename',
+        os.path.join(cache_dir, 'segment_%05d.ts'),
         '-y',
         internal_playlist,
     ]
@@ -431,12 +494,14 @@ def _start_hls_transcode(media_id: int, video_file: str, start_segment: int = 0)
     _start_job_kill_timer(media_id)
     return cache_dir
 
+
 def _start_direct_stream(media_id: int, video_file: str) -> str | None:
     """Start a direct-stream HLS pipeline (copy video, transcode audio to AAC)."""
     _cleanup_finished_direct_stream_job(media_id)
     if media_id in _direct_stream_jobs:
-        return os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id),
-                            'direct_stream', 'master.m3u8')
+        return os.path.join(
+            HLS_CACHE_DIR, _playback_cache_key(media_id), 'direct_stream', 'master.m3u8'
+        )
 
     cache_dir = os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id), 'direct_stream')
     os.makedirs(cache_dir, exist_ok=True)
@@ -458,25 +523,42 @@ def _start_direct_stream(media_id: int, video_file: str) -> str | None:
 
         cmd = [
             FFMPEG_EXE,
-            '-i', video_file,
-            '-map', '0:v:0',
-            '-map', '0:a:0?',
-            '-map', '-0:s',
+            '-i',
+            video_file,
+            '-map',
+            '0:v:0',
+            '-map',
+            '0:a:0?',
+            '-map',
+            '-0:s',
             '-sn',
             '-dn',
-            '-c:v', 'copy',
-            '-c:a', 'aac',
-            '-ac', '2',
-            '-ar', '48000',
-            '-b:a', '192k',
-            '-f', 'hls',
-            '-hls_time', '2',
-            '-hls_list_size', '0',
-            '-hls_playlist_type', 'event',
-            '-hls_flags', 'independent_segments',
-            '-hls_segment_type', 'fmp4',
-            '-hls_fmp4_init_filename', 'init.mp4',
-            '-hls_segment_filename', os.path.join(cache_dir, 'segment_%03d.m4s'),
+            '-c:v',
+            'copy',
+            '-c:a',
+            'aac',
+            '-ac',
+            '2',
+            '-ar',
+            '48000',
+            '-b:a',
+            '192k',
+            '-f',
+            'hls',
+            '-hls_time',
+            '2',
+            '-hls_list_size',
+            '0',
+            '-hls_playlist_type',
+            'event',
+            '-hls_flags',
+            'independent_segments',
+            '-hls_segment_type',
+            'fmp4',
+            '-hls_fmp4_init_filename',
+            'init.mp4',
+            '-hls_segment_filename',
+            os.path.join(cache_dir, 'segment_%03d.m4s'),
             '-y',
             master_m3u8,
         ]
@@ -510,6 +592,7 @@ def _start_direct_stream(media_id: int, video_file: str) -> str | None:
         shutil.rmtree(cache_dir, ignore_errors=True)
         return None
 
+
 def _stream_file(filepath: str, chunk_size: int = 8192):
     """Generator to stream a file in chunks."""
     try:
@@ -521,6 +604,7 @@ def _stream_file(filepath: str, chunk_size: int = 8192):
                 yield chunk
     except Exception:
         pass
+
 
 def _stream_file_chunk(filepath: str, start: int, end: int, chunk_size: int = 8192):
     """Generator to stream a specific range of a file."""
@@ -537,6 +621,7 @@ def _stream_file_chunk(filepath: str, start: int, end: int, chunk_size: int = 81
                 yield chunk
     except Exception:
         pass
+
 
 def _rewrite_playlist_segments(content: str) -> str:
     """Append the episode selector to each segment line of an ffmpeg playlist.

@@ -10,6 +10,7 @@ form derived from its stored TMDB title and year:
 Reports what would change. Does NOT modify anything unless --apply is passed,
 and even then it only renames — nothing is ever deleted.
 """
+
 import os
 import sys
 
@@ -52,9 +53,14 @@ for item in store.list_media_items():
     if current_folder != stem:
         target = os.path.join(parent, stem)
         conflict = os.path.exists(target) and os.path.normcase(target) != os.path.normcase(path)
-        folder_renames.append({
-            'id': item['id'], 'from': path, 'to': target, 'conflict': conflict,
-        })
+        folder_renames.append(
+            {
+                'id': item['id'],
+                'from': path,
+                'to': target,
+                'conflict': conflict,
+            }
+        )
 
     # Video/subtitle files inside should share the folder's canonical stem.
     try:
@@ -72,11 +78,16 @@ for item in store.list_media_items():
         if ext.lower() in SUB_EXTS and child_stem.lower().startswith(stem.lower()):
             continue
         if child_stem != stem:
-            file_renames.append({
-                'id': item['id'], 'folder': current_folder,
-                'from': name, 'to': f'{stem}{ext}',
-                'path': child, 'target': os.path.join(path, f'{stem}{ext}'),
-            })
+            file_renames.append(
+                {
+                    'id': item['id'],
+                    'folder': current_folder,
+                    'from': name,
+                    'to': f'{stem}{ext}',
+                    'path': child,
+                    'target': os.path.join(path, f'{stem}{ext}'),
+                }
+            )
 
 print('=' * 74)
 print(f'CANONICAL NAMING PREVIEW{"  (APPLYING)" if APPLY else "  (dry run)"}')

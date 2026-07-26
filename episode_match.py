@@ -26,8 +26,18 @@ _PART_ALTERNATIVES = r'[0-9]+|one|two|three|four|five|six|i{1,3}v?|iv|vi?'
 _PART_WORD = re.compile(rf'\(\s*(?:part|pt)\.?\s*({_PART_ALTERNATIVES})\s*\)', re.I)
 _BARE_PART_WORD = re.compile(rf'\b(?:part|pt)\.?\s*({_PART_ALTERNATIVES})\b', re.I)
 _WORD_NUMBERS = {
-    'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5', 'six': '6',
-    'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5', 'vi': '6',
+    'one': '1',
+    'two': '2',
+    'three': '3',
+    'four': '4',
+    'five': '5',
+    'six': '6',
+    'i': '1',
+    'ii': '2',
+    'iii': '3',
+    'iv': '4',
+    'v': '5',
+    'vi': '6',
 }
 _RELEASE_NOISE = re.compile(
     r'\b(1080p|2160p|720p|480p|x264|x265|hevc|aac\d?|ac3|ddp?\d?|h ?26[45]|web-?dl|'
@@ -90,7 +100,7 @@ def names_other_show(filename: str, show_title: str) -> bool:
     marker = _EPISODE_MARKER_SPLIT.search(os.path.basename(str(filename or '')))
     if not marker:
         return False
-    prefix_tokens = _show_tokens(os.path.basename(str(filename))[:marker.start()])
+    prefix_tokens = _show_tokens(os.path.basename(str(filename))[: marker.start()])
     title_tokens = _show_tokens(show_title)
     if not prefix_tokens or not title_tokens:
         return False
@@ -103,6 +113,7 @@ def normalise_episode_title(raw: str) -> str:
     "(Part 2)" and "(2)" are the same episode written two ways, so both collapse
     to the same text; TMDB uses the latter and release names often use the former.
     """
+
     def as_number(match):
         value = match.group(1).lower()
         return f'({_WORD_NUMBERS.get(value, value)})'
@@ -146,7 +157,8 @@ def match_episode_title(filename: str, episodes: list[dict]) -> tuple[dict | Non
     # TMDB title being a whole leading phrase — part number included — is a
     # confident match, and the part number is what stops (1) matching (2).
     prefix_hits = [
-        episode for episode in episodes
+        episode
+        for episode in episodes
         if _is_leading_phrase(normalise_episode_title(episode.get('title') or ''), target)
     ]
     if len(prefix_hits) == 1:
@@ -161,7 +173,8 @@ def match_episode_title(filename: str, episodes: list[dict]) -> tuple[dict | Non
     target_tokens = _token_set(target)
     if target_tokens:
         token_hits = [
-            episode for episode in episodes
+            episode
+            for episode in episodes
             if _token_set(normalise_episode_title(episode.get('title') or '')) == target_tokens
         ]
         if len(token_hits) == 1:
@@ -220,7 +233,8 @@ def match_episode_files(filenames: list[str], episodes: list[dict]) -> dict[str,
         # Candidates are the numbered parts of the same story that nothing
         # confident has claimed yet.
         candidates = [
-            episode for episode in episodes
+            episode
+            for episode in episodes
             if (episode['season_number'], episode['episode_number']) not in claimed
             and _same_story(title, normalise_episode_title(episode.get('title') or ''))
         ]
@@ -255,6 +269,7 @@ def _same_story(local: str, tmdb_title: str) -> bool:
     """Whether two titles name the same story, ignoring any part number."""
     if not local or not tmdb_title:
         return False
+
     def strip_part(text):
         return re.sub(r'\s*\(\d+\)\s*$', '', text).strip()
 

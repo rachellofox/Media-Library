@@ -6,6 +6,7 @@ Each test file is a standalone script that exits non-zero on failure, so this
 runs them as subprocesses and reports a summary. JavaScript tests need node on
 PATH and are skipped with a notice if it is missing, rather than failing the run.
 """
+
 import os
 import shutil
 import subprocess
@@ -22,15 +23,17 @@ VERBOSE = '-v' in sys.argv
 
 
 def run(command, path):
-    result = subprocess.run([*command, path], capture_output=True, text=True,
-                            cwd=REPO_ROOT, timeout=600)
+    result = subprocess.run(
+        [*command, path], capture_output=True, text=True, cwd=REPO_ROOT, timeout=600
+    )
     return result.returncode, (result.stdout or '') + (result.stderr or '')
 
 
 def main():
     node = shutil.which('node')
-    names = sorted(n for n in os.listdir(TESTS_DIR)
-                   if n.startswith('test_') and n.endswith(('.py', '.js')))
+    names = sorted(
+        n for n in os.listdir(TESTS_DIR) if n.startswith('test_') and n.endswith(('.py', '.js'))
+    )
 
     passed, failed, skipped = [], [], []
     for name in names:
@@ -43,8 +46,14 @@ def main():
         command = [node] if name.endswith('.js') else [sys.executable]
         code, output = run(command, path)
         # The suites print their own "PASSED n FAILED n" tally; surface it.
-        tally = next((line.strip() for line in reversed(output.splitlines())
-                      if 'PASSED' in line or 'FAILED' in line), '')
+        tally = next(
+            (
+                line.strip()
+                for line in reversed(output.splitlines())
+                if 'PASSED' in line or 'FAILED' in line
+            ),
+            '',
+        )
         if code == 0:
             passed.append(name)
             print(f'PASS  {name:38} {tally}')

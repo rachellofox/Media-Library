@@ -26,6 +26,7 @@ VIDEO_EXTENSIONS = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv'}
 # extra, used when deciding whether a folder holds several distinct films.
 PACK_MIN_FEATURE_BYTES = 300 * 1024 * 1024
 
+
 def _best_local_video_path(media_path: str | None) -> str | None:
     path = (media_path or '').strip()
     if not path:
@@ -58,6 +59,7 @@ def _best_local_video_path(media_path: str | None) -> str | None:
         return None
     return max(candidates, key=lambda t: t[0])[1]
 
+
 def _videos_in(folder_path: str) -> list[str]:
     found = []
     if not folder_path or not os.path.isdir(folder_path):
@@ -67,6 +69,7 @@ def _videos_in(folder_path: str) -> list[str]:
             if os.path.splitext(name)[1].lower() in VIDEO_EXTENSIONS:
                 found.append(os.path.join(root, name))
     return found
+
 
 def _feature_videos_in(folder_path: str) -> list[str]:
     """Video files in a folder large enough to be features rather than extras.
@@ -90,6 +93,7 @@ def _feature_videos_in(folder_path: str) -> list[str]:
         return []
     return sorted(found)
 
+
 EPISODE_MARKER = re.compile(r'[Ss](\d{1,2})[ ._-]*[Ee](\d{1,3})')
 
 # One file can cover several episodes, e.g. "S04E01-E02" for a two-part premiere
@@ -101,6 +105,7 @@ EPISODE_RANGE_TAIL = re.compile(r'^(?:[ ._-]*[Ee](\d{1,3})|-(\d{1,3})(?![\dp]))'
 # A guard against a misparse inventing a huge span of episodes.
 EPISODE_RANGE_MAX_SPAN = 8
 
+
 def _episodes_covered(filename: str) -> tuple[int, list[int]] | None:
     """Season and every episode number a filename claims, or None."""
     marker = EPISODE_MARKER.search(filename)
@@ -109,7 +114,7 @@ def _episodes_covered(filename: str) -> tuple[int, list[int]] | None:
 
     season = int(marker.group(1))
     first = last = int(marker.group(2))
-    tail = filename[marker.end():]
+    tail = filename[marker.end() :]
     while True:
         step = EPISODE_RANGE_TAIL.match(tail)
         if not step:
@@ -118,8 +123,9 @@ def _episodes_covered(filename: str) -> tuple[int, list[int]] | None:
         if following <= last or following - first > EPISODE_RANGE_MAX_SPAN:
             break
         last = following
-        tail = tail[step.end():]
+        tail = tail[step.end() :]
     return season, list(range(first, last + 1))
+
 
 _SEASON_DIR_EXACT = re.compile(r'^(?:season\s*|s)(\d{1,2})$', re.I)
 
@@ -133,6 +139,7 @@ _SPECIALS_DIR = re.compile(r'^specials?$', re.I)
 _SEASON_DIR_EMBEDDED = re.compile(r'(?<![-–])\bseason\s*(\d{1,2})(?!\s*[-–]\s*\d)', re.I)
 
 _SEASON_DIR_SXX = re.compile(r'(?<![-–])\bs(\d{2})(?![\d\-–])', re.I)
+
 
 def _infer_season_from_path(show_path: str, file_path: str) -> int | None:
     """Season a non-episode file belongs to, taken from its folders.
@@ -157,14 +164,17 @@ def _infer_season_from_path(show_path: str, file_path: str) -> int | None:
                 return int(found.group(1))
     return None
 
+
 def _file_size(path: str) -> int:
     try:
         return os.path.getsize(path)
     except OSError:
         return 0
 
-def scan_local_episodes(show_path: str,
-                        show_title: str = '') -> tuple[dict[tuple[int, int], str], list[str]]:
+
+def scan_local_episodes(
+    show_path: str, show_title: str = ''
+) -> tuple[dict[tuple[int, int], str], list[str]]:
     """Index a show folder by (season, episode), plus any files with no marker.
 
     Only an SxxExx marker in the filename is trusted, and the folder it sits in is
@@ -203,6 +213,7 @@ def scan_local_episodes(show_path: str,
                 matched[key] = full
     return matched, unmatched
 
+
 def _pack_films_in(folder_path: str) -> list[str]:
     """Feature-sized videos in a folder that each carry their own release year.
 
@@ -217,6 +228,7 @@ def _pack_films_in(folder_path: str) -> list[str]:
         if year:
             films.append(video)
     return films
+
 
 def _detect_release_year(text: str) -> tuple[int | None, int | None]:
     """Find the release year and where the release noise starts.
@@ -242,6 +254,7 @@ def _detect_release_year(text: str) -> tuple[int | None, int | None]:
         if 1900 <= year <= max_year:
             found.append((year, match.start()))
     return found[-1] if found else (None, None)
+
 
 def normalize_media_name(raw_name: str, media_type: str) -> tuple[str, int | None]:
     """Convert a filename or folder name into a cleaner IMDb search query."""
@@ -280,17 +293,26 @@ def normalize_media_name(raw_name: str, media_type: str) -> tuple[str, int | Non
     text = re.sub(r'\s+', ' ', text).strip()
     return text, year
 
+
 def _normalized_title_tokens(value: str | None) -> list[str]:
     s = unicodedata.normalize('NFKD', value or '')
     s = ''.join(ch for ch in s if not unicodedata.combining(ch)).lower()
     s = re.sub(r'[^a-z0-9\s]', ' ', s)
     s = re.sub(r'\s+', ' ', s).strip()
     roman = {
-        'viii': '8', 'vii': '7', 'vi': '6', 'iv': '4',
-        'iii': '3', 'ii': '2', 'ix': '9', 'xi': '11', 'xii': '12',
+        'viii': '8',
+        'vii': '7',
+        'vi': '6',
+        'iv': '4',
+        'iii': '3',
+        'ii': '2',
+        'ix': '9',
+        'xi': '11',
+        'xii': '12',
     }
     parts = [roman.get(part, part) for part in s.split()]
     return [part for part in parts if part]
+
 
 def _titles_likely_match(expected: str | None, candidate: str | None) -> bool:
     expected_tokens = _normalized_title_tokens(expected)
@@ -317,6 +339,7 @@ def _titles_likely_match(expected: str | None, candidate: str | None) -> bool:
 
     return False
 
+
 def choose_search_result(results, title: str, media_type: str, year: int | None):
     """Pick the most likely IMDb result for a local library entry."""
 
@@ -327,8 +350,17 @@ def choose_search_result(results, title: str, media_type: str, year: int | None)
         s = re.sub(r'[^a-z0-9\s]', ' ', s)
         s = re.sub(r'\s+', ' ', s).strip()
         # Convert common roman numerals to arabic so '2' matches 'ii', etc.
-        _roman = {'viii': '8', 'vii': '7', 'vi': '6', 'iv': '4',
-                  'iii': '3', 'ii': '2', 'ix': '9', 'xi': '11', 'xii': '12'}
+        _roman = {
+            'viii': '8',
+            'vii': '7',
+            'vi': '6',
+            'iv': '4',
+            'iii': '3',
+            'ii': '2',
+            'ix': '9',
+            'xi': '11',
+            'xii': '12',
+        }
         parts = s.split()
         parts = [_roman.get(p, p) for p in parts]
         return ' '.join(parts)
@@ -341,8 +373,10 @@ def choose_search_result(results, title: str, media_type: str, year: int | None)
     # Exact title + exact year
     if year is not None:
         for item in filtered:
-            if (abs((item.get('year') or 0) - year) <= 1
-                    and normalized(item.get('title')) == normalized_title):
+            if (
+                abs((item.get('year') or 0) - year) <= 1
+                and normalized(item.get('title')) == normalized_title
+            ):
                 return item
 
     # Exact title, any year
@@ -364,8 +398,9 @@ def choose_search_result(results, title: str, media_type: str, year: int | None)
         overlap = len(query_tokens & candidate_tokens)
         recall = overlap / len(query_tokens)
         precision = overlap / len(candidate_tokens)
-        phrase_bonus = 0.2 if (candidate in normalized_title
-                               or normalized_title in candidate) else 0.0
+        phrase_bonus = (
+            0.2 if (candidate in normalized_title or normalized_title in candidate) else 0.0
+        )
 
         score_val = (recall * 3.0) + (precision * 2.0) + phrase_bonus
 
@@ -397,6 +432,7 @@ def choose_search_result(results, title: str, media_type: str, year: int | None)
     best = ranked[0]
     return best if score(best) >= 1.5 else None
 
+
 def _featurette_label(filename: str) -> str:
     """Readable name for a bonus feature, from a release-style filename."""
     stem = os.path.splitext(filename)[0]
@@ -406,7 +442,9 @@ def _featurette_label(filename: str) -> str:
     stem = re.sub(
         r'\b(1080p|2160p|720p|480p|x264|x265|HEVC|AAC\d?|AC3|DDP?\d?|H ?26[45]|'
         r'WEB-?DL|WEBRip|BluRay|DVD|AI Upscale|10bit)\b',
-        ' ', stem, flags=re.IGNORECASE,
+        ' ',
+        stem,
+        flags=re.IGNORECASE,
     )
     stem = re.sub(r'\s+', ' ', stem).strip(' -–_')
     return stem or os.path.basename(filename)

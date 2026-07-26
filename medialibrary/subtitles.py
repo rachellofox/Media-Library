@@ -24,16 +24,31 @@ SUBTITLE_EXTENSIONS = {'.srt', '.sub', '.ass', '.ssa', '.vtt', '.idx'}
 
 _ENGLISH_TAGS = {'en', 'eng', 'english'}
 
+
 def _has_english_tag(tag: str) -> bool:
     return tag.strip().lower() in _ENGLISH_TAGS
+
 
 def _ffprobe_embedded_english(video_path: str) -> bool:
     """Return True if the video file has an embedded English subtitle stream."""
     try:
         result = subprocess.run(
-            [FFPROBE_EXE, '-v', 'quiet', '-print_format', 'json',
-             '-show_streams', '-select_streams', 's', video_path],
-            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30,
+            [
+                FFPROBE_EXE,
+                '-v',
+                'quiet',
+                '-print_format',
+                'json',
+                '-show_streams',
+                '-select_streams',
+                's',
+                video_path,
+            ],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            timeout=30,
         )
         if result.returncode != 0:
             return False
@@ -46,13 +61,27 @@ def _ffprobe_embedded_english(video_path: str) -> bool:
         pass
     return False
 
+
 def _ffprobe_has_embedded_subtitles(video_path: str) -> bool:
     """Return True if the video file has any embedded subtitle stream."""
     try:
         result = subprocess.run(
-            [FFPROBE_EXE, '-v', 'quiet', '-print_format', 'json',
-             '-show_streams', '-select_streams', 's', video_path],
-            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30,
+            [
+                FFPROBE_EXE,
+                '-v',
+                'quiet',
+                '-print_format',
+                'json',
+                '-show_streams',
+                '-select_streams',
+                's',
+                video_path,
+            ],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            timeout=30,
         )
         if result.returncode != 0:
             return False
@@ -60,6 +89,7 @@ def _ffprobe_has_embedded_subtitles(video_path: str) -> bool:
         return bool(data.get('streams'))
     except Exception:
         return False
+
 
 def _srt_is_english(path: str) -> bool:
     """Read the first ~2KB of text from an SRT file and return True if it appears to be English.
@@ -69,19 +99,20 @@ def _srt_is_english(path: str) -> bool:
     like Cyrillic, CJK, Arabic, Hebrew, Greek etc. will exceed this threshold.
     """
     _NON_LATIN_RANGES = [
-        (0x0370, 0x03FF),   # Greek
-        (0x0400, 0x04FF),   # Cyrillic
-        (0x0500, 0x052F),   # Cyrillic Supplement
-        (0x0590, 0x05FF),   # Hebrew
-        (0x0600, 0x06FF),   # Arabic
-        (0x0900, 0x097F),   # Devanagari (Hindi)
-        (0x0E00, 0x0E7F),   # Thai
-        (0x1100, 0x11FF),   # Hangul Jamo (Korean)
-        (0x3000, 0x9FFF),   # CJK, Hiragana, Katakana, etc.
-        (0xAC00, 0xD7AF),   # Hangul Syllables (Korean)
+        (0x0370, 0x03FF),  # Greek
+        (0x0400, 0x04FF),  # Cyrillic
+        (0x0500, 0x052F),  # Cyrillic Supplement
+        (0x0590, 0x05FF),  # Hebrew
+        (0x0600, 0x06FF),  # Arabic
+        (0x0900, 0x097F),  # Devanagari (Hindi)
+        (0x0E00, 0x0E7F),  # Thai
+        (0x1100, 0x11FF),  # Hangul Jamo (Korean)
+        (0x3000, 0x9FFF),  # CJK, Hiragana, Katakana, etc.
+        (0xAC00, 0xD7AF),  # Hangul Syllables (Korean)
     ]
     try:
         import re as _re
+
         _ts = _re.compile(r'^\d+$|^\d{2}:\d{2}')
         text = []
         with open(path, encoding='utf-8', errors='replace') as f:
@@ -95,12 +126,12 @@ def _srt_is_english(path: str) -> bool:
         if not sample:
             return True  # Empty file — assume English
         non_latin = sum(
-            1 for ch in sample
-            if any(lo <= ord(ch) <= hi for lo, hi in _NON_LATIN_RANGES)
+            1 for ch in sample if any(lo <= ord(ch) <= hi for lo, hi in _NON_LATIN_RANGES)
         )
         return (non_latin / len(sample)) < 0.15
     except Exception:
         return True  # On read error, don't discard the file
+
 
 def scan_subtitles(media_path: str | None) -> str | None:
     """Return subtitle status string when subtitles are found, else None."""
@@ -135,13 +166,15 @@ def scan_subtitles(media_path: str | None) -> str | None:
         for root, _dirs, files in os.walk(base_dir):
             for fname in files:
                 _, ext = os.path.splitext(fname)
-                if (ext.lower() in SUBTITLE_EXTENSIONS
-                        and _srt_is_english(os.path.join(root, fname))):
+                if ext.lower() in SUBTITLE_EXTENSIONS and _srt_is_english(
+                    os.path.join(root, fname)
+                ):
                     return 'en'
     except PermissionError:
         pass
 
     return None
+
 
 def _find_video_file(media_path: str | None) -> str | None:
     """Locate the actual video file from a media_path (file or folder).
@@ -177,10 +210,12 @@ def _find_video_file(media_path: str | None) -> str | None:
 
     return None
 
+
 # Cache to store subtitle metadata during session
 # Keys: media_id
 # Values: list of subtitle dicts
 _subtitle_cache: dict[int, list[dict]] = {}
+
 
 def _probe_embedded_subtitles(video_file: str) -> list[dict]:
     """Return embedded subtitle stream metadata from a video file."""
@@ -189,8 +224,10 @@ def _probe_embedded_subtitles(video_file: str) -> list[dict]:
         probe = subprocess.run(
             [
                 FFPROBE_EXE,
-                '-v', 'quiet',
-                '-print_format', 'json',
+                '-v',
+                'quiet',
+                '-print_format',
+                'json',
                 '-show_streams',
                 video_file,
             ],
@@ -212,14 +249,17 @@ def _probe_embedded_subtitles(video_file: str) -> list[dict]:
             stream_index = stream.get('index')
             if stream_index is None:
                 continue
-            results.append({
-                'stream_index': int(stream_index),
-                'lang': 'en' if lang in {'en', 'eng', 'english'} else lang,
-                'name': title,
-            })
+            results.append(
+                {
+                    'stream_index': int(stream_index),
+                    'lang': 'en' if lang in {'en', 'eng', 'english'} else lang,
+                    'name': title,
+                }
+            )
     except Exception:
         return []
     return results
+
 
 def _srt_to_vtt(content: str) -> str:
     """Convert SRT content to WebVTT for browser subtitle tracks."""
@@ -230,15 +270,19 @@ def _srt_to_vtt(content: str) -> str:
     out.append('')
     return '\n'.join(out)
 
+
 def _extract_embedded_subtitle_to_vtt(video_file: str, stream_index: int, out_path: str) -> bool:
     """Extract an embedded subtitle stream to a VTT file using FFmpeg."""
     try:
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         cmd = [
             FFMPEG_EXE,
-            '-i', video_file,
-            '-map', f'0:{stream_index}',
-            '-c:s', 'webvtt',
+            '-i',
+            video_file,
+            '-map',
+            f'0:{stream_index}',
+            '-c:s',
+            'webvtt',
             '-y',
             out_path,
         ]
@@ -252,6 +296,7 @@ def _extract_embedded_subtitle_to_vtt(video_file: str, stream_index: int, out_pa
         return proc.returncode == 0 and os.path.isfile(out_path)
     except Exception:
         return False
+
 
 def _find_subtitle_files(media_path: str | None, media_id: int | None = None) -> list[dict]:
     """Find all subtitle files (.srt, .vtt, etc.) near a video file.
@@ -289,16 +334,20 @@ def _find_subtitle_files(media_path: str | None, media_id: int | None = None) ->
                 index = len(subtitles)
                 _, ext_lower = os.path.splitext(full_path)
                 ext_lower = ext_lower.lower()
-                subtitles.append({
-                    'name': 'English',
-                    'lang': 'en',
-                    'index': index,
-                })
-                entries.append({
-                    'type': 'external',
-                    'path': full_path,
-                    'ext': ext_lower,
-                })
+                subtitles.append(
+                    {
+                        'name': 'English',
+                        'lang': 'en',
+                        'index': index,
+                    }
+                )
+                entries.append(
+                    {
+                        'type': 'external',
+                        'path': full_path,
+                        'ext': ext_lower,
+                    }
+                )
     except Exception:
         pass
 
@@ -307,21 +356,26 @@ def _find_subtitle_files(media_path: str | None, media_id: int | None = None) ->
         embedded = _probe_embedded_subtitles(video_file)
         for sub in embedded:
             index = len(subtitles)
-            subtitles.append({
-                'name': sub.get('name') or 'Embedded Subtitle',
-                'lang': sub.get('lang') or 'und',
-                'index': index,
-            })
-            entries.append({
-                'type': 'embedded',
-                'video_file': video_file,
-                'stream_index': sub.get('stream_index'),
-                'path': os.path.join(
-                    HLS_CACHE_DIR,
-                    _playback_cache_key(media_id) if media_id else 'tmp',
-                    f"subtitle_{sub.get('stream_index')}.vtt"),
-                'ext': '.vtt',
-            })
+            subtitles.append(
+                {
+                    'name': sub.get('name') or 'Embedded Subtitle',
+                    'lang': sub.get('lang') or 'und',
+                    'index': index,
+                }
+            )
+            entries.append(
+                {
+                    'type': 'embedded',
+                    'video_file': video_file,
+                    'stream_index': sub.get('stream_index'),
+                    'path': os.path.join(
+                        HLS_CACHE_DIR,
+                        _playback_cache_key(media_id) if media_id else 'tmp',
+                        f'subtitle_{sub.get("stream_index")}.vtt',
+                    ),
+                    'ext': '.vtt',
+                }
+            )
     except Exception:
         pass
 

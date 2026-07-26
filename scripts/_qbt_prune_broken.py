@@ -16,6 +16,7 @@ remove, e.g.
 
 Dry run by default - nothing is removed without --apply.
 """
+
 import os
 import sys
 import urllib.parse
@@ -30,10 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import app
 
 APPLY = '--apply' in sys.argv
-ONLY = [
-    sys.argv[i + 1].lower()
-    for i, a in enumerate(sys.argv[:-1]) if a == '--only'
-]
+ONLY = [sys.argv[i + 1].lower() for i, a in enumerate(sys.argv[:-1]) if a == '--only']
 
 if not app._qbt_webui_enabled():
     print('qBittorrent WebUI is not configured - nothing to do.')
@@ -89,10 +87,12 @@ for t in broken:
     info_hash = (t.get('hash') or '').strip()
     if not info_hash:
         continue
-    payload = urllib.parse.urlencode({
-        'hashes': info_hash.lower(),
-        'deleteFiles': 'false',
-    }).encode('utf-8')
+    payload = urllib.parse.urlencode(
+        {
+            'hashes': info_hash.lower(),
+            'deleteFiles': 'false',
+        }
+    ).encode('utf-8')
     try:
         app._qbt_webui_open('/api/v2/torrents/delete', method='POST', data=payload)
         removed += 1

@@ -1,4 +1,5 @@
 """Filing a finished TV download must never endanger the rest of the show."""
+
 import os
 import shutil
 import sys
@@ -55,25 +56,43 @@ def make(path, mb=1):
 
 def add_show(show_path, title='Some Show'):
     app.store.add_media_item(
-        imdb_id='tt' + str(abs(hash(show_path)) % 10 ** 7), tmdb_id=None, title=title,
-        year=2010, media_type='tv', collection_id=None, collection_name=None,
-        current_quality='1080p', path=show_path)
+        imdb_id='tt' + str(abs(hash(show_path)) % 10**7),
+        tmdb_id=None,
+        title=title,
+        year=2010,
+        media_type='tv',
+        collection_id=None,
+        collection_name=None,
+        current_quality='1080p',
+        path=show_path,
+    )
     return next(r['id'] for r in app.store.list_media_items() if r['path'] == show_path)
 
 
 def finalize(media_id, dl_folder, mode='upgrade', previous=None):
     app.store.set_download_state(
-        media_item_id=media_id, status='downloading', source='qb_webui', message='x',
-        torrent_hash='A' * 40, mode=mode, previous_path=previous)
+        media_item_id=media_id,
+        status='downloading',
+        source='qb_webui',
+        message='x',
+        torrent_hash='A' * 40,
+        mode=mode,
+        previous_path=previous,
+    )
     row = next(r for r in app.store.list_media_items() if r['id'] == media_id)
     app._finalize_completed_download(
-        row, {'state': 'stalledUP', 'progress': 1.0, 'amount_left': 0, 'content_path': dl_folder})
+        row, {'state': 'stalledUP', 'progress': 1.0, 'amount_left': 0, 'content_path': dl_folder}
+    )
     return next(r for r in app.store.list_media_items() if r['id'] == media_id)
 
 
 def videos_under(path):
-    return [os.path.join(r, f) for r, _d, fs in os.walk(path) for f in fs
-            if os.path.splitext(f)[1].lower() in app.VIDEO_EXTENSIONS]
+    return [
+        os.path.join(r, f)
+        for r, _d, fs in os.walk(path)
+        for f in fs
+        if os.path.splitext(f)[1].lower() in app.VIDEO_EXTENSIONS
+    ]
 
 
 print('\n=== 1. A single-episode download must not destroy the show ===')
@@ -89,10 +108,15 @@ make(os.path.join(dl, 'Some.Show.S02E05.2160p.mkv'), 6)
 finalize(mid, dl, previous=show)
 check('show folder survives', os.path.isdir(show))
 check('episode count unchanged at 20', len(videos_under(show)) == 20, len(videos_under(show)))
-check('only the superseded episode file was recycled',
-      len(recycled) == 1 and 'S02E05' in recycled[0], recycled)
-check('the folder itself was never recycled',
-      not any(r.rstrip(os.sep).endswith('Some Show') for r in recycled))
+check(
+    'only the superseded episode file was recycled',
+    len(recycled) == 1 and 'S02E05' in recycled[0],
+    recycled,
+)
+check(
+    'the folder itself was never recycled',
+    not any(r.rstrip(os.sep).endswith('Some Show') for r in recycled),
+)
 placed = os.path.join(show, 'Season 02', 'Some Show - S02E05.mkv')
 check('new episode filed under its canonical name', os.path.isfile(placed), placed)
 check('DB still points at the show folder', app.store.get_media_item(mid)['path'] == show)
@@ -107,8 +131,9 @@ make(os.path.join(dl, 'Show.B.S01E01.720p.mkv'), 1)
 row = finalize(mid, dl, previous=show)
 check('existing episode untouched', os.path.isfile(good))
 check('nothing recycled', not recycled, recycled)
-check('flagged needs_review', (row['download_status'] or '') == 'needs_review',
-      row['download_status'])
+check(
+    'flagged needs_review', (row['download_status'] or '') == 'needs_review', row['download_status']
+)
 
 print('\n=== 3. A multi-episode file is never retired for one of its episodes ===')
 tmp, lib, staging, recycled = scenario()
@@ -120,8 +145,10 @@ make(os.path.join(dl, 'Show.C.S04E02.2160p.mkv'), 9)
 finalize(mid, dl, previous=show)
 check('the two-part file survives', os.path.isfile(two_parter))
 check('it was not recycled', not any('E01-E02' in r for r in recycled), recycled)
-check('the upgraded episode was still filed',
-      os.path.isfile(os.path.join(show, 'Season 04', 'Show C - S04E02.mkv')))
+check(
+    'the upgraded episode was still filed',
+    os.path.isfile(os.path.join(show, 'Season 04', 'Show C - S04E02.mkv')),
+)
 
 print('\n=== 4. A download with no SxxExx is left alone ===')
 tmp, lib, staging, recycled = scenario()
@@ -143,9 +170,17 @@ os.makedirs(movies, exist_ok=True)
 app.store.set_setting('movies_path', movies)
 folder = os.path.join(movies, 'A Film (2001)')
 old = make(os.path.join(folder, 'A Film (2001).mkv'), 2)
-app.store.add_media_item(imdb_id='tt5555555', tmdb_id=None, title='A Film', year=2001,
-                         media_type='movie', collection_id=None, collection_name=None,
-                         current_quality='1080p', path=folder)
+app.store.add_media_item(
+    imdb_id='tt5555555',
+    tmdb_id=None,
+    title='A Film',
+    year=2001,
+    media_type='movie',
+    collection_id=None,
+    collection_name=None,
+    current_quality='1080p',
+    path=folder,
+)
 mid = next(r['id'] for r in app.store.list_media_items() if r['imdb_id'] == 'tt5555555')
 dl = os.path.join(staging, 'A.Film.2001.2160p')
 make(os.path.join(dl, 'A.Film.2001.2160p.mkv'), 7)
@@ -161,17 +196,27 @@ app.store.set_setting('movies_path', movies)
 pack = os.path.join(movies, 'Odd Folder')
 target = make(os.path.join(pack, 'Odd Folder 1080p.mkv'), 2)
 bystander = make(os.path.join(pack, 'Another Film 1080p.mkv'), 3)
-app.store.add_media_item(imdb_id='tt6666666', tmdb_id=None, title='Odd Folder', year=2005,
-                         media_type='movie', collection_id=None, collection_name=None,
-                         current_quality='1080p', path=pack)
+app.store.add_media_item(
+    imdb_id='tt6666666',
+    tmdb_id=None,
+    title='Odd Folder',
+    year=2005,
+    media_type='movie',
+    collection_id=None,
+    collection_name=None,
+    current_quality='1080p',
+    path=pack,
+)
 mid = next(r['id'] for r in app.store.list_media_items() if r['imdb_id'] == 'tt6666666')
 dl = os.path.join(staging, 'Odd.Folder.2005.2160p')
 make(os.path.join(dl, 'Odd.Folder.2005.2160p.mkv'), 9)
 finalize(mid, dl, previous=pack)
 check('the bystander video survives', os.path.isfile(bystander))
-check('the whole folder was not recycled',
-      not any(r.rstrip(os.sep).endswith('Odd Folder') for r in recycled),
-      recycled)
+check(
+    'the whole folder was not recycled',
+    not any(r.rstrip(os.sep).endswith('Odd Folder') for r in recycled),
+    recycled,
+)
 
 print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
 if FAIL:

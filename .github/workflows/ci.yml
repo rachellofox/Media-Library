@@ -46,10 +46,13 @@ jobs:
       - name: Lint
         run: python -m ruff check .
 
+      - name: Formatting
+        run: python -m ruff format --check .
+
+      # Everything, rather than a hand-listed set that goes stale the moment a
+      # module is added or removed.
       - name: Compile all sources
-        run: python -m compileall -q app.py storage.py tmdb_client.py trakt_client.py
-          imdb_client.py qb_search.py quality.py naming.py episode_match.py
-          subtitle_client.py medialibrary scripts tests
+        run: python -m compileall -q -x '[.]venv|__pycache__' .
 
       - name: Tests
         run: python tests/run_all.py

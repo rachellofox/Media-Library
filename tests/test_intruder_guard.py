@@ -1,4 +1,5 @@
 """A file from another show must never be indexed as this show's episode."""
+
 import os
 import sys
 import tempfile
@@ -19,11 +20,14 @@ def check(name, cond, detail=''):
 
 
 print('\n=== 1. The reported case is refused ===')
-check('Chernobyl file in the Parks folder',
-      names_other_show('Chernobyl.S01E01.1080p.WEB-DL.mkv', 'Parks and Recreation') is True)
-check('the real Parks episode is kept',
-      names_other_show('Parks and Recreation - S01E01 - Pilot.mkv',
-                       'Parks and Recreation') is False)
+check(
+    'Chernobyl file in the Parks folder',
+    names_other_show('Chernobyl.S01E01.1080p.WEB-DL.mkv', 'Parks and Recreation') is True,
+)
+check(
+    'the real Parks episode is kept',
+    names_other_show('Parks and Recreation - S01E01 - Pilot.mkv', 'Parks and Recreation') is False,
+)
 
 print('\n=== 2. Abbreviated and noisy release names are kept ===')
 for filename, title in [
@@ -35,21 +39,21 @@ for filename, title in [
     ('Prison.Break.2005.S04E01.mkv', 'Prison Break'),
     ('The Office (US) - S03E01.mkv', 'The Office'),
 ]:
-    check(f'{filename[:38]!r} under {title[:22]!r}',
-          names_other_show(filename, title) is False)
+    check(f'{filename[:38]!r} under {title[:22]!r}', names_other_show(filename, title) is False)
 
 print('\n=== 3. Bare and marker-first names are kept ===')
 for filename in ['S01E01.mkv', 's01e01.mkv', 'S01E01 - Pilot.mkv', '- S01E01.mkv']:
-    check(f'{filename!r} has no show name to disagree with',
-          names_other_show(filename, 'Parks and Recreation') is False)
+    check(
+        f'{filename!r} has no show name to disagree with',
+        names_other_show(filename, 'Parks and Recreation') is False,
+    )
 
 print('\n=== 4. Other real intruders are refused ===')
 for filename, title in [
     ('Breaking.Bad.S02E03.mkv', 'Better Call Saul'),
     ('The.Wire.S01E01.mkv', 'The Sopranos'),
 ]:
-    check(f'{filename[:30]!r} under {title[:20]!r}',
-          names_other_show(filename, title) is True)
+    check(f'{filename[:30]!r} under {title[:20]!r}', names_other_show(filename, title) is True)
 
 print('\n=== 4b. A file with no marker is never judged here ===')
 for filename, title in [
@@ -58,8 +62,9 @@ for filename, title in [
     ('Campaign Ads.mkv', 'Parks and Recreation'),
     ('Agatha Assembled_H.264.mp4', 'Agatha All Along'),
 ]:
-    check(f'title-only {filename[:32]!r} is not refused',
-          names_other_show(filename, title) is False)
+    check(
+        f'title-only {filename[:32]!r} is not refused', names_other_show(filename, title) is False
+    )
 
 print('\n=== 5. Nothing is refused when the title is unknown ===')
 check('no show title means no opinion', names_other_show('Chernobyl.S01E01.mkv', '') is False)
@@ -80,16 +85,19 @@ with tempfile.TemporaryDirectory() as root:
         fh.write(b'x' * 50000)
 
     matched, unmatched = app.scan_local_episodes(show, 'Parks and Recreation')
-    check('S01E01 resolves to the real Pilot even though the stray is bigger',
-          matched.get((1, 1)) == real, matched.get((1, 1)))
+    check(
+        'S01E01 resolves to the real Pilot even though the stray is bigger',
+        matched.get((1, 1)) == real,
+        matched.get((1, 1)),
+    )
     check('the stray is reported as unmatched', stray in unmatched, unmatched)
-    check('the stray claimed no episode number',
-          stray not in matched.values(), matched)
+    check('the stray claimed no episode number', stray not in matched.values(), matched)
 
     # And with the title left out, the folder name is used instead.
     matched, _u = app.scan_local_episodes(show)
-    check('folder name works as the fallback title', matched.get((1, 1)) == real,
-          matched.get((1, 1)))
+    check(
+        'folder name works as the fallback title', matched.get((1, 1)) == real, matched.get((1, 1))
+    )
 
 print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
 for f in FAIL:

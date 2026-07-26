@@ -7,6 +7,7 @@ directory and was served with HTTP 200.
 
 Everything here uses files this test creates under a temporary directory.
 """
+
 import os
 import sys
 import tempfile
@@ -51,27 +52,37 @@ with tempfile.TemporaryDirectory() as tmp:
     for label, filename in attempts:
         response = client.get(f'/api/video/{media_id}/direct-stream/{filename}')
         body = response.get_data()
-        check(f'{label} is refused',
-              CANARY not in body and response.status_code != 200,
-              f'HTTP {response.status_code}, leaked={CANARY in body}')
+        check(
+            f'{label} is refused',
+            CANARY not in body and response.status_code != 200,
+            f'HTTP {response.status_code}, leaked={CANARY in body}',
+        )
 
     print('\n=== hls route ===')
     for label, filename in attempts:
         response = client.get(f'/api/video/{media_id}/hls/{filename}')
         body = response.get_data()
-        check(f'{label} is refused',
-              CANARY not in body and response.status_code != 200,
-              f'HTTP {response.status_code}, leaked={CANARY in body}')
+        check(
+            f'{label} is refused',
+            CANARY not in body and response.status_code != 200,
+            f'HTTP {response.status_code}, leaked={CANARY in body}',
+        )
 
     print('\n=== a legitimate segment name is still accepted as a name ===')
     # It will 404 because no transcode is running, but it must not be rejected
     # as invalid — a fix that broke normal playback would be no fix at all.
     response = client.get(f'/api/video/{media_id}/direct-stream/segment_001.m4s')
-    check('ordinary segment name is not treated as an attack',
-          response.status_code == 404, f'HTTP {response.status_code}')
+    check(
+        'ordinary segment name is not treated as an attack',
+        response.status_code == 404,
+        f'HTTP {response.status_code}',
+    )
     response = client.get(f'/api/video/{media_id}/hls/segment_00000.ts')
-    check('ordinary hls segment name is not treated as an attack',
-          response.status_code != 400, f'HTTP {response.status_code}')
+    check(
+        'ordinary hls segment name is not treated as an attack',
+        response.status_code != 400,
+        f'HTTP {response.status_code}',
+    )
 
 print('\n=== ?episode= cannot escape the show folder ===')
 with tempfile.TemporaryDirectory() as tmp:
@@ -84,14 +95,19 @@ with tempfile.TemporaryDirectory() as tmp:
     with open(outside, 'wb') as handle:
         handle.write(CANARY)
 
-    check('an episode inside the show folder resolves',
-          app._resolve_episode_file(show, 'Show - S01E01.mkv') == os.path.realpath(inside))
-    check('..\\ escape is refused',
-          app._resolve_episode_file(show, os.path.join('..', 'outside.mkv')) is None)
-    check('an absolute path is refused',
-          app._resolve_episode_file(show, outside) is None)
-    check('a non-video inside the folder is refused',
-          app._resolve_episode_file(show, 'Show - S01E01.mkv.txt') is None)
+    check(
+        'an episode inside the show folder resolves',
+        app._resolve_episode_file(show, 'Show - S01E01.mkv') == os.path.realpath(inside),
+    )
+    check(
+        '..\\ escape is refused',
+        app._resolve_episode_file(show, os.path.join('..', 'outside.mkv')) is None,
+    )
+    check('an absolute path is refused', app._resolve_episode_file(show, outside) is None)
+    check(
+        'a non-video inside the folder is refused',
+        app._resolve_episode_file(show, 'Show - S01E01.mkv.txt') is None,
+    )
 
 print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
 for name in FAIL:

@@ -11,6 +11,7 @@ Run with just the path for a dry run (no files changed).
 Run with  --execute  to apply changes.
 Usage: python scripts/_cleanup_movies.py path\\to\\movies [--execute]
 """
+
 import os
 import shutil
 import sys
@@ -20,17 +21,19 @@ if not _path_args:
     print('Usage: python scripts/_cleanup_movies.py path\\to\\movies [--execute]')
     sys.exit(1)
 MOVIES_ROOT = _path_args[0]
-VIDEO_EXTS  = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv'}
-SUB_EXTS    = {'.srt', '.sub', '.ass', '.ssa', '.vtt', '.idx', '.sup'}
-JUNK_EXTS   = {'.txt', '.ico', '.jpg', '.jpeg', '.png', '.nfo', '.db'}
-SKIP_DIRS   = {'featurettes', 'subs', 'subtitles', 'extras', 'bonus'}
+VIDEO_EXTS = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv'}
+SUB_EXTS = {'.srt', '.sub', '.ass', '.ssa', '.vtt', '.idx', '.sup'}
+JUNK_EXTS = {'.txt', '.ico', '.jpg', '.jpeg', '.png', '.nfo', '.db'}
+SKIP_DIRS = {'featurettes', 'subs', 'subtitles', 'extras', 'bonus'}
 
 DRY_RUN = '--execute' not in sys.argv
+
 
 def log(action, msg):
     tag = f'[{action:<8}]'
     prefix = '  DRY RUN' if DRY_RUN else '  DONE   '
     print(f'{prefix} {tag} {msg}')
+
 
 renames = promotions = deletions = 0
 
@@ -38,13 +41,13 @@ for entry in sorted(os.scandir(MOVIES_ROOT), key=lambda e: e.name.lower()):
     if not entry.is_dir():
         continue
 
-    folder_name  = entry.name
-    folder_path  = entry.path
+    folder_name = entry.name
+    folder_path = entry.path
     expected_stem = folder_name
 
     videos_in_root = []
-    subdirs        = []
-    junk           = []
+    subdirs = []
+    junk = []
 
     for child in os.scandir(folder_path):
         _, ext = os.path.splitext(child.name)
@@ -74,7 +77,8 @@ for entry in sorted(os.scandir(MOVIES_ROOT), key=lambda e: e.name.lower()):
     # ── 2. Promote nested videos from sub-subfolders ──────────────────────
     for subdir in subdirs:
         sub_videos = [
-            c for c in os.scandir(subdir.path)
+            c
+            for c in os.scandir(subdir.path)
             if c.is_file() and os.path.splitext(c.name)[1].lower() in VIDEO_EXTS
         ]
 
@@ -84,7 +88,7 @@ for entry in sorted(os.scandir(MOVIES_ROOT), key=lambda e: e.name.lower()):
         for vid in sub_videos:
             _, ext = os.path.splitext(vid.name)
             new_name = expected_stem + ext
-            dest     = os.path.join(folder_path, new_name)
+            dest = os.path.join(folder_path, new_name)
             log('PROMOTE', f'{vid.path!r}  →  {dest!r}')
             if not DRY_RUN:
                 shutil.move(vid.path, dest)

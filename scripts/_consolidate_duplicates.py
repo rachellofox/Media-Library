@@ -15,6 +15,7 @@ Dry run by default - nothing is moved or deleted without --apply.
 Note: moving a file that qBittorrent is still seeding will break that torrent.
 Remove or recheck the torrent afterwards if you are still seeding these.
 """
+
 import os
 import re
 import sys
@@ -64,7 +65,8 @@ def rank(path):
 items = app.store.list_media_items()
 linked = {
     os.path.normcase(os.path.normpath(i['path'])): i['id']
-    for i in items if (i['path'] or '').strip()
+    for i in items
+    if (i['path'] or '').strip()
 }
 
 plans = []
@@ -101,21 +103,33 @@ for item in items:
     (_qrank, _size, best_quality), best_video, best_folder = scored[0]
 
     dest = canonical_paths(
-        root, item['title'] or '', item['year'],
-        os.path.splitext(best_video)[1], item['media_type'] or 'movie',
+        root,
+        item['title'] or '',
+        item['year'],
+        os.path.splitext(best_video)[1],
+        item['media_type'] or 'movie',
     )
     if not dest:
         continue
     dest_folder, dest_file = dest
 
     losers = [f for f in candidates if os.path.normcase(f) != os.path.normcase(best_folder)]
-    plans.append({
-        'id': item['id'], 'title': item['title'], 'year': item['year'],
-        'db_path': db_path, 'best_video': best_video, 'best_folder': best_folder,
-        'best_quality': best_quality, 'dest_folder': dest_folder, 'dest_file': dest_file,
-        'losers': losers, 'stale_quality': item['current_quality'],
-        'discarded': [(v, rank(v)[2]) for _r, v, f in scored[1:]],
-    })
+    plans.append(
+        {
+            'id': item['id'],
+            'title': item['title'],
+            'year': item['year'],
+            'db_path': db_path,
+            'best_video': best_video,
+            'best_folder': best_folder,
+            'best_quality': best_quality,
+            'dest_folder': dest_folder,
+            'dest_file': dest_file,
+            'losers': losers,
+            'stale_quality': item['current_quality'],
+            'discarded': [(v, rank(v)[2]) for _r, v, f in scored[1:]],
+        }
+    )
 
 print('=' * 78)
 print(f'DUPLICATE CONSOLIDATION{"  (APPLYING)" if APPLY else "  (dry run)"}')
@@ -180,11 +194,13 @@ for p in plans:
                 continue
             print(f'  moved: -> {p["dest_file"]}')
             # Drop the now-empty folder the keeper came from.
-            if (os.path.isdir(p['best_folder']) and not videos_in(p['best_folder'])
-                    and os.path.normcase(p['best_folder'])
-                    != os.path.normcase(p['dest_folder'])):
-                    app._retire_path(p['best_folder'])
-                    print(f'  recycled empty source: {p["best_folder"]}')
+            if (
+                os.path.isdir(p['best_folder'])
+                and not videos_in(p['best_folder'])
+                and os.path.normcase(p['best_folder']) != os.path.normcase(p['dest_folder'])
+            ):
+                app._retire_path(p['best_folder'])
+                print(f'  recycled empty source: {p["best_folder"]}')
 
         app.store.update_path(p['id'], p['dest_folder'])
         if p['best_quality']:

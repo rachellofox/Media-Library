@@ -3,6 +3,7 @@ Search library.db for items matching one or more title/path keywords.
 Usage: python scripts/_debug_missing.py <keyword> [<keyword> ...]
 Example: python scripts/_debug_missing.py venom spider
 """
+
 import sqlite3
 import sys
 
@@ -16,9 +17,7 @@ conn = sqlite3.connect('library.db')
 conn.row_factory = sqlite3.Row
 cur = conn.cursor()
 
-clauses = ' OR '.join(
-    'lower(title) LIKE ? OR lower(path) LIKE ?' for _ in targets
-)
+clauses = ' OR '.join('lower(title) LIKE ? OR lower(path) LIKE ?' for _ in targets)
 params = [v for t in targets for v in (f'%{t}%', f'%{t}%')]
 cur.execute(
     'SELECT id, imdb_id, title, year, media_type, poster_url, path '

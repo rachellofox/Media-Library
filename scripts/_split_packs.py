@@ -15,6 +15,7 @@ moved out, the emptied pack folder is sent to the Recycle Bin.
 
 Dry run by default - nothing moves without --apply.
 """
+
 import os
 import sys
 
@@ -59,26 +60,36 @@ for item in app.store.list_media_items():
     media_type = item['media_type'] or 'movie'
     root = app._library_root_for(media_type)
     parent = os.path.dirname(path)
-    if not root or (os.path.normcase(os.path.normpath(parent))
-                    == os.path.normcase(os.path.normpath(root))):
+    if not root or (
+        os.path.normcase(os.path.normpath(parent)) == os.path.normcase(os.path.normpath(root))
+    ):
         continue  # a loose file directly in the library root, not a pack member
 
     dest = canonical_paths(
-        root, item['title'] or '', item['year'],
-        os.path.splitext(path)[1], media_type,
+        root,
+        item['title'] or '',
+        item['year'],
+        os.path.splitext(path)[1],
+        media_type,
     )
     if not dest:
         print(f'  ! no canonical name for #{item["id"]} {item["title"]!r} - skipped')
         continue
     dest_folder, dest_file = dest
 
-    plans.append({
-        'id': item['id'], 'title': item['title'], 'year': item['year'],
-        'src': path, 'pack': parent,
-        'dest_folder': dest_folder, 'dest_file': dest_file,
-        'subs': sidecars_for(path),
-        'conflict': os.path.exists(dest_file),
-    })
+    plans.append(
+        {
+            'id': item['id'],
+            'title': item['title'],
+            'year': item['year'],
+            'src': path,
+            'pack': parent,
+            'dest_folder': dest_folder,
+            'dest_file': dest_file,
+            'subs': sidecars_for(path),
+            'conflict': os.path.exists(dest_file),
+        }
+    )
 
 print('=' * 78)
 print(f'COLLECTION PACK SPLIT{"  (APPLYING)" if APPLY else "  (dry run)"}')
@@ -142,8 +153,11 @@ for pack, members in by_pack.items():
             print(f'  FAILED #{p["id"]}: {exc}{hint}')
             # Do not leave an empty folder behind; empty folders are exactly
             # what made titles look missing in the first place.
-            if (created_folder and os.path.isdir(p['dest_folder'])
-                    and not os.listdir(p['dest_folder'])):
+            if (
+                created_folder
+                and os.path.isdir(p['dest_folder'])
+                and not os.listdir(p['dest_folder'])
+            ):
                 try:
                     os.rmdir(p['dest_folder'])
                 except OSError:

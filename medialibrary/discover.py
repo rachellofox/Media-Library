@@ -60,11 +60,7 @@ def _discover_watchlist(limit: int = 16) -> list[dict]:
         return []
 
     # Keep cache aligned with the current Trakt watchlist set.
-    watchlist_ids = {
-        str(item.get('imdb_id'))
-        for item in raw_items
-        if item.get('imdb_id')
-    }
+    watchlist_ids = {str(item.get('imdb_id')) for item in raw_items if item.get('imdb_id')}
     _store().prune_watchlist_cache(watchlist_ids)
 
     cached = _store().get_cached_watchlist_entries(DISCOVER_WATCHLIST_CACHE_HOURS)
@@ -79,14 +75,16 @@ def _discover_watchlist(limit: int = 16) -> list[dict]:
         seen.add(imdb_id)
         row = cached.get(str(imdb_id))
         if row:
-            out.append({
-                'imdb_id': imdb_id,
-                'tmdb_id': row.get('tmdb_id'),
-                'title': row.get('title') or item.get('title') or imdb_id,
-                'year': row.get('year') or item.get('year'),
-                'media_type': row.get('media_type') or item.get('media_type') or 'movie',
-                'poster_url': row.get('poster_url'),
-            })
+            out.append(
+                {
+                    'imdb_id': imdb_id,
+                    'tmdb_id': row.get('tmdb_id'),
+                    'title': row.get('title') or item.get('title') or imdb_id,
+                    'year': row.get('year') or item.get('year'),
+                    'media_type': row.get('media_type') or item.get('media_type') or 'movie',
+                    'poster_url': row.get('poster_url'),
+                }
+            )
         else:
             meta = _tmdb().metadata_by_imdb_id(imdb_id) if _tmdb() else {}
             built = {
@@ -105,6 +103,7 @@ def _discover_watchlist(limit: int = 16) -> list[dict]:
     if to_cache:
         _store().upsert_watchlist_cache_entries(to_cache)
     return out
+
 
 def _discover_incomplete_collections() -> list[dict]:
     if not _tmdb():
@@ -136,13 +135,16 @@ def _discover_incomplete_collections() -> list[dict]:
         collection_id = item.get('collection_id')
         if not collection_id or collection_id in ignored_collection_ids:
             continue
-        group = grouped.setdefault(collection_id, {
-            'collection_id': collection_id,
-            'collection_name': item.get('collection_name') or 'Collection',
-            'owned_tmdb_ids': set(),
-            'owned_title_years': set(),
-            'owned_count': 0,
-        })
+        group = grouped.setdefault(
+            collection_id,
+            {
+                'collection_id': collection_id,
+                'collection_name': item.get('collection_name') or 'Collection',
+                'owned_tmdb_ids': set(),
+                'owned_title_years': set(),
+                'owned_count': 0,
+            },
+        )
         if item.get('tmdb_id'):
             group['owned_tmdb_ids'].add(item['tmdb_id'])
         group['owned_title_years'].add((normalized_title(item.get('title')), item.get('year')))
@@ -162,25 +164,32 @@ def _discover_incomplete_collections() -> list[dict]:
             for part in parts
             if (
                 part['tmdb_id'] not in group['owned_tmdb_ids']
-                and (normalized_title(part.get('title')),
-                     part.get('year')) not in group['owned_title_years']
+                and (normalized_title(part.get('title')), part.get('year'))
+                not in group['owned_title_years']
                 and part['tmdb_id'] not in ignored_title_ids
                 and is_released(part)
             )
         ]
         if not missing:
             continue
-        out.append({
-            'collection_id': collection_id,
-            'collection_name': group['collection_name'],
-            'owned_count': group['owned_count'],
-            'total_count': len(parts),
-            'missing': missing,
-        })
+        out.append(
+            {
+                'collection_id': collection_id,
+                'collection_name': group['collection_name'],
+                'owned_count': group['owned_count'],
+                'total_count': len(parts),
+                'missing': missing,
+            }
+        )
 
-    out.sort(key=lambda item: (item['total_count'] - item['owned_count'],
-                               item['collection_name'].lower()))
+    out.sort(
+        key=lambda item: (
+            item['total_count'] - item['owned_count'],
+            item['collection_name'].lower(),
+        )
+    )
     return out
+
 
 def _cached_tv_status(tmdb_id: int) -> dict:
     """Airing state and season list for a show, from the database cache."""
@@ -190,6 +199,7 @@ def _cached_tv_status(tmdb_id: int) -> dict:
         if overview.get('seasons'):
             _store().set_cached_tv_status(tmdb_id, overview)
     return overview or {'status': None, 'in_production': None, 'next_air_date': None, 'seasons': []}
+
 
 def _missing_episodes_for_show(item, ignored_seasons: set[int]) -> dict | None:
     """Aired-but-unowned episodes for one show, or None when it has no gaps."""
@@ -236,13 +246,15 @@ def _missing_episodes_for_show(item, ignored_seasons: set[int]) -> dict | None:
             missing.append(episode)
 
         if missing:
-            seasons_missing.append({
-                'season_number': number,
-                'name': season['name'],
-                'owned_count': sum(1 for s, _e in owned if s == number),
-                'episode_count': season['episode_count'],
-                'missing': missing,
-            })
+            seasons_missing.append(
+                {
+                    'season_number': number,
+                    'name': season['name'],
+                    'owned_count': sum(1 for s, _e in owned if s == number),
+                    'episode_count': season['episode_count'],
+                    'missing': missing,
+                }
+            )
 
     if not seasons_missing:
         return None
@@ -258,6 +270,7 @@ def _missing_episodes_for_show(item, ignored_seasons: set[int]) -> dict | None:
         'missing_count': sum(len(s['missing']) for s in seasons_missing),
         'seasons': seasons_missing,
     }
+
 
 def _discover_missing_episodes() -> list[dict]:
     """Every owned TV show that is missing episodes which have already aired.
@@ -278,9 +291,15 @@ def _discover_missing_episodes() -> list[dict]:
 
     # Shows still in production first — new episodes are the point of this view —
     # then by how much is missing.
-    out.sort(key=lambda show: (not show['in_production'], -show['missing_count'],
-                               (show['title'] or '').lower()))
+    out.sort(
+        key=lambda show: (
+            not show['in_production'],
+            -show['missing_count'],
+            (show['title'] or '').lower(),
+        )
+    )
     return out
+
 
 # Season metadata rarely changes, and a single user browsing seasons should not
 # re-query TMDB on every click. Kept in process rather than in the database
@@ -288,6 +307,7 @@ def _discover_missing_episodes() -> list[dict]:
 _TMDB_SEASON_CACHE: dict[tuple[int, int], tuple[datetime, list[dict]]] = {}
 
 TMDB_SEASON_CACHE_TTL = timedelta(hours=24)
+
 
 def _cached_season_episodes(tmdb_id: int, season_number: int) -> list[dict]:
     if not _tmdb():

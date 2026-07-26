@@ -3,7 +3,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 
-SCHEMA_SQL = '''
+SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS playback_positions (
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(media_item_id) REFERENCES media_items(id)
 );
-'''
+"""
 
 
 class Storage:
@@ -193,7 +193,7 @@ class Storage:
     ) -> None:
         with self.conn() as c:
             c.execute(
-                '''
+                """
                 INSERT INTO media_items
                     (
                         imdb_id, tmdb_id, title, year, media_type, collection_id,
@@ -217,11 +217,24 @@ class Storage:
                     genre_2=COALESCE(excluded.genre_2, media_items.genre_2),
                     rating=COALESCE(excluded.rating, media_items.rating),
                     subtitles=COALESCE(excluded.subtitles, media_items.subtitles)
-                ''',
+                """,
                 (
-                    imdb_id, tmdb_id, title, year, media_type, collection_id,
-                    collection_name, current_quality, path, poster_url,
-                    synopsis, actors, genre_1, genre_2, rating, subtitles,
+                    imdb_id,
+                    tmdb_id,
+                    title,
+                    year,
+                    media_type,
+                    collection_id,
+                    collection_name,
+                    current_quality,
+                    path,
+                    poster_url,
+                    synopsis,
+                    actors,
+                    genre_1,
+                    genre_2,
+                    rating,
+                    subtitles,
                 ),
             )
 
@@ -252,7 +265,7 @@ class Storage:
                 if existing and int(existing['id']) != int(media_id):
                     effective_imdb_id = None
             c.execute(
-                '''UPDATE media_items SET
+                """UPDATE media_items SET
                     imdb_id=COALESCE(?, imdb_id),
                     tmdb_id=COALESCE(?, tmdb_id),
                     poster_url=?,
@@ -266,11 +279,22 @@ class Storage:
                     year=COALESCE(?, year),
                     collection_id=COALESCE(?, collection_id),
                     collection_name=COALESCE(?, collection_name)
-                WHERE id=?''',
+                WHERE id=?""",
                 (
                     effective_imdb_id,
-                    tmdb_id, poster_url, synopsis, actors, genre_1, genre_2, rating, title,
-                    media_type, year, collection_id, collection_name, media_id,
+                    tmdb_id,
+                    poster_url,
+                    synopsis,
+                    actors,
+                    genre_1,
+                    genre_2,
+                    rating,
+                    title,
+                    media_type,
+                    year,
+                    collection_id,
+                    collection_name,
+                    media_id,
                 ),
             )
 
@@ -302,7 +326,7 @@ class Storage:
     def list_media_items(self):
         with self.conn() as c:
             return c.execute(
-                '''
+                """
                   SELECT m.*, q.checked_at, q.best_found_quality, q.best_found_name,
                       q.best_found_desc_link, q.found,
                       d.status AS download_status,
@@ -331,7 +355,7 @@ class Storage:
                     ) COLLATE NOCASE,
                     COALESCE(m.year, 0),
                     m.id
-                '''
+                """
             ).fetchall()
 
     def set_download_state(
@@ -354,7 +378,7 @@ class Storage:
         """
         with self.conn() as c:
             c.execute(
-                '''
+                """
                 INSERT INTO download_states
                     (media_item_id, status, source, message, torrent_hash, mode, previous_path)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -366,7 +390,7 @@ class Storage:
                     mode=COALESCE(excluded.mode, download_states.mode),
                     previous_path=COALESCE(excluded.previous_path, download_states.previous_path),
                     updated_at=CURRENT_TIMESTAMP
-                ''',
+                """,
                 (media_item_id, status, source, message, torrent_hash, mode, previous_path),
             )
 
@@ -385,7 +409,7 @@ class Storage:
     def list_collection_items(self):
         with self.conn() as c:
             return c.execute(
-                '''
+                """
                 SELECT m.id, m.imdb_id, m.tmdb_id, m.title, m.year, m.poster_url,
                        m.collection_id, m.collection_name
                 FROM media_items m
@@ -400,7 +424,7 @@ class Storage:
                     )
                   )
                 ORDER BY m.collection_name, m.year, m.title
-                '''
+                """
             ).fetchall()
 
     def list_discover_ignored_title_ids(self) -> set[int]:
@@ -416,22 +440,22 @@ class Storage:
     def list_discover_ignored_titles(self) -> list[dict]:
         with self.conn() as c:
             rows = c.execute(
-                '''
+                """
                 SELECT tmdb_id, collection_id, title, collection_name, created_at
                 FROM discover_ignored_titles
                 ORDER BY created_at DESC
-                '''
+                """
             ).fetchall()
         return [dict(row) for row in rows]
 
     def list_discover_ignored_collections(self) -> list[dict]:
         with self.conn() as c:
             rows = c.execute(
-                '''
+                """
                 SELECT collection_id, collection_name, created_at
                 FROM discover_ignored_collections
                 ORDER BY created_at DESC
-                '''
+                """
             ).fetchall()
         return [dict(row) for row in rows]
 
@@ -444,7 +468,7 @@ class Storage:
     ) -> None:
         with self.conn() as c:
             c.execute(
-                '''
+                """
                 INSERT INTO discover_ignored_titles (tmdb_id, collection_id, title, collection_name)
                 VALUES (?, ?, ?, ?)
                 ON CONFLICT(tmdb_id) DO UPDATE SET
@@ -452,7 +476,7 @@ class Storage:
                     title=COALESCE(excluded.title, discover_ignored_titles.title),
                     collection_name=COALESCE(excluded.collection_name,
                                              discover_ignored_titles.collection_name)
-                ''',
+                """,
                 (tmdb_id, collection_id, title, collection_name),
             )
 
@@ -464,24 +488,26 @@ class Storage:
         with self.conn() as c:
             c.execute('DELETE FROM discover_ignored_titles')
 
-    def ignore_discover_collection(self, collection_id: int,
-                                   collection_name: str | None = None) -> None:
+    def ignore_discover_collection(
+        self, collection_id: int, collection_name: str | None = None
+    ) -> None:
         with self.conn() as c:
             c.execute(
-                '''
+                """
                 INSERT INTO discover_ignored_collections (collection_id, collection_name)
                 VALUES (?, ?)
                 ON CONFLICT(collection_id) DO UPDATE SET
                     collection_name=COALESCE(excluded.collection_name,
                                              discover_ignored_collections.collection_name)
-                ''',
+                """,
                 (collection_id, collection_name),
             )
 
     def unignore_discover_collection(self, collection_id: int) -> None:
         with self.conn() as c:
-            c.execute('DELETE FROM discover_ignored_collections WHERE collection_id = ?',
-                      (collection_id,))
+            c.execute(
+                'DELETE FROM discover_ignored_collections WHERE collection_id = ?', (collection_id,)
+            )
 
     def unignore_all_discover_collections(self) -> None:
         with self.conn() as c:
@@ -492,8 +518,9 @@ class Storage:
     # otherwise mean hundreds of TMDB requests after each restart.
     IGNORE_WHOLE_SHOW = -1
 
-    def get_cached_season(self, tmdb_id: int, season_number: int,
-                          max_age_hours: int) -> list[dict] | None:
+    def get_cached_season(
+        self, tmdb_id: int, season_number: int, max_age_hours: int
+    ) -> list[dict] | None:
         with self.conn() as c:
             row = c.execute(
                 'SELECT episodes_json, fetched_at FROM tmdb_season_cache '
@@ -516,13 +543,13 @@ class Storage:
     def set_cached_season(self, tmdb_id: int, season_number: int, episodes: list[dict]) -> None:
         with self.conn() as c:
             c.execute(
-                '''
+                """
                 INSERT INTO tmdb_season_cache (tmdb_id, season_number, episodes_json, fetched_at)
                 VALUES (?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(tmdb_id, season_number) DO UPDATE SET
                     episodes_json=excluded.episodes_json,
                     fetched_at=CURRENT_TIMESTAMP
-                ''',
+                """,
                 (tmdb_id, season_number, json.dumps(episodes)),
             )
 
@@ -548,13 +575,13 @@ class Storage:
     def set_cached_tv_status(self, tmdb_id: int, status: dict) -> None:
         with self.conn() as c:
             c.execute(
-                '''
+                """
                 INSERT INTO tmdb_tv_status_cache (tmdb_id, status_json, fetched_at)
                 VALUES (?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(tmdb_id) DO UPDATE SET
                     status_json=excluded.status_json,
                     fetched_at=CURRENT_TIMESTAMP
-                ''',
+                """,
                 (tmdb_id, json.dumps(status)),
             )
 
@@ -585,15 +612,16 @@ class Storage:
             ignored.setdefault(int(row['tmdb_id']), set()).add(int(row['season_number']))
         return ignored
 
-    def get_cached_collection_parts(self, collection_id: int,
-                                    max_age_hours: int) -> list[dict] | None:
+    def get_cached_collection_parts(
+        self, collection_id: int, max_age_hours: int
+    ) -> list[dict] | None:
         with self.conn() as c:
             summary = c.execute(
-                '''
+                """
                 SELECT MAX(fetched_at) AS fetched_at, COUNT(*) AS part_count
                 FROM tmdb_collection_parts_cache
                 WHERE collection_id = ?
-                ''',
+                """,
                 (collection_id,),
             ).fetchone()
 
@@ -612,12 +640,12 @@ class Storage:
                 return None
 
             rows = c.execute(
-                '''
+                """
                 SELECT tmdb_id, title, year, poster_url, release_date, media_type
                 FROM tmdb_collection_parts_cache
                 WHERE collection_id = ?
                 ORDER BY year, title
-                ''',
+                """,
                 (collection_id,),
             ).fetchall()
 
@@ -625,16 +653,17 @@ class Storage:
 
     def set_cached_collection_parts(self, collection_id: int, parts: list[dict]) -> None:
         with self.conn() as c:
-            c.execute('DELETE FROM tmdb_collection_parts_cache WHERE collection_id = ?',
-                      (collection_id,))
+            c.execute(
+                'DELETE FROM tmdb_collection_parts_cache WHERE collection_id = ?', (collection_id,)
+            )
             if not parts:
                 return
             c.executemany(
-                '''
+                """
                 INSERT INTO tmdb_collection_parts_cache (
                     collection_id, tmdb_id, title, year, poster_url, release_date, media_type
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 [
                     (
                         collection_id,
@@ -653,10 +682,10 @@ class Storage:
     def get_cached_watchlist_entries(self, max_age_hours: int) -> dict[str, dict]:
         with self.conn() as c:
             rows = c.execute(
-                '''
+                """
                 SELECT imdb_id, tmdb_id, title, year, media_type, poster_url, fetched_at
                 FROM discover_watchlist_cache
-                '''
+                """
             ).fetchall()
 
         cutoff = datetime.now() - timedelta(hours=max_age_hours)
@@ -693,7 +722,7 @@ class Storage:
             return
         with self.conn() as c:
             c.executemany(
-                '''
+                """
                 INSERT INTO discover_watchlist_cache (
                     imdb_id, tmdb_id, title, year, media_type, poster_url, fetched_at
                 ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -704,7 +733,7 @@ class Storage:
                     media_type=excluded.media_type,
                     poster_url=excluded.poster_url,
                     fetched_at=CURRENT_TIMESTAMP
-                ''',
+                """,
                 [
                     (
                         entry.get('imdb_id'),
@@ -756,12 +785,12 @@ class Storage:
     ) -> None:
         with self.conn() as c:
             c.execute(
-                '''
+                """
                 INSERT INTO quality_checks (
                     media_item_id, best_found_quality, best_found_name,
                     best_found_desc_link, found, raw_result_count
                 ) VALUES (?, ?, ?, ?, ?, ?)
-                ''',
+                """,
                 (
                     media_item_id,
                     best_found_quality,
@@ -791,7 +820,7 @@ class Storage:
         """Save playback position for a media item."""
         with self.conn() as c:
             c.execute(
-                '''
+                """
                 INSERT INTO playback_positions (media_item_id, position_seconds, duration_seconds)
                 VALUES (?, ?, ?)
                 ON CONFLICT(media_item_id) DO UPDATE SET
@@ -799,7 +828,6 @@ class Storage:
                     duration_seconds=COALESCE(excluded.duration_seconds,
                                               playback_positions.duration_seconds),
                     last_updated=CURRENT_TIMESTAMP
-                ''',
+                """,
                 (media_item_id, position_seconds, duration_seconds),
             )
-

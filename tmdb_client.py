@@ -87,8 +87,9 @@ class TmdbClient:
 
         return out
 
-    def search_precise(self, query: str, media_type: str, year: int | None = None,
-                       max_results: int = 8) -> list[dict]:
+    def search_precise(
+        self, query: str, media_type: str, year: int | None = None, max_results: int = 8
+    ) -> list[dict]:
         """Search a specific media type with optional year filtering."""
         safe = query.strip()
         if not safe or media_type not in ('movie', 'tv'):
@@ -161,14 +162,17 @@ class TmdbClient:
             if number is None:
                 continue
             poster_path = entry.get('poster_path')
-            seasons.append({
-                'season_number': number,
-                'name': entry.get('name') or ('Specials' if number == 0 else f'Season {number}'),
-                'episode_count': entry.get('episode_count') or 0,
-                'overview': entry.get('overview') or None,
-                'air_date': entry.get('air_date') or None,
-                'poster_url': f'{IMAGE_BASE_POSTER}{poster_path}' if poster_path else None,
-            })
+            seasons.append(
+                {
+                    'season_number': number,
+                    'name': entry.get('name')
+                    or ('Specials' if number == 0 else f'Season {number}'),
+                    'episode_count': entry.get('episode_count') or 0,
+                    'overview': entry.get('overview') or None,
+                    'air_date': entry.get('air_date') or None,
+                    'poster_url': f'{IMAGE_BASE_POSTER}{poster_path}' if poster_path else None,
+                }
+            )
         return seasons
 
     def poster_options(self, tmdb_id: int | str, media_type: str) -> list[dict]:
@@ -188,15 +192,17 @@ class TmdbClient:
             file_path = entry.get('file_path')
             if not file_path:
                 continue
-            posters.append({
-                'language': entry.get('iso_639_1'),
-                'width': entry.get('width'),
-                'height': entry.get('height'),
-                'vote_average': entry.get('vote_average') or 0,
-                'vote_count': entry.get('vote_count') or 0,
-                'thumb_url': f'{IMAGE_BASE_THUMB}{file_path}',
-                'poster_url': f'{IMAGE_BASE_POSTER}{file_path}',
-            })
+            posters.append(
+                {
+                    'language': entry.get('iso_639_1'),
+                    'width': entry.get('width'),
+                    'height': entry.get('height'),
+                    'vote_average': entry.get('vote_average') or 0,
+                    'vote_count': entry.get('vote_count') or 0,
+                    'thumb_url': f'{IMAGE_BASE_THUMB}{file_path}',
+                    'poster_url': f'{IMAGE_BASE_POSTER}{file_path}',
+                }
+            )
         posters.sort(key=lambda p: (-p['vote_average'], -p['vote_count']))
         return posters
 
@@ -217,11 +223,14 @@ class TmdbClient:
             number = entry.get('season_number')
             if number is None:
                 continue
-            seasons.append({
-                'season_number': number,
-                'name': entry.get('name') or ('Specials' if number == 0 else f'Season {number}'),
-                'episode_count': entry.get('episode_count') or 0,
-            })
+            seasons.append(
+                {
+                    'season_number': number,
+                    'name': entry.get('name')
+                    or ('Specials' if number == 0 else f'Season {number}'),
+                    'episode_count': entry.get('episode_count') or 0,
+                }
+            )
         return {
             'status': data.get('status') or None,
             'in_production': bool(data.get('in_production')),
@@ -243,23 +252,29 @@ class TmdbClient:
                 continue
             still_path = entry.get('still_path')
             raw_rating = entry.get('vote_average')
-            episodes.append({
-                'season_number': entry.get('season_number', season_number),
-                'episode_number': number,
-                'title': entry.get('name') or f'Episode {number}',
-                'synopsis': entry.get('overview') or None,
-                'air_date': entry.get('air_date') or None,
-                'runtime': entry.get('runtime') or None,
-                'still_url': f'{IMAGE_BASE_THUMB}{still_path}' if still_path else None,
-                'rating': round(float(raw_rating), 1) if raw_rating else None,
-            })
+            episodes.append(
+                {
+                    'season_number': entry.get('season_number', season_number),
+                    'episode_number': number,
+                    'title': entry.get('name') or f'Episode {number}',
+                    'synopsis': entry.get('overview') or None,
+                    'air_date': entry.get('air_date') or None,
+                    'runtime': entry.get('runtime') or None,
+                    'still_url': f'{IMAGE_BASE_THUMB}{still_path}' if still_path else None,
+                    'rating': round(float(raw_rating), 1) if raw_rating else None,
+                }
+            )
         return episodes
 
     # TMDB's episode group types. 1 is the default air order, which is already
     # what `season_episodes` returns, so it is not offered as an alternative.
     ORDERING_TYPES: ClassVar[dict[int, str]] = {
-        2: 'Absolute', 3: 'DVD', 4: 'Digital', 5: 'Story arc',
-        6: 'Production', 7: 'TV',
+        2: 'Absolute',
+        3: 'DVD',
+        4: 'Digital',
+        5: 'Story arc',
+        6: 'Production',
+        7: 'TV',
     }
 
     def episode_orderings(self, tv_id: int | str) -> list[dict]:
@@ -286,12 +301,14 @@ class TmdbClient:
                 continue
             episodes = self._episode_group(group['id'])
             if episodes:
-                orderings.append({
-                    'id': group['id'],
-                    'name': group.get('name') or kind,
-                    'kind': kind,
-                    'episodes': episodes,
-                })
+                orderings.append(
+                    {
+                        'id': group['id'],
+                        'name': group.get('name') or kind,
+                        'kind': kind,
+                        'episodes': episodes,
+                    }
+                )
         return orderings
 
     def _episode_group(self, group_id: str) -> list[dict]:
@@ -314,16 +331,18 @@ class TmdbClient:
                 number = (order + 1) if order is not None else (position + 1)
                 still_path = entry.get('still_path')
                 raw_rating = entry.get('vote_average')
-                episodes.append({
-                    'season_number': int(season_number),
-                    'episode_number': number,
-                    'title': entry.get('name') or f'Episode {number}',
-                    'synopsis': entry.get('overview') or None,
-                    'air_date': entry.get('air_date') or None,
-                    'runtime': entry.get('runtime') or None,
-                    'still_url': f'{IMAGE_BASE_THUMB}{still_path}' if still_path else None,
-                    'rating': round(float(raw_rating), 1) if raw_rating else None,
-                })
+                episodes.append(
+                    {
+                        'season_number': int(season_number),
+                        'episode_number': number,
+                        'title': entry.get('name') or f'Episode {number}',
+                        'synopsis': entry.get('overview') or None,
+                        'air_date': entry.get('air_date') or None,
+                        'runtime': entry.get('runtime') or None,
+                        'still_url': f'{IMAGE_BASE_THUMB}{still_path}' if still_path else None,
+                        'rating': round(float(raw_rating), 1) if raw_rating else None,
+                    }
+                )
         return episodes
 
     def metadata_by_tmdb_id(self, tmdb_id: int | str, media_type: str) -> dict:
@@ -334,16 +353,23 @@ class TmdbClient:
         path = f'/tv/{tmdb_id}' if media_type == 'tv' else f'/movie/{tmdb_id}'
 
         try:
-            data = self._get(path, {'append_to_response': 'credits,external_ids',
-                                    'language': 'en-US'})
+            data = self._get(
+                path, {'append_to_response': 'credits,external_ids', 'language': 'en-US'}
+            )
         except Exception:
             return {
-                'imdb_id': None, 'tmdb_id': int(tmdb_id) if str(tmdb_id).isdigit() else None,
-                'title': str(tmdb_id), 'year': None,
-                'media_type': media_type, 'poster_url': None,
-                'synopsis': None, 'actors': None,
-                'genre_1': None, 'genre_2': None,
-                'collection_id': None, 'collection_name': None,
+                'imdb_id': None,
+                'tmdb_id': int(tmdb_id) if str(tmdb_id).isdigit() else None,
+                'title': str(tmdb_id),
+                'year': None,
+                'media_type': media_type,
+                'poster_url': None,
+                'synopsis': None,
+                'actors': None,
+                'genre_1': None,
+                'genre_2': None,
+                'collection_id': None,
+                'collection_name': None,
             }
 
         external_ids = data.get('external_ids', {})
@@ -399,15 +425,23 @@ class TmdbClient:
     def metadata_by_imdb_id(self, imdb_id: str) -> dict:
         """Look up a title by IMDb ID and return full metadata. Used for Refresh flow."""
         stub = {
-            'imdb_id': imdb_id, 'tmdb_id': None, 'title': imdb_id, 'year': None,
-            'media_type': 'movie', 'poster_url': None,
-            'synopsis': None, 'actors': None,
-            'genre_1': None, 'genre_2': None,
-            'collection_id': None, 'collection_name': None,
+            'imdb_id': imdb_id,
+            'tmdb_id': None,
+            'title': imdb_id,
+            'year': None,
+            'media_type': 'movie',
+            'poster_url': None,
+            'synopsis': None,
+            'actors': None,
+            'genre_1': None,
+            'genre_2': None,
+            'collection_id': None,
+            'collection_name': None,
         }
         try:
-            data = self._get(f'/find/{imdb_id}',
-                             {'external_source': 'imdb_id', 'language': 'en-US'})
+            data = self._get(
+                f'/find/{imdb_id}', {'external_source': 'imdb_id', 'language': 'en-US'}
+            )
         except Exception:
             return stub
 

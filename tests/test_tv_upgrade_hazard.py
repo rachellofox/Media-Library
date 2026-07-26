@@ -2,6 +2,7 @@
 
 Sandbox only: temp dirs and a throwaway DB, and the recycle bin is redirected.
 """
+
 import os
 import shutil
 import sys
@@ -61,8 +62,15 @@ episodes += [
 print(f'show folder starts with {len(episodes)} episodes')
 
 app.store.add_media_item(
-    imdb_id='tt9999999', tmdb_id=None, title='Some Show', year=2010, media_type='tv',
-    collection_id=None, collection_name=None, current_quality='1080p', path=show,
+    imdb_id='tt9999999',
+    tmdb_id=None,
+    title='Some Show',
+    year=2010,
+    media_type='tv',
+    collection_id=None,
+    collection_name=None,
+    current_quality='1080p',
+    path=show,
 )
 media_id = app.store.get_media_item_by_imdb_id('tt9999999')['id']
 
@@ -76,8 +84,12 @@ is_upgrade = bool(existing_path) and not app._is_local_media_missing(existing_pa
 print(f'submit-time classification: mode={"upgrade" if is_upgrade else "fill"}')
 
 app.store.set_download_state(
-    media_item_id=media_id, status='downloading', source='qb_webui', message='x',
-    torrent_hash='A' * 40, mode='upgrade' if is_upgrade else 'fill',
+    media_item_id=media_id,
+    status='downloading',
+    source='qb_webui',
+    message='x',
+    torrent_hash='A' * 40,
+    mode='upgrade' if is_upgrade else 'fill',
     previous_path=existing_path,
 )
 
@@ -86,10 +98,9 @@ torrent = {'state': 'stalledUP', 'progress': 1.0, 'amount_left': 0, 'content_pat
 
 app._finalize_completed_download(row, torrent)
 
-surviving = [
-    os.path.join(r, f)
-    for r, _d, fs in os.walk(show) for f in fs
-] if os.path.isdir(show) else []
+surviving = (
+    [os.path.join(r, f) for r, _d, fs in os.walk(show) for f in fs] if os.path.isdir(show) else []
+)
 
 print()
 print(f'show folder still exists : {os.path.isdir(show)}')

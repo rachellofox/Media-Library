@@ -61,9 +61,23 @@ def _dims_to_quality(w: int, h: int) -> str | None:
 def _ffprobe_dims(path: str, ffprobe_exe: str = 'ffprobe') -> tuple[int, int] | None:
     try:
         result = subprocess.run(
-            [ffprobe_exe, '-v', 'quiet', '-select_streams', 'v:0',
-             '-show_entries', 'stream=width,height', '-of', 'csv=s=x:p=0', path],
-            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30,
+            [
+                ffprobe_exe,
+                '-v',
+                'quiet',
+                '-select_streams',
+                'v:0',
+                '-show_entries',
+                'stream=width,height',
+                '-of',
+                'csv=s=x:p=0',
+                path,
+            ],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            timeout=30,
         )
         if result.returncode == 0 and result.stdout.strip():
             parts = [p for p in result.stdout.strip().split('x') if p]
@@ -124,24 +138,24 @@ def _parse_tkhd(data: bytes) -> tuple[int, int] | None:
         return None
     version = data[0]
     # version 0: 4+20 header bytes; version 1: 4+32 header bytes
-    skip = (76 if version == 0 else 88)
+    skip = 76 if version == 0 else 88
     if len(data) < skip + 8:
         return None
-    w = struct.unpack('>I', data[skip:skip + 4])[0] >> 16
-    h = struct.unpack('>I', data[skip + 4:skip + 8])[0] >> 16
+    w = struct.unpack('>I', data[skip : skip + 4])[0] >> 16
+    h = struct.unpack('>I', data[skip + 4 : skip + 8])[0] >> 16
     return (w, h)
 
 
 # MKV / EBML parser
 
 _SEGMENT_ID = b'\x18\x53\x80\x67'
-_TRACKS_ID  = b'\x16\x54\xae\x6b'
-_ENTRY_ID   = b'\xae'
-_TYPE_ID    = b'\x83'
-_VIDEO_ID   = b'\xe0'
-_WIDTH_ID   = b'\xb0'
-_HEIGHT_ID  = b'\xba'
-_EBML_UNKNOWN_SIZE = 2 ** 56  # sentinel for unknown-size elements
+_TRACKS_ID = b'\x16\x54\xae\x6b'
+_ENTRY_ID = b'\xae'
+_TYPE_ID = b'\x83'
+_VIDEO_ID = b'\xe0'
+_WIDTH_ID = b'\xb0'
+_HEIGHT_ID = b'\xba'
+_EBML_UNKNOWN_SIZE = 2**56  # sentinel for unknown-size elements
 
 
 def _ebml_read_id(f) -> bytes | None:

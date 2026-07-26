@@ -38,7 +38,7 @@ class FakeTmdb:
 
 **Never touch the real library or database.** Filesystem tests build a sandbox
 under `tempfile.TemporaryDirectory()` and a throwaway SQLite file. Nothing reads
-`media.db` or `D:\TV Shows`.
+`library.db` or `D:\TV Shows`.
 
 **Front-end tests run the shipped JavaScript.** There is no separate copy: the
 `.js` tests read `templates/index.html`, extract the `<script>` block, and `eval`

@@ -82,15 +82,15 @@ def _log():
 def _refresh_local_media_signals(media_id: int, media_path: str | None) -> None:
     best_video = _best_local_video_path(media_path)
     if best_video:
-        quality = (
-            detect_quality_from_file(best_video, ffprobe_exe=FFPROBE_EXE)
-            or detect_quality(os.path.basename(best_video))
+        quality = detect_quality_from_file(best_video, ffprobe_exe=FFPROBE_EXE) or detect_quality(
+            os.path.basename(best_video)
         )
         if quality:
             _store().update_quality(media_id, quality)
     subs = scan_subtitles(media_path)
     if subs:
         _store().update_subtitles(media_id, subs)
+
 
 def _staging_path_for(media_type: str) -> str:
     """Where in-progress downloads land before being finalised into the library.
@@ -103,6 +103,7 @@ def _staging_path_for(media_type: str) -> str:
         return ''
     subfolder = 'tv' if media_type == 'tv' else 'movies'
     return os.path.join(configured, subfolder)
+
 
 def _retire_path(path: str) -> bool:
     """Send a superseded file/folder to the Recycle Bin so it stays recoverable.
@@ -123,23 +124,28 @@ def _retire_path(path: str) -> bool:
         _log().warning('Could not recycle %s: %s', target, exc)
         return False
 
+
 def _is_download_state_stale(updated_at_text: str | None, stale_after: timedelta) -> bool:
     if not updated_at_text:
         return False
     try:
-        updated_at = datetime.strptime(
-            updated_at_text.strip(), '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+        updated_at = datetime.strptime(updated_at_text.strip(), '%Y-%m-%d %H:%M:%S').replace(
+            tzinfo=timezone.utc
+        )
     except Exception:
         return False
     return (datetime.now(timezone.utc) - updated_at) >= stale_after
+
 
 # Finalisation moves files, and _auto_finalize runs on every page load, so
 # concurrent requests must not race each other into the same media item.
 _FINALIZE_LOCK = threading.Lock()
 
+
 def _library_root_for(media_type: str) -> str:
     setting = 'tv_path' if (media_type or 'movie') == 'tv' else 'movies_path'
     return (_store().get_setting(setting) or '').strip()
+
 
 def _place_video_in_library(source_video: str, dest_file: str) -> str | None:
     """Put a finished download at its canonical library path.
@@ -173,6 +179,7 @@ def _place_video_in_library(source_video: str, dest_file: str) -> str | None:
     except Exception as exc:
         _log().warning('Could not place %s into library: %s', source_video, exc)
         return None
+
 
 def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
     """File a finished TV download into its show as an episode.
@@ -208,16 +215,18 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
                 media_item_id=media_id,
                 status='needs_review',
                 source=row['download_source'] or 'qb_webui',
-                message=(f'S{season:02d}E{episode:02d}: downloaded '
-                         f'{new_quality or "unknown"} is not '
-                         f'better than existing {existing_quality or "unknown"}'),
+                message=(
+                    f'S{season:02d}E{episode:02d}: downloaded '
+                    f'{new_quality or "unknown"} is not '
+                    f'better than existing {existing_quality or "unknown"}'
+                ),
             )
             return
 
     if os.path.exists(dest_file) and not (
-            existing_file and os.path.samefile(existing_file, dest_file)):
-        _log().info('Media %s: %s already exists, leaving download in place.',
-                        media_id, dest_file)
+        existing_file and os.path.samefile(existing_file, dest_file)
+    ):
+        _log().info('Media %s: %s already exists, leaving download in place.', media_id, dest_file)
         _store().clear_download_state(media_id)
         return
 
@@ -232,11 +241,17 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
         covers_only_this = bool(covered) and covered[1] == [episode]
         if covers_only_this and not os.path.samefile(existing_file, landing):
             _retire_path(existing_file)
-            _log().info('Media %s: retired superseded S%02dE%02d file %s',
-                            media_id, season, episode, existing_file)
+            _log().info(
+                'Media %s: retired superseded S%02dE%02d file %s',
+                media_id,
+                season,
+                episode,
+                existing_file,
+            )
         elif not covers_only_this:
             _log().info(
-                'Media %s: kept %s, it also covers other episodes.', media_id, existing_file)
+                'Media %s: kept %s, it also covers other episodes.', media_id, existing_file
+            )
 
     if landing != dest_file:
         try:
@@ -254,6 +269,7 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
         _store().update_quality(media_id, new_quality)
     _store().clear_download_state(media_id)
 
+
 def _finalize_completed_download(row, torrent: dict) -> None:
     """Move one finished download into the library under its canonical name."""
     media_id = int(row['id'])
@@ -265,9 +281,8 @@ def _finalize_completed_download(row, torrent: dict) -> None:
     if not new_video:
         return  # complete per qB but nothing playable yet; retry next pass
 
-    new_quality = (
-        detect_quality_from_file(new_video, ffprobe_exe=FFPROBE_EXE)
-        or detect_quality(os.path.basename(new_video))
+    new_quality = detect_quality_from_file(new_video, ffprobe_exe=FFPROBE_EXE) or detect_quality(
+        os.path.basename(new_video)
     )
 
     # A TV item points at a whole show, so the movie logic below — which replaces
@@ -286,25 +301,33 @@ def _finalize_completed_download(row, torrent: dict) -> None:
     # release could retire a better file than the one it replaces.
     if mode == 'upgrade' and outgoing_video:
         old_quality = row['current_quality'] or detect_quality_from_file(
-            outgoing_video, ffprobe_exe=FFPROBE_EXE)
+            outgoing_video, ffprobe_exe=FFPROBE_EXE
+        )
         if compare_quality(old_quality, new_quality) <= 0:
             _store().set_download_state(
                 media_item_id=media_id,
                 status='needs_review',
                 source=row['download_source'] or 'qb_webui',
-                message=(f'Downloaded {new_quality or "unknown"} is not better than '
-                         f'existing {old_quality or "unknown"}'),
+                message=(
+                    f'Downloaded {new_quality or "unknown"} is not better than '
+                    f'existing {old_quality or "unknown"}'
+                ),
             )
             _log().info(
                 'Upgrade for media %s rejected: %s is not better than %s',
-                media_id, new_quality, old_quality,
+                media_id,
+                new_quality,
+                old_quality,
             )
             return
 
     library_root = _library_root_for(media_type)
     destination = canonical_paths(
-        library_root, row['title'] or '', row['year'],
-        os.path.splitext(new_video)[1], media_type,
+        library_root,
+        row['title'] or '',
+        row['year'],
+        os.path.splitext(new_video)[1],
+        media_type,
     )
     if not destination:
         _log().warning('No canonical name for media %s; leaving download in place.', media_id)
@@ -316,9 +339,7 @@ def _finalize_completed_download(row, torrent: dict) -> None:
     # replacement beside it and only take its name once the old one is safely
     # recycled, so nothing is destroyed before the new file is really there.
     replacing_in_place = bool(
-        outgoing_video
-        and os.path.isfile(dest_file)
-        and os.path.samefile(dest_file, outgoing_video)
+        outgoing_video and os.path.isfile(dest_file) and os.path.samefile(dest_file, outgoing_video)
     )
     landing = f'{dest_file}.incoming' if replacing_in_place else dest_file
 
@@ -368,7 +389,9 @@ def _finalize_completed_download(row, torrent: dict) -> None:
                     _log().info(
                         'Media %s: %s holds %d videos, so nothing was retired. The superseded '
                         'file may need clearing up by hand.',
-                        media_id, previous_path, len(siblings),
+                        media_id,
+                        previous_path,
+                        len(siblings),
                     )
             if retire_target and _retire_path(retire_target):
                 _log().info('Recycled superseded media for %s: %s', media_id, retire_target)
@@ -386,6 +409,7 @@ def _finalize_completed_download(row, torrent: dict) -> None:
     # The stored upgrade result was measured against the file we just replaced.
     _store().clear_quality_checks(media_id)
     _store().clear_download_state(media_id)
+
 
 def _readopt_orphaned_downloads(torrents: list[dict]) -> None:
     """Relink items that lost their download state while a torrent still runs.
@@ -421,8 +445,12 @@ def _readopt_orphaned_downloads(torrents: list[dict]) -> None:
             mode='fill',
         )
         _log().info(
-            'Relinked media %s (%s) to torrent %r', row['id'], row['title'], torrent.get('name'),
+            'Relinked media %s (%s) to torrent %r',
+            row['id'],
+            row['title'],
+            torrent.get('name'),
         )
+
 
 def _auto_finalize_qb_completed_downloads() -> None:
     if not qbt._qbt_webui_enabled():

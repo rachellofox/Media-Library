@@ -7,8 +7,9 @@ TRAKT_API_BASE = 'https://api.trakt.tv'
 
 
 class TraktRequestError(Exception):
-    def __init__(self, code: str, status_code: int | None = None,
-                 payload: dict | list | None = None) -> None:
+    def __init__(
+        self, code: str, status_code: int | None = None, payload: dict | list | None = None
+    ) -> None:
         super().__init__(code)
         self.code = code
         self.status_code = status_code
@@ -39,14 +40,16 @@ class TraktClient:
             headers['Authorization'] = f'Bearer {self.access_token}'
         return headers
 
-    def _request(self, method: str, path: str, payload: dict | None = None,
-                 include_auth: bool = True):
+    def _request(
+        self, method: str, path: str, payload: dict | None = None, include_auth: bool = True
+    ):
         url = TRAKT_API_BASE + path
         body = None
         if payload is not None:
             body = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(url, data=body, method=method,
-                                     headers=self._headers(include_auth=include_auth))
+        req = urllib.request.Request(
+            url, data=body, method=method, headers=self._headers(include_auth=include_auth)
+        )
         try:
             with urllib.request.urlopen(req, timeout=20) as resp:
                 raw = resp.read().decode('utf-8')
@@ -61,20 +64,23 @@ class TraktClient:
             except Exception:
                 payload = None
             if exc.code == 401:
-                raise TraktRequestError('unauthorized', status_code=exc.code,
-                                        payload=payload) from exc
+                raise TraktRequestError(
+                    'unauthorized', status_code=exc.code, payload=payload
+                ) from exc
             if exc.code == 403:
                 raise TraktRequestError('forbidden', status_code=exc.code, payload=payload) from exc
             if exc.code == 404:
                 raise TraktRequestError('not_found', status_code=exc.code, payload=payload) from exc
             if exc.code == 410:
-                raise TraktRequestError('deactivated', status_code=exc.code,
-                                        payload=payload) from exc
+                raise TraktRequestError(
+                    'deactivated', status_code=exc.code, payload=payload
+                ) from exc
             if exc.code == 423:
                 raise TraktRequestError('locked', status_code=exc.code, payload=payload) from exc
             if exc.code == 429:
-                raise TraktRequestError('rate_limited', status_code=exc.code,
-                                        payload=payload) from exc
+                raise TraktRequestError(
+                    'rate_limited', status_code=exc.code, payload=payload
+                ) from exc
             raise TraktRequestError('http_error', status_code=exc.code, payload=payload) from exc
         except urllib.error.URLError as exc:
             raise TraktRequestError('network_error') from exc
@@ -95,20 +101,25 @@ class TraktClient:
         return data or {}
 
     def device_code(self) -> dict:
-        return self._post('/oauth/device/code', {'client_id': self.client_id},
-                          include_auth=False) or {}
+        return (
+            self._post('/oauth/device/code', {'client_id': self.client_id}, include_auth=False)
+            or {}
+        )
 
     def poll_device_token(self, device_code: str) -> dict:
         try:
-            return self._post(
-                '/oauth/device/token',
-                {
-                    'code': device_code,
-                    'client_id': self.client_id,
-                    'client_secret': self.client_secret,
-                },
-                include_auth=False,
-            ) or {}
+            return (
+                self._post(
+                    '/oauth/device/token',
+                    {
+                        'code': device_code,
+                        'client_id': self.client_id,
+                        'client_secret': self.client_secret,
+                    },
+                    include_auth=False,
+                )
+                or {}
+            )
         except TraktRequestError as exc:
             code_map = {
                 400: 'pending',
@@ -119,22 +130,25 @@ class TraktClient:
                 429: 'slow_down',
             }
             if exc.status_code in code_map:
-                raise TraktRequestError(code_map[exc.status_code],
-                                        status_code=exc.status_code,
-                                        payload=exc.payload) from exc
+                raise TraktRequestError(
+                    code_map[exc.status_code], status_code=exc.status_code, payload=exc.payload
+                ) from exc
             raise
 
     def exchange_refresh_token(self, refresh_token: str) -> dict:
-        return self._post(
-            '/oauth/token',
-            {
-                'refresh_token': refresh_token,
-                'client_id': self.client_id,
-                'client_secret': self.client_secret,
-                'grant_type': 'refresh_token',
-            },
-            include_auth=False,
-        ) or {}
+        return (
+            self._post(
+                '/oauth/token',
+                {
+                    'refresh_token': refresh_token,
+                    'client_id': self.client_id,
+                    'client_secret': self.client_secret,
+                    'grant_type': 'refresh_token',
+                },
+                include_auth=False,
+            )
+            or {}
+        )
 
     def revoke_token(self, token: str) -> None:
         self._post(
@@ -170,8 +184,11 @@ class TraktClient:
         }
 
     def collection_movies(self) -> list[dict]:
-        path = ('/sync/collection/movies' if self.access_token
-                else f'/users/{self._user_slug()}/collection/movies')
+        path = (
+            '/sync/collection/movies'
+            if self.access_token
+            else f'/users/{self._user_slug()}/collection/movies'
+        )
         data = self._get(path)
         out = []
         for item in data:
@@ -181,8 +198,11 @@ class TraktClient:
         return out
 
     def collection_shows(self) -> list[dict]:
-        path = ('/sync/collection/shows' if self.access_token
-                else f'/users/{self._user_slug()}/collection/shows')
+        path = (
+            '/sync/collection/shows'
+            if self.access_token
+            else f'/users/{self._user_slug()}/collection/shows'
+        )
         data = self._get(path)
         out = []
         for item in data:
@@ -192,8 +212,11 @@ class TraktClient:
         return out
 
     def watchlist_movies(self) -> list[dict]:
-        path = ('/sync/watchlist/movies' if self.access_token
-                else f'/users/{self._user_slug()}/watchlist/movies')
+        path = (
+            '/sync/watchlist/movies'
+            if self.access_token
+            else f'/users/{self._user_slug()}/watchlist/movies'
+        )
         data = self._get(path)
         out = []
         for item in data:
@@ -203,8 +226,11 @@ class TraktClient:
         return out
 
     def watchlist_shows(self) -> list[dict]:
-        path = ('/sync/watchlist/shows' if self.access_token
-                else f'/users/{self._user_slug()}/watchlist/shows')
+        path = (
+            '/sync/watchlist/shows'
+            if self.access_token
+            else f'/users/{self._user_slug()}/watchlist/shows'
+        )
         data = self._get(path)
         out = []
         for item in data:

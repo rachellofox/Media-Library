@@ -28,6 +28,7 @@ def fetch_subtitles(video_path: str, title: str | None = None, year: int | None 
         # If the media-info scan fails (no ffprobe/mediainfo), fall back to a
         # plain Movie/Episode guessed from the filename.
         from subliminal import Movie
+
         guess_name = os.path.basename(video_path)
         video = Movie(guess_name, year=year)
 

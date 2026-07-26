@@ -13,6 +13,7 @@ TMDB's episode list, refusing anything ambiguous — see episode_match.py.
 Nothing is renamed without --apply, and nothing is ever deleted. Files that
 cannot be identified are reported and left exactly where they are.
 """
+
 import json
 import os
 import subprocess
@@ -53,8 +54,9 @@ def tmdb_episodes(tmdb_id):
         number = season['season_number']
         if number == 0:
             continue
-        cached = app.store.get_cached_season(int(tmdb_id), number,
-                                             app.DISCOVER_COLLECTION_CACHE_HOURS)
+        cached = app.store.get_cached_season(
+            int(tmdb_id), number, app.DISCOVER_COLLECTION_CACHE_HOURS
+        )
         if cached is None:
             cached = app.tmdb.season_episodes(tmdb_id, number)
             if cached:
@@ -89,7 +91,9 @@ def _probe(path: str) -> tuple[float, str]:
     try:
         probe = subprocess.run(
             [app.FFPROBE_EXE, '-v', 'quiet', '-print_format', 'json', '-show_format', path],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         container = json.loads(probe.stdout or '{}').get('format') or {}
         tags = container.get('tags') or {}
@@ -123,16 +127,19 @@ def _score_ordering(planned, episodes, probes) -> tuple[int, int, int, int]:
     two-parter is not read as double-length, and anything the ordering has no
     answer for is not counted as evidence either way.
     """
-    slots = {(episode['season_number'], episode['episode_number']): episode
-             for episode in episodes}
+    slots = {(episode['season_number'], episode['episode_number']): episode for episode in episodes}
     titles = covered = agree = disagree = 0
     for path, claimed in planned.items():
         covered += sum(1 for key in claimed if key in slots)
         minutes, embedded = probes.get(path, (0.0, ''))
 
         expected_title = (slots.get(claimed[0], {}) or {}).get('title') or ''
-        if (embedded and expected_title and len(claimed) == 1
-                and normalise_episode_title(embedded) == normalise_episode_title(expected_title)):
+        if (
+            embedded
+            and expected_title
+            and len(claimed) == 1
+            and normalise_episode_title(embedded) == normalise_episode_title(expected_title)
+        ):
             titles += 1
 
         expected = sum((slots.get(key, {}) or {}).get('runtime') or 0 for key in claimed)
@@ -173,44 +180,49 @@ def _resolve_ordering(show_title, tmdb_id, planned, episodes, notes, left_alone)
     probes = {path: _probe(path) for path in planned}
     wanted = sum(len(claimed) for claimed in planned.values())
     base_titles, base_covered, base_agree, base_disagree = _score_ordering(
-        planned, episodes, probes)
+        planned, episodes, probes
+    )
     # Settling for the default needs more than the absence of contradiction. Where
     # the files name their own episodes and the default matches none of them, the
     # numbering may be a straight permutation — every slot present and every
     # runtime plausible, yet each title one place out — which is what Batman is.
     embedded_titles = sum(1 for _minutes, title in probes.values() if title)
-    if (not base_disagree and base_covered >= wanted
-            and (base_titles or not embedded_titles)):
+    if not base_disagree and base_covered >= wanted and (base_titles or not embedded_titles):
         return episodes, set()
 
     candidates = []
-    for ordering in (app.tmdb.episode_orderings(tmdb_id) if tmdb_id else []):
-        titles, covered, agree, disagree = _score_ordering(
-            planned, ordering['episodes'], probes)
+    for ordering in app.tmdb.episode_orderings(tmdb_id) if tmdb_id else []:
+        titles, covered, agree, disagree = _score_ordering(planned, ordering['episodes'], probes)
         # Nothing may contradict it, and it has to account for more of the files
         # than the default managed on at least one signal.
         if disagree:
             continue
         if (titles, covered, agree) <= (base_titles, base_covered, base_agree):
             continue
-        rank = (ORDERING_PREFERENCE.index(ordering['kind'])
-                if ordering['kind'] in ORDERING_PREFERENCE else len(ORDERING_PREFERENCE))
+        rank = (
+            ORDERING_PREFERENCE.index(ordering['kind'])
+            if ordering['kind'] in ORDERING_PREFERENCE
+            else len(ORDERING_PREFERENCE)
+        )
         candidates.append((-titles, -covered, -agree, rank, ordering['name'], ordering))
 
     if candidates:
         titles, covered, _agree, _rank, _name, ordering = min(candidates)
         if -titles:
-            evidence = (f'{-titles} files carry the episode title inside them and all of '
-                        f'them match this ordering')
+            evidence = (
+                f'{-titles} files carry the episode title inside them and all of '
+                f'them match this ordering'
+            )
         else:
-            evidence = (f'it has {-covered} of the {wanted} episodes these files claim, '
-                        f"against TMDB's default {base_covered}")
-        notes.append((show_title, ordering['name'], f"{ordering['kind']} numbering — {evidence}"))
+            evidence = (
+                f'it has {-covered} of the {wanted} episodes these files claim, '
+                f"against TMDB's default {base_covered}"
+            )
+        notes.append((show_title, ordering['name'], f'{ordering["kind"]} numbering — {evidence}'))
         return ordering['episodes'], set()
 
     # Nothing fits, so withhold titles for the seasons holding the contradictions.
-    slots = {(episode['season_number'], episode['episode_number']): episode
-             for episode in episodes}
+    slots = {(episode['season_number'], episode['episode_number']): episode for episode in episodes}
     untitled = set()
     for path, claimed in planned.items():
         season_number = claimed[0][0]
@@ -223,11 +235,14 @@ def _resolve_ordering(show_title, tmdb_id, planned, episodes, notes, left_alone)
             continue
         if abs(minutes - expected) > expected * DURATION_TOLERANCE:
             untitled.add(season_number)
-            left_alone.append((
-                show_title, relative,
-                f'runs {minutes:.0f} min but TMDB says {expected:.0f}, and no published '
-                f'ordering fits — Season {season_number:02d} titles withheld',
-            ))
+            left_alone.append(
+                (
+                    show_title,
+                    relative,
+                    f'runs {minutes:.0f} min but TMDB says {expected:.0f}, and no published '
+                    f'ordering fits — Season {season_number:02d} titles withheld',
+                )
+            )
     return episodes, untitled
 
 
@@ -235,9 +250,38 @@ SUBTITLE_EXTENSIONS = {'.srt', '.sub', '.ass', '.ssa', '.vtt', '.idx', '.sup'}
 # Language/flag suffixes worth carrying over; anything else trailing a dot is a
 # release group, not a language, so it is dropped with the rest of the old name.
 SUBTITLE_SUFFIXES = {
-    'en', 'eng', 'english', 'fr', 'fre', 'french', 'de', 'ger', 'german', 'es', 'spa',
-    'spanish', 'it', 'ita', 'nl', 'dut', 'pt', 'por', 'sv', 'da', 'no', 'fi', 'pl',
-    'ru', 'ja', 'jpn', 'ko', 'zh', 'chi', 'forced', 'sdh', 'cc',
+    'en',
+    'eng',
+    'english',
+    'fr',
+    'fre',
+    'french',
+    'de',
+    'ger',
+    'german',
+    'es',
+    'spa',
+    'spanish',
+    'it',
+    'ita',
+    'nl',
+    'dut',
+    'pt',
+    'por',
+    'sv',
+    'da',
+    'no',
+    'fi',
+    'pl',
+    'ru',
+    'ja',
+    'jpn',
+    'ko',
+    'zh',
+    'chi',
+    'forced',
+    'sdh',
+    'cc',
 }
 
 
@@ -250,7 +294,7 @@ def _below_season_folder(path: str) -> str:
     parts = os.path.normpath(path).split(os.sep)
     for index in range(len(parts) - 2, -1, -1):
         if app._SEASON_DIR_EXACT.match(parts[index]) or app._SPECIALS_DIR.match(parts[index]):
-            return os.path.join(*parts[index + 1:])
+            return os.path.join(*parts[index + 1 :])
     return os.path.basename(path)
 
 
@@ -286,13 +330,15 @@ for item in app.store.list_media_items():
     # A file naming another show is never renamed, whatever its marker says. It
     # is a misplacement to be moved out by hand, not an episode of this show.
     # The scan already refused it, which is why it arrives here as unmarked.
-    intruders = [p for p in unmarked
-                 if app._episodes_covered(os.path.basename(p))
-                 and names_other_show(os.path.basename(p), show_title)]
+    intruders = [
+        p
+        for p in unmarked
+        if app._episodes_covered(os.path.basename(p))
+        and names_other_show(os.path.basename(p), show_title)
+    ]
     unmarked = [p for p in unmarked if p not in set(intruders)]
     for path in intruders:
-        left_alone.append((show_title, os.path.relpath(path, show_path),
-                           'names a different show'))
+        left_alone.append((show_title, os.path.relpath(path, show_path), 'names a different show'))
 
     # Every file, mapped to the episode numbers it covers. A marker is not enough
     # on its own: a file filed under Featurettes has been put there deliberately —
@@ -320,7 +366,8 @@ for item in app.store.list_media_items():
         for name, episode in resolved.items():
             for path in by_name[name]:
                 planned.setdefault(path, []).append(
-                    (episode['season_number'], episode['episode_number']))
+                    (episode['season_number'], episode['episode_number'])
+                )
         for name in sorted(set(by_name) - set(resolved)):
             _episode, reason = match_episode_title(name, episodes)
             for path in by_name[name]:
@@ -329,8 +376,9 @@ for item in app.store.list_media_items():
         for path in unmarked:
             left_alone.append((show_title, os.path.relpath(path, show_path), 'no-tmdb-episodes'))
 
-    episodes, untitled = _resolve_ordering(show_title, item['tmdb_id'], planned,
-                                           episodes, ordering_notes, left_alone)
+    episodes, untitled = _resolve_ordering(
+        show_title, item['tmdb_id'], planned, episodes, ordering_notes, left_alone
+    )
 
     for path, covered in planned.items():
         covered.sort()
@@ -348,14 +396,16 @@ for item in app.store.list_media_items():
         if os.path.normcase(os.path.normpath(path)) == os.path.normcase(os.path.normpath(target)):
             already += 1
             continue
-        renames.append({
-            'show': show_title,
-            'from': path,
-            'to': target,
-            'rel_from': os.path.relpath(path, show_path),
-            'rel_to': os.path.relpath(target, show_path),
-            'conflict': os.path.exists(target),
-        })
+        renames.append(
+            {
+                'show': show_title,
+                'from': path,
+                'to': target,
+                'rel_from': os.path.relpath(path, show_path),
+                'rel_to': os.path.relpath(target, show_path),
+                'conflict': os.path.exists(target),
+            }
+        )
 
     # Where each episode ends up, whether it is moving or already in place.
     final_for = {}
@@ -383,15 +433,20 @@ for item in app.store.list_media_items():
             suffix = subtitle_suffix(os.path.splitext(name)[0])
             source = os.path.join(root, name)
             target = os.path.join(os.path.dirname(episode_path), f'{stem}{suffix}{extension}')
-            if (os.path.normcase(os.path.normpath(source))
-                    == os.path.normcase(os.path.normpath(target))):
+            if os.path.normcase(os.path.normpath(source)) == os.path.normcase(
+                os.path.normpath(target)
+            ):
                 continue
-            sidecars.append({
-                'show': show_title, 'from': source, 'to': target,
-                'rel_from': os.path.relpath(source, show_path),
-                'rel_to': os.path.relpath(target, show_path),
-                'conflict': os.path.exists(target),
-            })
+            sidecars.append(
+                {
+                    'show': show_title,
+                    'from': source,
+                    'to': target,
+                    'rel_from': os.path.relpath(source, show_path),
+                    'rel_to': os.path.relpath(target, show_path),
+                    'conflict': os.path.exists(target),
+                }
+            )
 
     # Non-episode files stranded in a folder that a canonical season folder now
     # duplicates — this is what leaves a show with both "Season 1" and "Season 01".
@@ -409,12 +464,16 @@ for item in app.store.list_media_items():
         # basename collides: Wentworth has a "Kate A.mkv" under more than one
         # season's "The Cast's Favourite Scenes".
         target = os.path.join(season_folder, 'Featurettes', _below_season_folder(path))
-        strays.append({
-            'show': show_title, 'from': path, 'to': target,
-            'rel_from': os.path.relpath(path, show_path),
-            'rel_to': os.path.relpath(target, show_path),
-            'conflict': os.path.exists(target),
-        })
+        strays.append(
+            {
+                'show': show_title,
+                'from': path,
+                'to': target,
+                'rel_from': os.path.relpath(path, show_path),
+                'rel_to': os.path.relpath(target, show_path),
+                'conflict': os.path.exists(target),
+            }
+        )
 
     # Everything else stranded in a superseded season folder: waveform caches,
     # .nfo, artwork. Not media, but they are what keeps a duplicate "Season 1"
@@ -433,12 +492,16 @@ for item in app.store.list_media_items():
             if os.path.normcase(root).startswith(os.path.normcase(season_folder)):
                 continue
             target = os.path.join(season_folder, _below_season_folder(path))
-            strays.append({
-                'show': show_title, 'from': path, 'to': target,
-                'rel_from': os.path.relpath(path, show_path),
-                'rel_to': os.path.relpath(target, show_path),
-                'conflict': os.path.exists(target),
-            })
+            strays.append(
+                {
+                    'show': show_title,
+                    'from': path,
+                    'to': target,
+                    'rel_from': os.path.relpath(path, show_path),
+                    'rel_to': os.path.relpath(target, show_path),
+                    'conflict': os.path.exists(target),
+                }
+            )
 
 
 # Two sources planned onto one destination means the identification is wrong
@@ -469,8 +532,11 @@ for entry in renames:
 
 for show, entries in sorted(by_show.items()):
     conflicts = sum(1 for e in entries if e['conflict'])
-    print(f'\n{show}  ({len(entries)} to rename'
-          + (f', {conflicts} blocked by an existing file' if conflicts else '') + ')')
+    print(
+        f'\n{show}  ({len(entries)} to rename'
+        + (f', {conflicts} blocked by an existing file' if conflicts else '')
+        + ')'
+    )
     for entry in entries[:6]:
         flag = '   [CONFLICT, skipped]' if entry['conflict'] else ''
         print(f'    {entry["rel_from"][:74]}')
@@ -494,8 +560,10 @@ if left_alone:
         for rel in files[:3]:
             print(f'      {rel[:70]}')
 
-for label, group in (('Subtitles to move beside their episode', sidecars),
-                     ('Bonus files to gather into the canonical season folder', strays)):
+for label, group in (
+    ('Subtitles to move beside their episode', sidecars),
+    ('Bonus files to gather into the canonical season folder', strays),
+):
     if not group:
         continue
     print(f'\n{label} ({len(group)}):')

@@ -29,14 +29,19 @@ _BROWSER_USER_AGENT = (
 )
 
 _FAILURE_SIGNATURES = [
-    ('wrong_version_number',
-     'the mirrors refused a secure connection, which usually means an ISP block '
-     'or an interception page'),
-    ('certificate_verify_failed',
-     'the mirrors presented an invalid certificate, which usually means an '
-     'interception page'),
-    ('name or service not known',
-     'the mirror hostnames could not be resolved (DNS failure or block)'),
+    (
+        'wrong_version_number',
+        'the mirrors refused a secure connection, which usually means an ISP block '
+        'or an interception page',
+    ),
+    (
+        'certificate_verify_failed',
+        'the mirrors presented an invalid certificate, which usually means an interception page',
+    ),
+    (
+        'name or service not known',
+        'the mirror hostnames could not be resolved (DNS failure or block)',
+    ),
     ('getaddrinfo failed', 'the mirror hostnames could not be resolved (DNS failure or block)'),
     ('connection error', 'no mirror could be reached'),
     ('timed out', 'the mirrors did not respond in time'),
@@ -117,16 +122,18 @@ class QBSearch:
             parts = line.split('|')
             if len(parts) < 8:
                 continue
-            rows.append({
-                'link': parts[0],
-                'name': parts[1],
-                'size': parts[2],
-                'seeds': parts[3],
-                'leech': parts[4],
-                'engine_url': parts[5],
-                'desc_link': parts[6],
-                'pub_date': parts[7],
-            })
+            rows.append(
+                {
+                    'link': parts[0],
+                    'name': parts[1],
+                    'size': parts[2],
+                    'seeds': parts[3],
+                    'leech': parts[4],
+                    'engine_url': parts[5],
+                    'desc_link': parts[6],
+                    'pub_date': parts[7],
+                }
+            )
 
         # nova2 exits 0 whether it found nothing or never reached a mirror, and
         # its stderr carries failures only from the mirrors that broke — a mirror

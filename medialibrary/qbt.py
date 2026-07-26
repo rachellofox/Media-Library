@@ -58,6 +58,7 @@ def _setting(key: str) -> str:
 
 QBT_DONE_STATES = {'uploading', 'stalledup', 'seeding', 'pausedup', 'forcedup', 'checkingup'}
 
+
 def _torrent_is_complete(torrent: dict) -> bool:
     """True only when qB reports the payload fully written to disk.
 
@@ -76,28 +77,35 @@ def _torrent_is_complete(torrent: dict) -> bool:
         amount_left = 1
     return progress >= 1.0 and amount_left == 0
 
+
 def _qbt_webui_enabled() -> bool:
     return bool(_qbt_webui_url())
+
 
 def _qbt_webui_url() -> str:
     return (_setting('qbt_webui_url') or QBT_WEBUI_URL or '').strip().rstrip('/')
 
+
 def _qbt_webui_username() -> str:
     return (_setting('qbt_webui_username') or QBT_WEBUI_USERNAME or '').strip()
+
 
 def _qbt_webui_build_opener() -> urllib.request.OpenerDirector:
     cookie_jar = urllib.request.HTTPCookieProcessor()
     return urllib.request.build_opener(cookie_jar)
+
 
 def _qbt_webui_try_login(opener: urllib.request.OpenerDirector) -> bool:
     qbt_url = _qbt_webui_url()
     qbt_username = _qbt_webui_username()
     if not qbt_url or not qbt_username or not QBT_WEBUI_PASSWORD:
         return False
-    login_payload = urllib.parse.urlencode({
-        'username': qbt_username,
-        'password': QBT_WEBUI_PASSWORD,
-    }).encode('utf-8')
+    login_payload = urllib.parse.urlencode(
+        {
+            'username': qbt_username,
+            'password': QBT_WEBUI_PASSWORD,
+        }
+    ).encode('utf-8')
     login_req = urllib.request.Request(
         f'{qbt_url}/api/v2/auth/login',
         data=login_payload,
@@ -110,6 +118,7 @@ def _qbt_webui_try_login(opener: urllib.request.OpenerDirector) -> bool:
         return login_body == 'Ok.'
     except Exception:
         return False
+
 
 def _qbt_webui_open(path: str, method: str = 'GET', data: bytes | None = None) -> bytes:
     qbt_url = _qbt_webui_url()
@@ -137,6 +146,7 @@ def _qbt_webui_open(path: str, method: str = 'GET', data: bytes | None = None) -
     with opener.open(req, timeout=20) as resp:
         return resp.read()
 
+
 def _extract_btih_hash(download_url: str) -> str | None:
     if not download_url:
         return None
@@ -155,7 +165,7 @@ def _extract_btih_hash(download_url: str) -> str | None:
         if pos == -1:
             continue
 
-        raw_hash = xt[pos + len(marker):].strip()
+        raw_hash = xt[pos + len(marker) :].strip()
         if re.fullmatch(r'[0-9a-fA-F]{40}', raw_hash):
             return raw_hash.upper()
 
@@ -166,6 +176,7 @@ def _extract_btih_hash(download_url: str) -> str | None:
             except (binascii.Error, ValueError):
                 continue
     return None
+
 
 def _qbt_webui_torrent_info(info_hash: str) -> dict | None:
     if not _qbt_webui_enabled():
@@ -189,6 +200,7 @@ def _qbt_webui_torrent_info(info_hash: str) -> dict | None:
     first = items[0]
     return first if isinstance(first, dict) else None
 
+
 def _qbt_webui_torrents_info() -> list[dict]:
     """Every torrent qBittorrent knows about.
 
@@ -201,8 +213,9 @@ def _qbt_webui_torrents_info() -> list[dict]:
         raise QbtUnavailableError('qbt_webui_not_configured')
 
     try:
-        body = _qbt_webui_open('/api/v2/torrents/info?filter=all',
-                               method='GET').decode('utf-8', errors='replace')
+        body = _qbt_webui_open('/api/v2/torrents/info?filter=all', method='GET').decode(
+            'utf-8', errors='replace'
+        )
     except Exception as exc:
         raise QbtUnavailableError(str(exc) or 'qbt_unreachable') from exc
     try:
@@ -211,10 +224,12 @@ def _qbt_webui_torrents_info() -> list[dict]:
         raise QbtUnavailableError('qbt_bad_response') from exc
     return [i for i in items if isinstance(i, dict)] if isinstance(items, list) else []
 
+
 def _norm_match_text(value: str | None) -> str:
     text = unicodedata.normalize('NFKD', value or '').lower()
     text = re.sub(r'[^a-z0-9]+', ' ', text)
     return re.sub(r'\s+', ' ', text).strip()
+
 
 def _qbt_match_torrent_for_item(item: dict, torrents: list[dict] | None = None) -> dict | None:
     if torrents is None:
@@ -241,8 +256,11 @@ def _qbt_match_torrent_for_item(item: dict, torrents: list[dict] | None = None) 
             score += 3
         if year_str and year_str in t_name_norm:
             score += 2
-        if folder_norm and (folder_norm in t_content_norm or folder_norm in t_save_norm
-                            or folder_norm in t_name_norm):
+        if folder_norm and (
+            folder_norm in t_content_norm
+            or folder_norm in t_save_norm
+            or folder_norm in t_name_norm
+        ):
             score += 4
         if score == 0:
             continue
@@ -256,19 +274,24 @@ def _qbt_match_torrent_for_item(item: dict, torrents: list[dict] | None = None) 
 
     return best[1] if best else None
 
+
 def _qbt_webui_add_download(download_url: str, save_path: str) -> bool:
     if not _qbt_webui_enabled():
         return False
 
-    add_payload = urllib.parse.urlencode({
-        'urls': download_url,
-        'savepath': save_path,
-        'autoTMM': 'false',
-    }).encode('utf-8')
+    add_payload = urllib.parse.urlencode(
+        {
+            'urls': download_url,
+            'savepath': save_path,
+            'autoTMM': 'false',
+        }
+    ).encode('utf-8')
     try:
-        add_body = _qbt_webui_open(
-            '/api/v2/torrents/add', method='POST',
-            data=add_payload).decode('utf-8', errors='replace').strip()
+        add_body = (
+            _qbt_webui_open('/api/v2/torrents/add', method='POST', data=add_payload)
+            .decode('utf-8', errors='replace')
+            .strip()
+        )
     except Exception:
         return False
 

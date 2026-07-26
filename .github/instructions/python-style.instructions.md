@@ -84,7 +84,12 @@ existing lines fit — rather than imposing a new shape on it.
 ```bash
 python -m ruff check .          # report
 python -m ruff check . --fix    # apply safe fixes
+python -m ruff format .         # apply layout
 ```
+
+`ruff format` owns layout. Do not hand-tune spacing, line breaks or argument
+alignment — run the formatter and let it decide, so layout stops being something
+to have an opinion about. CI checks both.
 
 Rules that contradict a rule in this document are switched off in
 `pyproject.toml`, with a comment saying why — this document wins, not the tool's
@@ -110,7 +115,7 @@ commit that touches everything is not.
 - A short trailing comment is acceptable only when the value itself doesn't explain the constraint:
 
 ```python
-DISCOVER_COLLECTION_CACHE_HOURS = 24   # acceptable: arbitrary TTL, not self-evident
+DISCOVER_COLLECTION_CACHE_HOURS = 24  # acceptable: arbitrary TTL, not self-evident
 VIDEO_EXTS = {'.mkv', '.mp4', '.avi'}  # no comment needed — name is clear
 ```
 

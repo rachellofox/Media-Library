@@ -36,7 +36,10 @@ ILLEGAL_CHAR_MAP = {
 
 # Bare device names Windows refuses to use as a file or folder name.
 _RESERVED_NAMES = {
-    'CON', 'PRN', 'AUX', 'NUL',
+    'CON',
+    'PRN',
+    'AUX',
+    'NUL',
     *(f'COM{i}' for i in range(1, 10)),
     *(f'LPT{i}' for i in range(1, 10)),
 }
