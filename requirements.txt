@@ -1,5 +1,21 @@
-Flask==3.0.3
-keyring>=25.6
-python-dotenv>=1.0
-Send2Trash>=1.8
-subliminal>=2.6
+# Runtime dependencies.
+#
+# Every entry carries a floor and a ceiling at the next major version: the floor
+# is the oldest release known to work, the ceiling stops a future major release
+# breaking a fresh install without warning. Patch and minor upgrades still come
+# through normally.
+#
+# babelfish and Werkzeug arrive anyway as dependencies of subliminal and Flask,
+# but this code imports both directly, so they are declared directly. Relying on
+# another package's dependency list is how an install breaks when that package
+# drops one.
+
+Flask>=3.0.3,<4
+Werkzeug>=3.0,<4
+
+keyring>=25.6,<26
+python-dotenv>=1.0,<2
+Send2Trash>=1.8,<3
+
+subliminal>=2.6,<3
+babelfish>=0.6.1,<1

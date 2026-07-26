@@ -156,16 +156,30 @@ tracked but are not, and leftovers.
 
 **Scope:** `requirements.txt` against actual imports.
 
-- [ ] D1. **`babelfish` is imported directly** (`subtitle_client.py`) but not
-  declared. It arrives only as a transitive dependency of `subliminal`; if
-  subliminal ever drops it, subtitles break with an ImportError.
-- [ ] D2. **`werkzeug` is imported directly** (password hashing in `app.py`) but
-  not declared. Same reasoning — it is Flask's dependency, not ours on paper.
-- [ ] D3. **Pinning is inconsistent** — `Flask==3.0.3` exact, everything else
-  `>=`. Pick one policy.
-- [ ] D4. **No dev dependencies file** for test and lint tooling.
-- [-] D5. `Send2Trash` declared and used; `keyring`, `python-dotenv`, `subliminal`
-  all declared and used. No unused declarations found.
+- [x] D1. **`babelfish` declared. Done 2026-07-26.** Imported directly by
+  `subtitle_client.py`, but arriving only as a transitive dependency of
+  `subliminal` (`babelfish>=0.6.1`). Now declared in its own right.
+- [x] D2. **`Werkzeug` declared. Done 2026-07-26.** Imported directly by `app.py`
+  for password hashing and by `tests/test_auth.py`, but arriving only via Flask
+  (`Werkzeug>=3.0.0`). Now declared in its own right.
+- [x] D3. **Pinning policy settled. Done 2026-07-26.** Every entry now carries a
+  floor and a ceiling at the next major version — the floor is the oldest release
+  known to work, the ceiling stops a future major release breaking a fresh
+  install silently, and patch/minor upgrades still flow. This loosened
+  `Flask==3.0.3` to `>=3.0.3,<4`, which is the one place the old file was
+  stricter. The policy is written at the top of the file so it survives the next
+  edit.
+  Verified: all 7 requirements satisfied by the current environment, `pip
+  install --dry-run` resolves, and the test suite still passes.
+- [ ] D4. **No dev dependencies file.** Deliberately left open — it would hold
+  the linter and test runner, and neither is chosen yet (A3, H3). Blocked on
+  those, not forgotten. Note the test suite itself needs **no** Python
+  dependencies today, only `node` for the JavaScript files.
+- [x] D5. **No unused declarations, and no others missing.** Re-checked with an
+  AST scan rather than grep, which matters: the first pass missed `send2trash`
+  entirely because it is imported inside a `try` block, and would have missed any
+  other conditional import. Full set is Flask, Werkzeug, keyring, python-dotenv,
+  Send2Trash, subliminal, babelfish — all now declared, none spare.
 
 ---
 
@@ -320,8 +334,10 @@ Ordered by risk and by what unblocks other work.
    424 assertions, all passing.
 4. ~~**B4** — get the untracked source committed so the repo builds.~~ **Done** —
    verified by a clean clone.
-5. **Section D** — declare the two undeclared dependencies. ← **next**
-6. **A2–A5, C4** — settle the tooling and write it down.
+5. ~~**Section D** — declare the two undeclared dependencies.~~ **Done** (D4
+   remains, blocked on the tooling choice below).
+6. **A2–A5, C4** — settle the tooling and write it down. ← **next**, and it
+   unblocks D4 and H3.
 7. **C2** — CI, once there is a lint config and a test suite for it to run.
 8. **Sections E and F** — the two large refactors, only after tests exist to
    catch regressions.
@@ -335,6 +351,9 @@ substantial work, and are now unblocked by item 3.
 - **2026-07-26** — A1, B1, B3, H1, H2, H4 done. Two `.gitignore` fixes (the live
   database and the transcode cache were both exposed; the standards directory was
   hidden), and the test suite recovered from temporary storage into `tests/`.
+- **2026-07-26** — D1, D2, D3, D5 done. Two directly-imported packages were
+  relying on someone else's dependency list; both now declared, and a single
+  pinning policy applied. D4 left open behind the tooling choice.
 - **2026-07-26** — B4, B5 done. 50 outstanding files committed to branch
   `commit-outstanding-work` in seven logical commits. Verified by clean clone:
   compiles, 19/19 test files pass, standards included, no database leaked.
