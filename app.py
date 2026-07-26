@@ -3067,12 +3067,18 @@ def direct_stream_master_playlist(media_id: int):
 @app.route('/api/video/<int:media_id>/direct-stream/<path:filename>')
 def direct_stream_segment(media_id: int, filename: str):
     """Serve direct-stream HLS segments and playlists."""
-    cache_dir = os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id), 'direct_stream')
+    cache_dir = os.path.realpath(
+        os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id), 'direct_stream'))
 
-    if '..' in filename or filename.startswith('/'):
+    # Rejecting '..' is not enough on its own: os.path.join discards the base
+    # when the second part is absolute, so a filename like "C:/…/anything.mp4"
+    # walked straight out of the cache and the file was served. Resolve first,
+    # then require the result to still sit inside the cache directory — the same
+    # containment check _resolve_episode_file uses for ?episode=.
+    file_path = os.path.realpath(os.path.join(cache_dir, filename))
+    if file_path != cache_dir and not file_path.startswith(cache_dir + os.sep):
         return 'Invalid filename', 400
 
-    file_path = os.path.join(cache_dir, filename)
     if not os.path.isfile(file_path):
         return 'File not found', 404
 

@@ -4,6 +4,12 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.2 - 2026-07-25
 
+- Fixed a security flaw that let a request read video files from anywhere on the
+  machine. The direct-stream playback address blocked "../" but not a full path,
+  so any .mp4, .m3u8 or .m4s outside the library could be fetched through it.
+  Requests are now confined to the transcode cache. Sign-in already blocked this
+  from other devices whenever public access was on, so exposure was limited to
+  the machine itself and to anyone on your network while public access was off.
 - Fixed a file from one show being played and renamed as an episode of another. A
   Chernobyl episode misfiled in the Parks and Recreation folder was indexed as its
   S01E01 — its filename carried "S01E01" and nothing checked which show the name

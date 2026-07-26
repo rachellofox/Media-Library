@@ -33,7 +33,7 @@ progress is measurable rather than asserted.
 | `app.py` | 5,318 lines, 61 routes, 205 functions | **3,522 lines**, 61 routes, 118 functions |
 | Modules split out of `app.py` | 0 | 8 (`medialibrary/`, 2,397 lines) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | unchanged — Section F not started |
-| Tests in repo | **0** | 19 files, ~424 assertions |
+| Tests in repo | **0** | 20 files, ~438 assertions |
 | CI workflows | **0** | 1 (lint, compile, test, startup) |
 | Lint findings (`ruff check .`) | n/a — no linter | **0** |
 | Lines over 100 chars | 80 (of a then-unset limit) | **0** |
@@ -44,9 +44,10 @@ Python already followed the commenting and docstring rules closely. This review
 was therefore always mostly about **structure, safety nets and repo hygiene**,
 not a comment-cleaning exercise — and that is where the real defects turned up.
 
-**Defects found by this review so far:** a leaked file descriptor on every failed
-playback start (E5), and the app returning 500 from any entry point other than
-`python app.py` (C2a). Both were surfaced by tooling, not by reading code.
+**Defects found by this review so far:** an arbitrary-file-read over the
+direct-stream route (I4), a leaked file descriptor on every failed playback start
+(E5), and the app returning 500 from any entry point other than `python app.py`
+(C2a). All three were surfaced by tooling or probing, not by reading code.
 
 ---
 
@@ -450,17 +451,66 @@ read in full when this section is worked.
 **Check for:** secret handling, authentication, injection, and the public-access
 path specifically, since the app can be exposed to the network.
 
-- [ ] I1. Verify no secrets in tracked files or git history (`.env` is ignored;
-  `keyring` is used for the Trakt secret — confirm nothing else is stored plainly).
-- [ ] I2. Review the auth added for public access: session handling, lockout,
-  password storage, and that every route and stream is actually covered.
-- [ ] I3. Confirm all SQL is parameterised, per the style rule. `storage.py` is
-  the file to audit.
-- [ ] I4. Review path handling on every route that takes a file path — directory
-  traversal is the obvious risk in a media server.
-- [ ] I5. Confirm the TMDB image-prefix restriction still holds and cannot be
-  bypassed by a lookalike host.
-- [ ] I6. Check debug mode cannot be enabled while public access is on.
+- [x] I1. **No secrets in tracked files or history. Done 2026-07-26.** Scanned
+  every tracked file and the full history for API keys, bearer tokens, JWTs,
+  private keys and hardcoded passwords: nothing. `.env` is untracked, and the
+  TMDB key, Trakt secret and session signing key are all in the OS keyring, each
+  read behind `try/except` so a machine with no keyring backend degrades instead
+  of failing.
+- [x] I2. **Auth verified by probing, not by reading. Done 2026-07-26.** Every
+  route was requested anonymously with auth enabled: **60 of 61 refuse**, and the
+  only one that answers is `login`, which is correct. The exempt list is exactly
+  `{'login', 'static'}`.
+  Mechanics check out: passwords stored with `generate_password_hash` and
+  compared with `check_password_hash`, sessions `HttpOnly` and `SameSite=Lax`,
+  five failed attempts then a five-minute lockout. `Secure` is deliberately unset
+  with a comment explaining why — the app is served over plain HTTP on a LAN, and
+  setting it would stop the cookie being sent at all. That is the right call for
+  the deployment, and worth revisiting only if it is ever put behind TLS.
+- [x] I3. **All SQL parameterised. Done 2026-07-26.** Every `execute` call was
+  extracted by AST: 50 use a literal query, 5 build one. All five checked
+  individually and all are safe — an `IN` clause whose placeholders are generated
+  from `len()` with the values passed as parameters, two `ALTER TABLE` statements
+  whose column names come from a hardcoded list, the schema constant, and a
+  script whose `WHERE` is assembled from a fixed per-argument template with the
+  values bound. No user input reaches SQL text.
+- [x] I4. **Directory traversal found and fixed. Done 2026-07-26.**
+  `/api/video/<id>/direct-stream/<path:filename>` rejected `..` and a leading
+  `/`, which reads as sufficient and is not: **`os.path.join` discards the base
+  when the second part is absolute**, so `C:/anywhere/file.mp4` walked straight
+  out of the transcode cache. Confirmed by planting a canary file in a temp
+  directory and retrieving it over the route — **HTTP 200 with the contents**.
+  Any `.mp4`, `.m3u8` or `.m4s` on the machine was readable.
+  Fixed with the containment check already trusted in `_resolve_episode_file`:
+  resolve with `realpath`, then require the result to sit inside the cache
+  directory. The sibling HLS route was never vulnerable — its
+  `^segment_(\d+)\.ts$` whitelist rejects everything else, which is why the two
+  routes behaved differently despite looking alike.
+  Covered permanently by `tests/test_path_traversal.py` (14 assertions), which
+  also asserts that ordinary segment names still work — a fix that broke playback
+  would be no fix.
+- [x] I5. **TMDB image restriction holds. Done 2026-07-26.** Poster downloads are
+  refused unless the URL starts with `https://image.tmdb.org/t/p/`, so a crafted
+  request cannot make the server fetch an arbitrary host, and a lookalike like
+  `image.tmdb.org.evil.example` fails the prefix test. Covered by
+  `tests/test_posters.py`.
+- [x] I6. **Debug mode cannot be reached remotely. Done 2026-07-26.**
+  `debug_enabled = not RUNNING_PUBLIC`, so enabling public access disables the
+  Werkzeug debugger — which would otherwise expose an interactive console
+  executing arbitrary code. A warning is logged on every public bind.
+- [ ] I7. **Front-end XSS not fully audited.** The escaping helpers are correct —
+  `escHtml` covers `& < >`, `escAttr` adds `"`, and every interpolated attribute
+  in the templates is double-quoted, so `escAttr` is sufficient for them. Of 71
+  interpolations in markup-building lines, 47 are escaped and the other 24 are
+  booleans, numbers, or fragments assembled elsewhere.
+  Those 24 were spot-checked, not traced to their sources. A full audit of 2,619
+  lines of inline JavaScript is not something to do by grep, and becomes
+  straightforward once Section F extracts it into files a linter can read. Worth
+  doing then rather than claiming it is done now.
+- [ ] I8. **No security headers.** No CSP, `X-Content-Type-Options`, or
+  `Referrer-Policy`. The instructions ask for these "when applicable"; on a LAN
+  app the main value is a CSP limiting what injected markup could do, which pairs
+  naturally with I7.
 
 ---
 
