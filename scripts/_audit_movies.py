@@ -55,7 +55,8 @@ for entry in sorted(os.scandir(MOVIES_ROOT), key=lambda e: e.name.lower()):
         elif ext_lower in SUB_EXTS:
             pass
         else:
-            folder_extras.append({'path': child.path, 'reason': f'non-video/sub file ({ext or "no ext"})'})
+            folder_extras.append({'path': child.path,
+                                  'reason': f'non-video/sub file ({ext or "no ext"})'})
 
     if not folder_videos:
         no_video.append(entry.path)

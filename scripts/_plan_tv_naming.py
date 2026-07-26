@@ -383,7 +383,8 @@ for item in app.store.list_media_items():
             suffix = subtitle_suffix(os.path.splitext(name)[0])
             source = os.path.join(root, name)
             target = os.path.join(os.path.dirname(episode_path), f'{stem}{suffix}{extension}')
-            if os.path.normcase(os.path.normpath(source)) == os.path.normcase(os.path.normpath(target)):
+            if (os.path.normcase(os.path.normpath(source))
+                    == os.path.normcase(os.path.normpath(target))):
                 continue
             sidecars.append({
                 'show': show_title, 'from': source, 'to': target,

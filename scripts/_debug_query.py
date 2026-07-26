@@ -48,7 +48,9 @@ for query in test_searches:
     if not results:
         print("  [NO RESULTS]")
     for r in results[:2]:
-        print(f"  tmdb_id={r['tmdb_id']}  type={r['media_type']}  title={r['title']!r}  year={r['year']}  has_thumb={'yes' if r.get('thumbnail') else 'NO'}")
+        print(f"  tmdb_id={r['tmdb_id']}  type={r['media_type']}  "
+              f"title={r['title']!r}  year={r['year']}  "
+              f"has_thumb={'yes' if r.get('thumbnail') else 'NO'}")
 
 # --- 3. Test metadata_by_imdb_id for each broken raw-ID entry ---
 broken_ids = [r['imdb_id'] for r in no_poster if r['imdb_id'] and r['imdb_id'].startswith('tt')]
@@ -57,4 +59,6 @@ if broken_ids:
     for imdb_id in broken_ids:
         meta = tmdb.metadata_by_imdb_id(imdb_id)
         ok = bool(meta.get('poster_url'))
-        print(f"  {imdb_id} -> title={meta.get('title')!r}  type={meta.get('media_type')}  poster={'YES' if ok else 'MISSING'}")
+        print(f"  {imdb_id} -> title={meta.get('title')!r}  "
+              f"type={meta.get('media_type')}  "
+              f"poster={'YES' if ok else 'MISSING'}")

@@ -17,7 +17,8 @@ PASS, FAIL = [], []
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + str(detail)) if detail and not cond else ""}')
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 TODAY = datetime.date.today()
@@ -106,7 +107,8 @@ check('the multi-episode file counts as owning both, so no gap',
       'Ended Show' not in by_title, by_title.get('Ended Show'))
 
 airing_show = by_title.get('Airing Show', {})
-check('only S02E02 is missing', airing_show.get('missing_count') == 1, airing_show.get('missing_count'))
+check('only S02E02 is missing', airing_show.get('missing_count') == 1,
+      airing_show.get('missing_count'))
 seasons = {s['season_number']: s for s in airing_show.get('seasons', [])}
 check('season 1 is complete so absent', 1 not in seasons, list(seasons))
 check('season 2 reported', 2 in seasons)
@@ -158,7 +160,8 @@ shutil.rmtree(os.path.join(ended, 'Season 01'))
 make(os.path.join(ended, 'Season 01', 'Ended Show - S01E01.mkv'))
 ordered = [s['title'] for s in app._discover_missing_episodes()]
 check('both shows now listed', {'Airing Show', 'Ended Show'} <= set(ordered), ordered)
-check('the airing show comes first', ordered.index('Airing Show') < ordered.index('Ended Show'), ordered)
+check('the airing show comes first', ordered.index('Airing Show') < ordered.index('Ended Show'),
+      ordered)
 
 print('\n=== 6. Movies are never considered ===')
 app.store.add_media_item(imdb_id='tt900', tmdb_id=100, title='A Movie', year=2001,

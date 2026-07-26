@@ -15,7 +15,8 @@ PASS, FAIL = [], []
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + str(detail)) if detail and not cond else ""}')
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 tmp = tempfile.mkdtemp()
@@ -48,7 +49,8 @@ print('\n=== 2. Public access ON: everything is gated ===')
 set_state(True, 'rachel', 'correct-horse')
 c = client()
 r = c.get('/?section=movies')
-check('page redirects to login', r.status_code == 302 and '/login' in r.headers.get('Location', ''), r.headers.get('Location'))
+check('page redirects to login', r.status_code == 302 and '/login' in r.headers.get('Location', ''),
+      r.headers.get('Location'))
 check('api returns 401 JSON, not a redirect',
       c.get('/api/library/retry-download/1').status_code == 401)
 check('fetch-style request returns 401',
@@ -114,7 +116,8 @@ app.store.set_setting('auth_username', '')
 app.store.set_setting('auth_password_hash', '')
 app.store.set_setting('public_access', '0')
 c = client()
-r = c.post('/settings', data={'public_access_submitted': '1', 'public_access': '1', 'server_port': '5100'})
+r = c.post('/settings', data={'public_access_submitted': '1',
+                              'public_access': '1', 'server_port': '5100'})
 check('rejected with auth_required_for_public',
       'auth_required_for_public' in r.headers.get('Location', ''), r.headers.get('Location'))
 check('public access stayed OFF', app._public_access_enabled() is False)
@@ -143,9 +146,11 @@ check('password stored hashed, not plaintext',
 print('\n=== 11. Enabling public access immediately gates the next request ===')
 # Section 10 just turned public access on, so this client is no longer trusted.
 r = c.get('/?section=settings')
-check('settings now require signing in', r.status_code == 302 and '/login' in r.headers.get('Location', ''))
+check('settings now require signing in',
+      r.status_code == 302 and '/login' in r.headers.get('Location', ''))
 r = c.post('/settings', data={'public_access_submitted': '1', 'auth_username': 'hacker'})
-check('settings POST is gated too', r.status_code == 302 and '/login' in r.headers.get('Location', ''))
+check('settings POST is gated too',
+      r.status_code == 302 and '/login' in r.headers.get('Location', ''))
 check('username not changed by the gated POST', app._auth_username() == 'rachel')
 
 print('\n=== 12. Changing username without a password keeps the old one ===')

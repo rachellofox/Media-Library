@@ -15,7 +15,8 @@ PASS, FAIL = [], []
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + str(detail)) if detail and not cond else ""}')
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 tmp = tempfile.mkdtemp()
@@ -73,13 +74,15 @@ print('\n=== 3. Orphaned item is re-adopted from a running torrent ===')
 running = [{
     'hash': 'B' * 40, 'name': 'The Terminator 1984 2160p Bluray x265 KiNGDOM',
     'state': 'downloading', 'progress': 0.24, 'amount_left': 999,
-    'save_path': os.path.join(tmp, 'Downloads'), 'content_path': os.path.join(tmp, 'Downloads', 'x'),
+    'save_path': os.path.join(tmp, 'Downloads'),
+    'content_path': os.path.join(tmp, 'Downloads', 'x'),
 }]
 app._qbt_webui_torrents_info = lambda: running
 app._auto_finalize_qb_completed_downloads()
 r = row_for(mid)
 check('download state rebuilt', (r['download_status'] or '') == 'downloading', r['download_status'])
-check('torrent hash recorded', (r['download_torrent_hash'] or '') == 'B' * 40, r['download_torrent_hash'])
+check('torrent hash recorded', (r['download_torrent_hash'] or '') == 'B' * 40,
+      r['download_torrent_hash'])
 check('back in the library view', r['download_status'] in {'starting', 'handed_off', 'downloading'})
 
 print('\n=== 4. Re-adoption will not grab the wrong year ===')

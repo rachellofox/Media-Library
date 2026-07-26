@@ -41,7 +41,8 @@ conn = sqlite3.connect('library.db')
 conn.row_factory = sqlite3.Row
 cur = conn.cursor()
 
-cur.execute("SELECT id, imdb_id, title, year, media_type, poster_url, path FROM media_items WHERE media_type = 'movie'")
+cur.execute('SELECT id, imdb_id, title, year, media_type, poster_url, path '
+            "FROM media_items WHERE media_type = 'movie'")
 db_movies = cur.fetchall()
 conn.close()
 

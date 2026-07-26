@@ -81,14 +81,29 @@ in some ways and not others.
 - [x] A5. **Type-hint policy set. Done 2026-07-26.** Annotate new and touched
   functions; no retrofit campaign. Mixed annotation is acceptable, a commit that
   churns every file is not.
-- [ ] A8. **114 lines still exceed 100 characters** (`app.py` 43,
-  `trakt_client.py` 12, `storage.py` 9, the rest scattered), plus 27 smaller
-  findings — `RUF015` (8), `SIM102` (4), `E741` (3), `W293` (3), `E731` (2),
-  `RUF012` (2), `SIM118` (2), and one each of `RUF005`, `SIM108`, `SIM115`.
-  141 in total, none of them behavioural. Left as a deliberate, separate pass:
-  mechanical rewrapping of 114 lines is churn best done on its own, where the
-  diff can be read as exactly that. **This is what stops `ruff check` passing
-  clean, so C2 (CI) should either follow it or start with the gate advisory.**
+- [x] A8. **All 141 remaining findings cleared. Done 2026-07-26.**
+  `ruff check .` now reports **All checks passed**, with the suite green and the
+  app starting after every step.
+  The 27 substantive findings were handled individually, and two of ruff's
+  suggestions were **wrong** and are suppressed with the reason at the line
+  rather than applied:
+  - `SIM118` wanted `'genre_1' in item` in place of `in item.keys()`, but `item`
+    is a `sqlite3.Row`, which has no `__contains__` — `in` falls back to
+    iterating the column *values*, so the check would have silently asked a
+    different question. Confirmed empirically before deciding.
+  - `SIM102` wanted the upgrade-retirement guard collapsed into one condition,
+    but the outer test is what makes `os.path.samefile` safe to call, and that is
+    the path that has caused data loss twice.
+  The other 114 were line length, rewrapped by hand across 23 files.
+- [?] A9. **Adopt `ruff format` as well?** Measured rather than guessed: running
+  it would fix 88 of the 114 long lines automatically and the suite still passed
+  afterwards — but it rewrites **3,794 lines across 34 files**, converting `'''`
+  to `"""` and exploding deliberately grouped argument lists to one per line.
+  That is a formatter adoption, which is a bigger decision than clearing lint,
+  and it overrides layout you chose on purpose. Reverted, and the 114 lines were
+  wrapped by hand instead. Worth revisiting as its own decision: a formatter
+  makes consistency permanent and ends line-length debate, at the cost of one
+  large diff and some hand-tuned layout. *Your call.*
 - [ ] A6. **`copilot-instructions.md` describes a repo that no longer exists.**
   It lists `imdb_client.py` as the metadata client (it is dead — see B6, and
   TMDB is the real client) and points at `docs/` (deleted — see C3). It omits
@@ -363,9 +378,10 @@ Ordered by risk and by what unblocks other work.
    remains, blocked on the tooling choice below).
 6. ~~**A2–A5, C4** — settle the tooling and write it down.~~ **Done** — ruff
    adopted, 101 violations fixed, D4 unblocked and also done.
-7. **A8** — clear the 141 remaining lint findings (114 of them line length), so
-   `ruff check` passes clean. ← **next**, and it unblocks a meaningful CI gate.
-8. **C2** — CI, once the lint gate can actually pass.
+7. ~~**A8** — clear the 141 remaining lint findings.~~ **Done** — `ruff check .`
+   passes clean.
+8. **C2** — CI. Now unblocked: the lint gate passes, and the suite runs from one
+   command. ← **next**
 9. **Sections E and F** — the two large refactors, only after tests exist to
    catch regressions.
 10. **Sections I, G, J** — audit passes.
@@ -378,6 +394,11 @@ the test suite recovered in item 3.
 - **2026-07-26** — A1, B1, B3, H1, H2, H4 done. Two `.gitignore` fixes (the live
   database and the transcode cache were both exposed; the standards directory was
   hidden), and the test suite recovered from temporary storage into `tests/`.
+- **2026-07-26** — A8 done. `ruff check .` passes clean across all 20 Python
+  files: 27 substantive findings resolved (two of them refused as wrong, with the
+  reason recorded at the line) and 114 long lines rewrapped by hand across 23
+  files. The formatter was measured as an alternative and reverted — logged as
+  A9 for you to decide.
 - **2026-07-26** — A2, A3, A4, A5, C4, D4 done, and one real bug fixed in E5.
   `ruff` adopted with config in `pyproject.toml`; 101 violations fixed
   automatically, verified by the suite and an app start. Three rules disabled

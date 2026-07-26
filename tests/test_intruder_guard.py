@@ -14,14 +14,16 @@ PASS, FAIL = [], []
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + str(detail)) if detail and not cond else ""}')
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 print('\n=== 1. The reported case is refused ===')
 check('Chernobyl file in the Parks folder',
       names_other_show('Chernobyl.S01E01.1080p.WEB-DL.mkv', 'Parks and Recreation') is True)
 check('the real Parks episode is kept',
-      names_other_show('Parks and Recreation - S01E01 - Pilot.mkv', 'Parks and Recreation') is False)
+      names_other_show('Parks and Recreation - S01E01 - Pilot.mkv',
+                       'Parks and Recreation') is False)
 
 print('\n=== 2. Abbreviated and noisy release names are kept ===')
 for filename, title in [
@@ -86,7 +88,8 @@ with tempfile.TemporaryDirectory() as root:
 
     # And with the title left out, the folder name is used instead.
     matched, _u = app.scan_local_episodes(show)
-    check('folder name works as the fallback title', matched.get((1, 1)) == real, matched.get((1, 1)))
+    check('folder name works as the fallback title', matched.get((1, 1)) == real,
+          matched.get((1, 1)))
 
 print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
 for f in FAIL:

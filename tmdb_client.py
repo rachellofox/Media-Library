@@ -87,7 +87,8 @@ class TmdbClient:
 
         return out
 
-    def search_precise(self, query: str, media_type: str, year: int | None = None, max_results: int = 8) -> list[dict]:
+    def search_precise(self, query: str, media_type: str, year: int | None = None,
+                       max_results: int = 8) -> list[dict]:
         """Search a specific media type with optional year filtering."""
         safe = query.strip()
         if not safe or media_type not in ('movie', 'tv'):
@@ -326,11 +327,15 @@ class TmdbClient:
         return episodes
 
     def metadata_by_tmdb_id(self, tmdb_id: int | str, media_type: str) -> dict:
-        """Fetch full metadata for a known TMDB ID. Returns dict matching IMDbClient.metadata() contract."""
+        """Full metadata for a known TMDB ID.
+
+        Returns a dict matching the IMDbClient.metadata() contract.
+        """
         path = f'/tv/{tmdb_id}' if media_type == 'tv' else f'/movie/{tmdb_id}'
 
         try:
-            data = self._get(path, {'append_to_response': 'credits,external_ids', 'language': 'en-US'})
+            data = self._get(path, {'append_to_response': 'credits,external_ids',
+                                    'language': 'en-US'})
         except Exception:
             return {
                 'imdb_id': None, 'tmdb_id': int(tmdb_id) if str(tmdb_id).isdigit() else None,
@@ -401,7 +406,8 @@ class TmdbClient:
             'collection_id': None, 'collection_name': None,
         }
         try:
-            data = self._get(f'/find/{imdb_id}', {'external_source': 'imdb_id', 'language': 'en-US'})
+            data = self._get(f'/find/{imdb_id}',
+                             {'external_source': 'imdb_id', 'language': 'en-US'})
         except Exception:
             return stub
 

@@ -19,7 +19,8 @@ PASS, FAIL = [], []
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + detail) if detail and not cond else ""}')
+    note = ('  -- ' + detail) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 def make_video(path, size_mb=1):

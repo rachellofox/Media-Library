@@ -450,7 +450,8 @@ class Storage:
                 ON CONFLICT(tmdb_id) DO UPDATE SET
                     collection_id=excluded.collection_id,
                     title=COALESCE(excluded.title, discover_ignored_titles.title),
-                    collection_name=COALESCE(excluded.collection_name, discover_ignored_titles.collection_name)
+                    collection_name=COALESCE(excluded.collection_name,
+                                             discover_ignored_titles.collection_name)
                 ''',
                 (tmdb_id, collection_id, title, collection_name),
             )
@@ -463,21 +464,24 @@ class Storage:
         with self.conn() as c:
             c.execute('DELETE FROM discover_ignored_titles')
 
-    def ignore_discover_collection(self, collection_id: int, collection_name: str | None = None) -> None:
+    def ignore_discover_collection(self, collection_id: int,
+                                   collection_name: str | None = None) -> None:
         with self.conn() as c:
             c.execute(
                 '''
                 INSERT INTO discover_ignored_collections (collection_id, collection_name)
                 VALUES (?, ?)
                 ON CONFLICT(collection_id) DO UPDATE SET
-                    collection_name=COALESCE(excluded.collection_name, discover_ignored_collections.collection_name)
+                    collection_name=COALESCE(excluded.collection_name,
+                                             discover_ignored_collections.collection_name)
                 ''',
                 (collection_id, collection_name),
             )
 
     def unignore_discover_collection(self, collection_id: int) -> None:
         with self.conn() as c:
-            c.execute('DELETE FROM discover_ignored_collections WHERE collection_id = ?', (collection_id,))
+            c.execute('DELETE FROM discover_ignored_collections WHERE collection_id = ?',
+                      (collection_id,))
 
     def unignore_all_discover_collections(self) -> None:
         with self.conn() as c:
@@ -488,7 +492,8 @@ class Storage:
     # otherwise mean hundreds of TMDB requests after each restart.
     IGNORE_WHOLE_SHOW = -1
 
-    def get_cached_season(self, tmdb_id: int, season_number: int, max_age_hours: int) -> list[dict] | None:
+    def get_cached_season(self, tmdb_id: int, season_number: int,
+                          max_age_hours: int) -> list[dict] | None:
         with self.conn() as c:
             row = c.execute(
                 'SELECT episodes_json, fetched_at FROM tmdb_season_cache '
@@ -580,7 +585,8 @@ class Storage:
             ignored.setdefault(int(row['tmdb_id']), set()).add(int(row['season_number']))
         return ignored
 
-    def get_cached_collection_parts(self, collection_id: int, max_age_hours: int) -> list[dict] | None:
+    def get_cached_collection_parts(self, collection_id: int,
+                                    max_age_hours: int) -> list[dict] | None:
         with self.conn() as c:
             summary = c.execute(
                 '''
@@ -619,7 +625,8 @@ class Storage:
 
     def set_cached_collection_parts(self, collection_id: int, parts: list[dict]) -> None:
         with self.conn() as c:
-            c.execute('DELETE FROM tmdb_collection_parts_cache WHERE collection_id = ?', (collection_id,))
+            c.execute('DELETE FROM tmdb_collection_parts_cache WHERE collection_id = ?',
+                      (collection_id,))
             if not parts:
                 return
             c.executemany(
@@ -769,7 +776,8 @@ class Storage:
         """Get saved playback position for a media item (seconds and duration)."""
         with self.conn() as c:
             row = c.execute(
-                'SELECT position_seconds, duration_seconds FROM playback_positions WHERE media_item_id = ?',
+                'SELECT position_seconds, duration_seconds FROM playback_positions '
+                'WHERE media_item_id = ?',
                 (media_item_id,),
             ).fetchone()
         return dict(row) if row else None
@@ -788,7 +796,8 @@ class Storage:
                 VALUES (?, ?, ?)
                 ON CONFLICT(media_item_id) DO UPDATE SET
                     position_seconds=excluded.position_seconds,
-                    duration_seconds=COALESCE(excluded.duration_seconds, playback_positions.duration_seconds),
+                    duration_seconds=COALESCE(excluded.duration_seconds,
+                                              playback_positions.duration_seconds),
                     last_updated=CURRENT_TIMESTAMP
                 ''',
                 (media_item_id, position_seconds, duration_seconds),

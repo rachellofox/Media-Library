@@ -15,7 +15,8 @@ PASS, FAIL = [], []
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + str(detail)) if detail and not cond else ""}')
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 tmp = tempfile.mkdtemp()
@@ -74,7 +75,8 @@ check('en filter', len(c.get(f'/api/library/{mid}/posters?language=en').json['po
 check('fr filter', len(c.get(f'/api/library/{mid}/posters?language=fr').json['posters']) == 1)
 check('"none" filter matches language-neutral art',
       len(c.get(f'/api/library/{mid}/posters?language=none').json['posters']) == 1)
-check('"all" returns everything', len(c.get(f'/api/library/{mid}/posters?language=all').json['posters']) == 3)
+check('"all" returns everything',
+      len(c.get(f'/api/library/{mid}/posters?language=all').json['posters']) == 3)
 check('unknown language returns none',
       len(c.get(f'/api/library/{mid}/posters?language=xx').json['posters']) == 0)
 check('missing item is 404', c.get('/api/library/99999/posters').status_code == 404)

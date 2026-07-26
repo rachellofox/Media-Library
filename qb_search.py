@@ -29,9 +29,14 @@ _BROWSER_USER_AGENT = (
 )
 
 _FAILURE_SIGNATURES = [
-    ('wrong_version_number', 'the mirrors refused a secure connection, which usually means an ISP block or an interception page'),
-    ('certificate_verify_failed', 'the mirrors presented an invalid certificate, which usually means an interception page'),
-    ('name or service not known', 'the mirror hostnames could not be resolved (DNS failure or block)'),
+    ('wrong_version_number',
+     'the mirrors refused a secure connection, which usually means an ISP block '
+     'or an interception page'),
+    ('certificate_verify_failed',
+     'the mirrors presented an invalid certificate, which usually means an '
+     'interception page'),
+    ('name or service not known',
+     'the mirror hostnames could not be resolved (DNS failure or block)'),
     ('getaddrinfo failed', 'the mirror hostnames could not be resolved (DNS failure or block)'),
     ('connection error', 'no mirror could be reached'),
     ('timed out', 'the mirrors did not respond in time'),

@@ -21,7 +21,8 @@ clauses = ' OR '.join(
 )
 params = [v for t in targets for v in (f'%{t}%', f'%{t}%')]
 cur.execute(
-    f'SELECT id, imdb_id, title, year, media_type, poster_url, path FROM media_items WHERE {clauses}',
+    'SELECT id, imdb_id, title, year, media_type, poster_url, path '
+    f'FROM media_items WHERE {clauses}',
     params,
 )
 rows = cur.fetchall()

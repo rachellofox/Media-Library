@@ -59,7 +59,8 @@ for item in app.store.list_media_items():
     media_type = item['media_type'] or 'movie'
     root = app._library_root_for(media_type)
     parent = os.path.dirname(path)
-    if not root or os.path.normcase(os.path.normpath(parent)) == os.path.normcase(os.path.normpath(root)):
+    if not root or (os.path.normcase(os.path.normpath(parent))
+                    == os.path.normcase(os.path.normpath(root))):
         continue  # a loose file directly in the library root, not a pack member
 
     dest = canonical_paths(
@@ -127,7 +128,8 @@ for pack, members in by_pack.items():
             os.rename(p['src'], p['dest_file'])
             for sub in p['subs']:
                 target_stem = os.path.splitext(os.path.basename(p['dest_file']))[0]
-                suffix = os.path.basename(sub)[len(os.path.splitext(os.path.basename(p['src']))[0]):]
+                stem_length = len(os.path.splitext(os.path.basename(p['src']))[0])
+                suffix = os.path.basename(sub)[stem_length:]
                 os.rename(sub, os.path.join(p['dest_folder'], f'{target_stem}{suffix}'))
             app.store.update_path(p['id'], p['dest_folder'])
             print(f'  moved #{p["id"]} -> {p["dest_folder"]}')
@@ -140,7 +142,8 @@ for pack, members in by_pack.items():
             print(f'  FAILED #{p["id"]}: {exc}{hint}')
             # Do not leave an empty folder behind; empty folders are exactly
             # what made titles look missing in the first place.
-            if created_folder and os.path.isdir(p['dest_folder']) and not os.listdir(p['dest_folder']):
+            if (created_folder and os.path.isdir(p['dest_folder'])
+                    and not os.listdir(p['dest_folder'])):
                 try:
                     os.rmdir(p['dest_folder'])
                 except OSError:

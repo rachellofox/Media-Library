@@ -18,7 +18,8 @@ PASS, FAIL = [], []
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + str(detail)) if detail and not cond else ""}')
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 def ep(season, number, title):
@@ -52,7 +53,8 @@ check('Pt. 2 resolves to part (2)', got and got['episode_number'] == 2, (got, re
 
 print('\n=== 3. Ambiguity is refused, never guessed ===')
 got, reason = match_episode_title('EP01 - Night of the Sentinels.mkv', episodes)
-check('a bare title matching two parts is refused', got is None and reason == 'ambiguous', (got, reason))
+check('a bare title matching two parts is refused', got is None and reason == 'ambiguous',
+      (got, reason))
 same_title = [ep(1, 5, 'Reunion'), ep(2, 7, 'Reunion')]
 got, reason = match_episode_title('Reunion.mkv', same_title)
 check('two episodes sharing a title are refused', got is None and reason == 'ambiguous', reason)
@@ -60,7 +62,8 @@ got, reason = match_episode_title('Completely Unrelated Thing.mkv', episodes)
 check('no plausible match reports no-match', got is None and reason == 'no-match', reason)
 
 print('\n=== 4. Reordered subtitles (token match) ===')
-saga = [ep(3, 3, 'The Phoenix Saga: Sacrifice (1)'), ep(3, 4, 'The Phoenix Saga: The Dark Shroud (2)')]
+saga = [ep(3, 3, 'The Phoenix Saga: Sacrifice (1)'),
+        ep(3, 4, 'The Phoenix Saga: The Dark Shroud (2)')]
 got, reason = match_episode_title('EP29 - The Phoenix Saga, Part I Sacrifice.mkv', saga)
 check('same words, different order', got and got['episode_number'] == 3, (got, reason))
 check('reported as a token match', reason == 'tokens', reason)
@@ -69,7 +72,8 @@ check('part 2 goes to part 2', got and got['episode_number'] == 4, got)
 
 print('\n=== 5. A release adding its own subtitle (prefix match) ===')
 beyond = [ep(4, 8, 'Beyond Good and Evil (1)'), ep(4, 9, 'Beyond Good and Evil (2)')]
-got, reason = match_episode_title('EP63 - Beyond Good and Evil (Part 1) The End of Time.mkv', beyond)
+got, reason = match_episode_title(
+    'EP63 - Beyond Good and Evil (Part 1) The End of Time.mkv', beyond)
 check('TMDB title as a leading phrase', got and got['episode_number'] == 8, (got, reason))
 check('reported as a prefix match', reason == 'prefix', reason)
 got, _r = match_episode_title('EP64 - Beyond Good and Evil (Part 2) Promise.mkv', beyond)
@@ -113,7 +117,8 @@ for path, expected in [
     ('Season 04\\Show - S04E12 - Campaign Ad.mkv', False),
     ('Season 4\\Episode.mkv', False),
 ]:
-    check(f'{path[:38]!r} extras={expected}', is_extras_path(path) is expected, is_extras_path(path))
+    check(f'{path[:38]!r} extras={expected}', is_extras_path(path) is expected,
+          is_extras_path(path))
 
 print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
 if FAIL:

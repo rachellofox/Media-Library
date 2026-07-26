@@ -604,7 +604,8 @@ def _is_download_state_stale(updated_at_text: str | None, stale_after: timedelta
     if not updated_at_text:
         return False
     try:
-        updated_at = datetime.strptime(updated_at_text.strip(), '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+        updated_at = datetime.strptime(
+            updated_at_text.strip(), '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
     except Exception:
         return False
     return (datetime.now(timezone.utc) - updated_at) >= stale_after
@@ -724,13 +725,16 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
                 media_item_id=media_id,
                 status='needs_review',
                 source=row['download_source'] or 'qb_webui',
-                message=(f'S{season:02d}E{episode:02d}: downloaded {new_quality or "unknown"} is not '
+                message=(f'S{season:02d}E{episode:02d}: downloaded '
+                         f'{new_quality or "unknown"} is not '
                          f'better than existing {existing_quality or "unknown"}'),
             )
             return
 
-    if os.path.exists(dest_file) and not (existing_file and os.path.samefile(existing_file, dest_file)):
-        app.logger.info('Media %s: %s already exists, leaving download in place.', media_id, dest_file)
+    if os.path.exists(dest_file) and not (
+            existing_file and os.path.samefile(existing_file, dest_file)):
+        app.logger.info('Media %s: %s already exists, leaving download in place.',
+                        media_id, dest_file)
         store.clear_download_state(media_id)
         return
 
@@ -799,13 +803,15 @@ def _finalize_completed_download(row, torrent: dict) -> None:
     # An upgrade must actually be an upgrade. Without this, a mislabelled
     # release could retire a better file than the one it replaces.
     if mode == 'upgrade' and outgoing_video:
-        old_quality = row['current_quality'] or detect_quality_from_file(outgoing_video, ffprobe_exe=FFPROBE_EXE)
+        old_quality = row['current_quality'] or detect_quality_from_file(
+            outgoing_video, ffprobe_exe=FFPROBE_EXE)
         if compare_quality(old_quality, new_quality) <= 0:
             store.set_download_state(
                 media_item_id=media_id,
                 status='needs_review',
                 source=row['download_source'] or 'qb_webui',
-                message=f'Downloaded {new_quality or "unknown"} is not better than existing {old_quality or "unknown"}',
+                message=(f'Downloaded {new_quality or "unknown"} is not better than '
+                         f'existing {old_quality or "unknown"}'),
             )
             app.logger.info(
                 'Upgrade for media %s rejected: %s is not better than %s',
@@ -1239,7 +1245,7 @@ def scan_media_entries(folder_path: str, media_type: str) -> list[dict[str, str]
                     continue
                 entries.append({'name': entry.name, 'path': entry.path})
                 continue
-            if (media_type == 'movie' and entry.is_file()) or (media_type == 'tv' and entry.is_file()):
+            if entry.is_file() and media_type in ('movie', 'tv'):
                 _, ext = os.path.splitext(entry.name)
                 if ext.lower() in VIDEO_EXTENSIONS:
                     entries.append({'name': entry.name, 'path': entry.path})
@@ -1376,7 +1382,8 @@ def choose_search_result(results, title: str, media_type: str, year: int | None)
     # Exact title + exact year
     if year is not None:
         for item in filtered:
-            if abs((item.get('year') or 0) - year) <= 1 and normalized(item.get('title')) == normalized_title:
+            if (abs((item.get('year') or 0) - year) <= 1
+                    and normalized(item.get('title')) == normalized_title):
                 return item
 
     # Exact title, any year
@@ -1398,7 +1405,8 @@ def choose_search_result(results, title: str, media_type: str, year: int | None)
         overlap = len(query_tokens & candidate_tokens)
         recall = overlap / len(query_tokens)
         precision = overlap / len(candidate_tokens)
-        phrase_bonus = 0.2 if (candidate in normalized_title or normalized_title in candidate) else 0.0
+        phrase_bonus = 0.2 if (candidate in normalized_title
+                               or normalized_title in candidate) else 0.0
 
         score_val = (recall * 3.0) + (precision * 2.0) + phrase_bonus
 
@@ -1452,7 +1460,8 @@ def import_media_from_paths(folder_path: str, media_type: str) -> int:
             continue
 
         query = title  # year in folder name can confuse TMDB ranking; search by title alone
-        match = choose_search_result(tmdb.search(query, max_results=10) if tmdb else [], title, media_type, year)
+        match = choose_search_result(
+            tmdb.search(query, max_results=10) if tmdb else [], title, media_type, year)
         if not match:
             continue
 
@@ -1469,9 +1478,11 @@ def import_media_from_paths(folder_path: str, media_type: str) -> int:
             existing_paths.add(normalized_path)
             continue
 
-        poster_url = cache_poster(meta.get('imdb_id') or entry['name'], meta.get('poster_url') or '') or meta.get('poster_url')
+        poster_url = cache_poster(meta.get('imdb_id') or entry['name'],
+                                  meta.get('poster_url') or '') or meta.get('poster_url')
 
-        # Resolve the actual video file for quality detection; entry path may be a folder (e.g. TV show)
+        # Resolve the actual video file for quality detection; entry path may be a
+        # folder (e.g. TV show)
         quality_target = entry['path']
         if os.path.isdir(quality_target):
             for _root, _dirs, _files in os.walk(quality_target):
@@ -1491,7 +1502,8 @@ def import_media_from_paths(folder_path: str, media_type: str) -> int:
             media_type=meta['media_type'],
             collection_id=meta.get('collection_id'),
             collection_name=meta.get('collection_name'),
-            current_quality=detect_quality_from_file(quality_target, ffprobe_exe=FFPROBE_EXE) or detect_quality(entry['name']),
+            current_quality=(detect_quality_from_file(quality_target, ffprobe_exe=FFPROBE_EXE)
+                             or detect_quality(entry['name'])),
             path=entry['path'],
             poster_url=poster_url,
             synopsis=meta.get('synopsis'),
@@ -1624,7 +1636,9 @@ def login():
     locked_until = _login_locked_until(address)
     if locked_until:
         wait_seconds = int((locked_until - datetime.now(timezone.utc)).total_seconds())
-        return render_template('login.html', error=f'Too many attempts. Try again in {wait_seconds // 60 + 1} minute(s).',
+        return render_template(
+            'login.html',
+            error=f'Too many attempts. Try again in {wait_seconds // 60 + 1} minute(s).',
                                next_target=request.args.get('next', '')), 429
 
     if request.method == 'POST':
@@ -1657,7 +1671,8 @@ def logout():
 
 def _cache_meta_poster(cache_key: str, meta: dict, force_replace: bool = False) -> str | None:
     remote_url = meta.get('poster_url') or ''
-    return cache_poster(cache_key, remote_url, force_replace=force_replace) or meta.get('poster_url')
+    return (cache_poster(cache_key, remote_url, force_replace=force_replace)
+            or meta.get('poster_url'))
 
 
 def _torrent_candidates_for(meta: dict, limit: int = 25) -> list[dict]:
@@ -1877,7 +1892,8 @@ def _qbt_webui_torrents_info() -> list[dict]:
         raise QbtUnavailableError('qbt_webui_not_configured')
 
     try:
-        body = _qbt_webui_open('/api/v2/torrents/info?filter=all', method='GET').decode('utf-8', errors='replace')
+        body = _qbt_webui_open('/api/v2/torrents/info?filter=all',
+                               method='GET').decode('utf-8', errors='replace')
     except Exception as exc:
         raise QbtUnavailableError(str(exc) or 'qbt_unreachable') from exc
     try:
@@ -1918,7 +1934,8 @@ def _qbt_match_torrent_for_item(item: dict, torrents: list[dict] | None = None) 
             score += 3
         if year_str and year_str in t_name_norm:
             score += 2
-        if folder_norm and (folder_norm in t_content_norm or folder_norm in t_save_norm or folder_norm in t_name_norm):
+        if folder_norm and (folder_norm in t_content_norm or folder_norm in t_save_norm
+                            or folder_norm in t_name_norm):
             score += 4
         if score == 0:
             continue
@@ -1943,7 +1960,9 @@ def _qbt_webui_add_download(download_url: str, save_path: str) -> bool:
         'autoTMM': 'false',
     }).encode('utf-8')
     try:
-        add_body = _qbt_webui_open('/api/v2/torrents/add', method='POST', data=add_payload).decode('utf-8', errors='replace').strip()
+        add_body = _qbt_webui_open(
+            '/api/v2/torrents/add', method='POST',
+            data=add_payload).decode('utf-8', errors='replace').strip()
     except Exception:
         return False
 
@@ -2016,13 +2035,15 @@ def settings_tmdb_test():
         payload = client.ping() or {}
     except Exception:
         return jsonify({'ok': False, 'error': 'tmdb_connection_failed'}), 502
-    return jsonify({'ok': True, 'reachable': True, 'has_images_config': bool((payload.get('images') or {}).get('base_url'))})
+    return jsonify({'ok': True, 'reachable': True,
+                    'has_images_config': bool((payload.get('images') or {}).get('base_url'))})
 
 
 @app.route('/api/settings/trakt-test', methods=['POST'])
 def settings_trakt_test():
     client_id = (request.form.get('trakt_client_id') or '').strip() or _trakt_client_id()
-    client_secret = (request.form.get('trakt_client_secret') or '').strip() or _trakt_client_secret()
+    client_secret = ((request.form.get('trakt_client_secret') or '').strip()
+                     or _trakt_client_secret())
     if not client_id or not client_secret:
         return jsonify({'ok': False, 'error': 'trakt_oauth_not_configured'}), 409
     try:
@@ -2161,7 +2182,8 @@ def _discover_incomplete_collections() -> list[dict]:
             for part in parts
             if (
                 part['tmdb_id'] not in group['owned_tmdb_ids']
-                and (normalized_title(part.get('title')), part.get('year')) not in group['owned_title_years']
+                and (normalized_title(part.get('title')),
+                     part.get('year')) not in group['owned_title_years']
                 and part['tmdb_id'] not in ignored_title_ids
                 and is_released(part)
             )
@@ -2176,7 +2198,8 @@ def _discover_incomplete_collections() -> list[dict]:
             'missing': missing,
         })
 
-    out.sort(key=lambda item: (item['total_count'] - item['owned_count'], item['collection_name'].lower()))
+    out.sort(key=lambda item: (item['total_count'] - item['owned_count'],
+                               item['collection_name'].lower()))
     return out
 
 
@@ -2278,7 +2301,8 @@ def _discover_missing_episodes() -> list[dict]:
 
     # Shows still in production first — new episodes are the point of this view —
     # then by how much is missing.
-    out.sort(key=lambda show: (not show['in_production'], -show['missing_count'], (show['title'] or '').lower()))
+    out.sort(key=lambda show: (not show['in_production'], -show['missing_count'],
+                               (show['title'] or '').lower()))
     return out
 
 
@@ -2508,7 +2532,8 @@ def discover_add_and_search():
 
     payload = request.get_json(silent=True) or {}
     tmdb_id_raw = str(request.form.get('tmdb_id') or payload.get('tmdb_id') or '').strip()
-    media_type = str(request.form.get('media_type') or payload.get('media_type') or 'movie').strip().lower()
+    media_type = str(request.form.get('media_type')
+                     or payload.get('media_type') or 'movie').strip().lower()
     if media_type not in {'movie', 'tv'}:
         return jsonify({'ok': False, 'error': 'invalid_media_type'}), 400
 
@@ -2568,7 +2593,8 @@ def library_retry_download(media_id: int):
 
     status = (item['download_status'] or '').strip().lower()
     has_upgrade = bool(item.get('upgrade_available'))
-    if status not in {'starting', 'handed_off', 'downloading'} and not item.get('file_missing') and not has_upgrade:
+    if (status not in {'starting', 'handed_off', 'downloading'}
+            and not item.get('file_missing') and not has_upgrade):
         return jsonify({'ok': False, 'error': 'not_missing_or_active'}), 409
 
     meta = {
@@ -2690,7 +2716,8 @@ def library_download_progress(media_id: int):
             except Exception:
                 progress = 0.0
             qbt_state = (torrent.get('state') or '').lower()
-            done_states = {'uploading', 'stalledup', 'seeding', 'pausedup', 'forcedup', 'checkingup'}
+            done_states = {'uploading', 'stalledup', 'seeding', 'pausedup',
+                           'forcedup', 'checkingup'}
             return jsonify({
                 'ok': True,
                 'source': 'qbittorrent',
@@ -2731,7 +2758,8 @@ def discover_ignore_title():
     tmdb_id_raw = request.form.get('tmdb_id') or payload.get('tmdb_id')
     collection_id_raw = request.form.get('collection_id') or payload.get('collection_id')
     title = (request.form.get('title') or payload.get('title') or '').strip() or None
-    collection_name = (request.form.get('collection_name') or payload.get('collection_name') or '').strip() or None
+    collection_name = (request.form.get('collection_name')
+                       or payload.get('collection_name') or '').strip() or None
     try:
         tmdb_id = int(tmdb_id_raw)
     except Exception:
@@ -2757,7 +2785,8 @@ def discover_ignore_title():
 def discover_ignore_collection():
     payload = request.get_json(silent=True) or {}
     collection_id_raw = request.form.get('collection_id') or payload.get('collection_id')
-    collection_name = (request.form.get('collection_name') or payload.get('collection_name') or '').strip() or None
+    collection_name = (request.form.get('collection_name')
+                       or payload.get('collection_name') or '').strip() or None
     try:
         collection_id = int(collection_id_raw)
     except Exception:
@@ -2824,7 +2853,9 @@ def add():
     if not meta.get('imdb_id'):
         if request.headers.get('X-Requested-With') == 'fetch':
             return jsonify({'ok': False, 'error': 'missing_imdb_id'}), 400
-        return redirect(url_for('index', section=request.form.get('return_section', 'discover'), status='add_failed'))
+        return redirect(url_for('index',
+                                section=request.form.get('return_section', 'discover'),
+                                status='add_failed'))
 
     store.add_media_item(
         imdb_id=meta['imdb_id'],
@@ -2955,7 +2986,8 @@ def _fetch_best_metadata(item) -> dict:
     if meta.get('poster_url'):
         same_type = (meta.get('media_type') or media_type) == media_type
         expected_title = fallback_title or item.get('title')
-        title_matches = _titles_likely_match(expected_title, meta.get('title')) if expected_title else True
+        title_matches = (_titles_likely_match(expected_title, meta.get('title'))
+                         if expected_title else True)
         year_matches = (
             year is None
             or meta.get('year') is None
@@ -3010,7 +3042,8 @@ def _ui_item_payload(media_id: int) -> dict | None:
         payload = dict(row)
         path = payload.get('path') or ''
         status = (payload.get('download_status') or '').strip().lower()
-        payload['file_missing'] = _is_local_media_missing(path) and status not in {'starting', 'handed_off', 'downloading'}
+        payload['file_missing'] = (_is_local_media_missing(path)
+                                   and status not in {'starting', 'handed_off', 'downloading'})
         payload['upgrade_available'] = _upgrade_available(row)
         return payload
     return None
@@ -3025,7 +3058,8 @@ def refresh_metadata(media_id: int):
         return redirect(url_for('index'))
     meta = _fetch_best_metadata(item)
     poster_key = meta.get('imdb_id') or item['imdb_id'] or str(media_id)
-    poster_url = cache_poster(poster_key, meta.get('poster_url') or '', force_replace=True) or meta.get('poster_url')
+    poster_url = (cache_poster(poster_key, meta.get('poster_url') or '', force_replace=True)
+                  or meta.get('poster_url'))
     store.update_metadata(
         media_id=media_id,
         imdb_id=meta.get('imdb_id'),
@@ -3072,8 +3106,11 @@ def refresh_all_metadata():
     for item in all_items:
         try:
             # Skip items that already have complete metadata
-            title_ok = item['title'] and not item['title'].startswith('tt') and not item['title'].startswith('nm') and item['title'] != '/spotlight/'
-            if not force_refresh and title_ok and item['poster_url'] and item['synopsis'] and item['year']:
+            title_ok = (item['title'] and not item['title'].startswith('tt')
+                        and not item['title'].startswith('nm')
+                        and item['title'] != '/spotlight/')
+            if (not force_refresh and title_ok and item['poster_url']
+                    and item['synopsis'] and item['year']):
                 continue
             meta = _fetch_best_metadata(item)
             if not meta.get('poster_url') and not meta.get('title'):
@@ -3182,7 +3219,8 @@ def check_all():
     """Run a quality search for all items, or a specific media_type if supplied."""
     media_type = request.form.get('media_type') or None
     all_items = store.list_media_items()
-    items = [i for i in all_items if i['media_type'] == media_type] if media_type else list(all_items)
+    items = ([i for i in all_items if i['media_type'] == media_type]
+             if media_type else list(all_items))
 
     qb.set_mirror_urls(configured_mirror_urls())
 
@@ -3323,7 +3361,11 @@ def trakt_connect_poll():
         return jsonify({'ok': True, 'status': 'connected', 'profile': profile})
     except TraktRequestError as exc:
         if exc.code in {'pending', 'slow_down'}:
-            return jsonify({'ok': True, 'status': 'pending', 'interval': int(flow.get('interval') or 5) + (5 if exc.code == 'slow_down' else 0)})
+            return jsonify({
+                'ok': True,
+                'status': 'pending',
+                'interval': int(flow.get('interval') or 5) + (5 if exc.code == 'slow_down' else 0),
+            })
         if exc.code in {'expired', 'denied', 'already_used', 'not_found'}:
             _save_json_setting(TRAKT_DEVICE_SETTING, None)
             return jsonify({'ok': False, 'error': f'trakt_oauth_{exc.code}'}), 400
@@ -3419,7 +3461,8 @@ def save_settings():
             store.set_setting('server_port', str(port))
         return redirect(url_for('index', section='settings', status='public_access_saved'))
     if mirror_urls_raw is not None:
-        mirror_urls = [line.strip().rstrip('/') for line in mirror_urls_raw.splitlines() if line.strip()]
+        mirror_urls = [line.strip().rstrip('/')
+                       for line in mirror_urls_raw.splitlines() if line.strip()]
         store.set_setting('mirror_urls', '\n'.join(mirror_urls))
 
     if qbt_webui_url_raw is not None:
@@ -3437,8 +3480,11 @@ def save_settings():
     if trakt_client_secret_raw is not None and trakt_client_secret_raw.strip():
         _set_trakt_client_secret(trakt_client_secret_raw)
 
-    changed_client_id = trakt_client_id_raw is not None and trakt_client_id_raw.strip() != prev_trakt_client_id
-    changed_client_secret = trakt_client_secret_raw is not None and trakt_client_secret_raw.strip() and trakt_client_secret_raw.strip() != prev_trakt_secret
+    changed_client_id = (trakt_client_id_raw is not None
+                         and trakt_client_id_raw.strip() != prev_trakt_client_id)
+    changed_client_secret = (trakt_client_secret_raw is not None
+                             and trakt_client_secret_raw.strip()
+                             and trakt_client_secret_raw.strip() != prev_trakt_secret)
     if changed_client_id or changed_client_secret:
         _clear_trakt_auth()
 
@@ -3629,7 +3675,10 @@ def _find_subtitle_files(media_path: str | None, media_id: int | None = None) ->
                 'type': 'embedded',
                 'video_file': video_file,
                 'stream_index': sub.get('stream_index'),
-                'path': os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id) if media_id else 'tmp', f"subtitle_{sub.get('stream_index')}.vtt"),
+                'path': os.path.join(
+                    HLS_CACHE_DIR,
+                    _playback_cache_key(media_id) if media_id else 'tmp',
+                    f"subtitle_{sub.get('stream_index')}.vtt"),
                 'ext': '.vtt',
             })
     except Exception:
@@ -3967,7 +4016,8 @@ def tv_season_episodes(media_id: int, season_number: int):
     matched, unmatched = scan_local_episodes(show_path, item['title'] or '')
     metadata = {
         entry['episode_number']: entry
-        for entry in (_cached_season_episodes(item['tmdb_id'], season_number) if item['tmdb_id'] else [])
+        for entry in (_cached_season_episodes(item['tmdb_id'], season_number)
+                      if item['tmdb_id'] else [])
     }
 
     owned = {number: path for (season, number), path in matched.items() if season == season_number}
@@ -4009,7 +4059,8 @@ def _featurette_label(filename: str) -> str:
     stem = re.sub(r'[._]+', ' ', stem)
     # Codec/source tails are left over once the brackets go, e.g. "..._H.264".
     stem = re.sub(
-        r'\b(1080p|2160p|720p|480p|x264|x265|HEVC|AAC\d?|AC3|DDP?\d?|H ?26[45]|WEB-?DL|WEBRip|BluRay|DVD|AI Upscale|10bit)\b',
+        r'\b(1080p|2160p|720p|480p|x264|x265|HEVC|AAC\d?|AC3|DDP?\d?|H ?26[45]|'
+        r'WEB-?DL|WEBRip|BluRay|DVD|AI Upscale|10bit)\b',
         ' ', stem, flags=re.IGNORECASE,
     )
     stem = re.sub(r'\s+', ' ', stem).strip(' -–_')
@@ -4517,7 +4568,8 @@ def _start_direct_stream(media_id: int, video_file: str) -> str | None:
     """Start a direct-stream HLS pipeline (copy video, transcode audio to AAC)."""
     _cleanup_finished_direct_stream_job(media_id)
     if media_id in _direct_stream_jobs:
-        return os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id), 'direct_stream', 'master.m3u8')
+        return os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id),
+                            'direct_stream', 'master.m3u8')
 
     cache_dir = os.path.join(HLS_CACHE_DIR, _playback_cache_key(media_id), 'direct_stream')
     os.makedirs(cache_dir, exist_ok=True)

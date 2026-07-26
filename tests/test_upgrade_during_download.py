@@ -18,7 +18,8 @@ PASS, FAIL = [], []
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + str(detail)) if detail and not cond else ""}')
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 tmp = tempfile.mkdtemp()
@@ -98,7 +99,8 @@ check('hero excludes downloading items',
 check('hero still excludes missing files', 'item.file_missing' in condition)
 
 print('\n=== client-rendered card badge was already correct ===')
-client = html[html.find('card-badge-upgrade" title="Higher quality available">&#x2191;</div>\' : \'\'')-260:]
+marker = 'card-badge-upgrade" title="Higher quality available">&#x2191;</div>\' : \'\''
+client = html[html.find(marker) - 260:]
 check('client card badge excludes downloading',
       'libraryItemDownloading(item)' in client[:400])
 

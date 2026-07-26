@@ -24,7 +24,8 @@ def same(a, b):
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + str(detail)) if detail and not cond else ""}')
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 tmp = tempfile.mkdtemp()
@@ -133,7 +134,8 @@ with app.app.test_request_context('/x'):
     check('films get clean segment names',
           all('?' not in line for line in pl.splitlines() if line.startswith('segment_')))
     check('rewrite is a no-op without an episode',
-          app._rewrite_playlist_segments('#EXTM3U\nsegment_00000.ts\n') == '#EXTM3U\nsegment_00000.ts\n')
+          app._rewrite_playlist_segments('#EXTM3U\nsegment_00000.ts\n')
+          == '#EXTM3U\nsegment_00000.ts\n')
 
 print('\n=== 8. Outside a request context nothing explodes ===')
 check('episode reads as empty', app._request_episode() == '')

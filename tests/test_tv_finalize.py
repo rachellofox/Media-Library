@@ -16,7 +16,8 @@ PASS, FAIL = [], []
 
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
-    print(f'{"PASS" if cond else "FAIL"}  {name}{("  -- " + str(detail)) if detail and not cond else ""}')
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
 
 
 def scenario():
@@ -86,7 +87,8 @@ check('show folder survives', os.path.isdir(show))
 check('episode count unchanged at 20', len(videos_under(show)) == 20, len(videos_under(show)))
 check('only the superseded episode file was recycled',
       len(recycled) == 1 and 'S02E05' in recycled[0], recycled)
-check('the folder itself was never recycled', not any(r.rstrip(os.sep).endswith('Some Show') for r in recycled))
+check('the folder itself was never recycled',
+      not any(r.rstrip(os.sep).endswith('Some Show') for r in recycled))
 placed = os.path.join(show, 'Season 02', 'Some Show - S02E05.mkv')
 check('new episode filed under its canonical name', os.path.isfile(placed), placed)
 check('DB still points at the show folder', app.store.get_media_item(mid)['path'] == show)
@@ -101,7 +103,8 @@ make(os.path.join(dl, 'Show.B.S01E01.720p.mkv'), 1)
 row = finalize(mid, dl, previous=show)
 check('existing episode untouched', os.path.isfile(good))
 check('nothing recycled', not recycled, recycled)
-check('flagged needs_review', (row['download_status'] or '') == 'needs_review', row['download_status'])
+check('flagged needs_review', (row['download_status'] or '') == 'needs_review',
+      row['download_status'])
 
 print('\n=== 3. A multi-episode file is never retired for one of its episodes ===')
 tmp, lib, staging, recycled = scenario()
@@ -162,7 +165,8 @@ dl = os.path.join(staging, 'Odd.Folder.2005.2160p')
 make(os.path.join(dl, 'Odd.Folder.2005.2160p.mkv'), 9)
 finalize(mid, dl, previous=pack)
 check('the bystander video survives', os.path.isfile(bystander))
-check('the whole folder was not recycled', not any(r.rstrip(os.sep).endswith('Odd Folder') for r in recycled),
+check('the whole folder was not recycled',
+      not any(r.rstrip(os.sep).endswith('Odd Folder') for r in recycled),
       recycled)
 
 print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
