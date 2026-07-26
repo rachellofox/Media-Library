@@ -329,7 +329,7 @@ class TmdbClient:
     def metadata_by_tmdb_id(self, tmdb_id: int | str, media_type: str) -> dict:
         """Full metadata for a known TMDB ID.
 
-        Returns a dict matching the IMDbClient.metadata() contract.
+        Returns the same dict shape as the other metadata lookups.
         """
         path = f'/tv/{tmdb_id}' if media_type == 'tv' else f'/movie/{tmdb_id}'
 

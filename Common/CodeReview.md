@@ -161,8 +161,12 @@ tracked but are not, and leftovers.
   *Branch is unmerged — merging into `main` is your call.*
 - [x] B5. **`docs/README.md` deleted.** The pending deletion is committed. Two
   instruction files still point at `docs/` — that remains open as C3.
-- [?] B6. **`imdb_client.py` (88 lines) is imported by nothing.** TMDB replaced
-  it. Propose deletion. *Your call.*
+- [x] B6. **`imdb_client.py` deleted by you. Recorded 2026-07-26.** 88 lines,
+  imported by nothing — TMDB had replaced it. Confirmed nothing referenced it
+  beyond three stale mentions, now removed: the repo map, a README row listing it
+  as "retained", and a docstring in `tmdb_client.py` describing its return shape
+  as "the IMDbClient.metadata() contract". Recoverable from history if ever
+  needed.
 - [?] B7. **`tmp/reference/TranscodeManager.cs`** — propose deletion or move out
   of the repo, unless you still want it as a reference. *Your call.*
 

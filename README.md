@@ -34,7 +34,6 @@ A local-first media library for movies and TV. Self-hosted, no cloud required. B
 | `trakt_client.py` | Trakt API client (OAuth, watchlist, collection sync) |
 | `qb_search.py` | qBittorrent nova3 plugin integration |
 | `quality.py` | Quality string parsing and comparison logic |
-| `imdb_client.py` | Retained; not in active use |
 | `templates/` | Jinja2 HTML templates |
 | `static/posters/` | Cached poster images (runtime, not tracked in git) |
 | `Common/` | Governance docs: [Runbook](Common/Runbook.md), [Roadmap](Common/Roadmap.md), [Changelog](Common/CHANGELOG.md) |
