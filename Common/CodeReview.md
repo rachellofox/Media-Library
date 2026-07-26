@@ -270,11 +270,25 @@ worked one at a time:
     20 functions and 7 module constants including the live transcode job state.
     Chosen first because it is the largest cohesive group that needs nothing but
     three config values and one request helper.
-  app.py: **5,386 → 4,922 lines.** Verified after each step: ruff clean, 19/19
-  test files pass, app answers with all 62 routes and 352 items, and every CI
-  step passes from a clean checkout.
-  Remaining clusters, in rough size order: subtitles (~250 lines), qBittorrent
-  WebUI (~180), matching and naming (~280), then the singleton-bound groups.
+  - `identify.py` (412 lines) — working out what a file or folder holds: title
+    and year parsing, pack detection, episode markers, season inference, and
+    choosing between search results. 14 functions and 9 constants.
+  - `subtitles.py` (332 lines) — sidecar discovery, embedded-track probing,
+    SubRip to WebVTT conversion, and the English-detection heuristics. 10
+    functions and 3 constants.
+  app.py: **5,386 → 4,299 lines, a fifth of the file moved out.** Verified after
+  every cluster: ruff clean, 19/19 test files pass, the app answers with all 62
+  routes and 352 items, and the full CI sequence passes from a clean checkout.
+- [ ] E1a. **The remaining clusters need dependency injection, not a move.** The
+  qBittorrent WebUI cluster (13 functions, 204 lines) is pure except for three
+  one-line config accessors that read `store.get_setting`. Moving it as-is would
+  make `medialibrary.qbt` import `app.store` while `app` imports
+  `medialibrary.qbt` — a circular import. The fix is for the module to take a
+  settings getter from the application at startup rather than reaching for the
+  singleton, which is a design change rather than a verbatim move. Deliberately
+  not attempted at the end of a long session, because this is the download path
+  that has already caused data loss twice. Same pattern will be needed for the
+  other `store`-bound and `tmdb`-bound groups.
 - [ ] E2. Auth and session handling — review for correctness and security.
 - [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
 - [ ] E4. Downloads and qBittorrent integration, including the finalisation path
@@ -437,10 +451,12 @@ the test suite recovered in item 3.
 - **2026-07-26** — A1, B1, B3, H1, H2, H4 done. Two `.gitignore` fixes (the live
   database and the transcode cache were both exposed; the standards directory was
   hidden), and the test suite recovered from temporary storage into `tests/`.
-- **2026-07-26** — E1 started. `medialibrary/` package created; playback/HLS
-  (558 lines) and shared config moved out of app.py, which drops to 4,922 lines.
-  Every moved name is re-imported into app.py so no caller changed. Verified
-  against a clean checkout through the full CI sequence.
+- **2026-07-26** — E1 in progress. `medialibrary/` package created and three
+  clusters moved out of app.py — playback/HLS (558), identify (412), subtitles
+  (332) — plus shared config. app.py drops 5,386 → 4,299 lines. Every moved name
+  is re-imported into app.py, so no caller changed anywhere. Verified against a
+  clean checkout through the full CI sequence after each cluster. Stopped at the
+  qBittorrent cluster, which needs injection rather than a move (E1a).
 - **2026-07-26** — C2 done, plus C2a. CI workflow added and validated by running
   every step by hand against a clean checkout, which found that the app returned
   500 from any entry point other than `python app.py` because the schema was only
