@@ -180,8 +180,9 @@ for p in plans:
                 continue
             print(f'  moved: -> {p["dest_file"]}')
             # Drop the now-empty folder the keeper came from.
-            if os.path.isdir(p['best_folder']) and not videos_in(p['best_folder']):
-                if os.path.normcase(p['best_folder']) != os.path.normcase(p['dest_folder']):
+            if (os.path.isdir(p['best_folder']) and not videos_in(p['best_folder'])
+                    and os.path.normcase(p['best_folder'])
+                    != os.path.normcase(p['dest_folder'])):
                     app._retire_path(p['best_folder'])
                     print(f'  recycled empty source: {p["best_folder"]}')
 

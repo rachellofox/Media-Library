@@ -16,7 +16,9 @@ def same(a, b):
     """Compare paths regardless of separator style and case."""
     if not a or not b:
         return False
-    norm = lambda v: os.path.normcase(os.path.normpath(v))
+    def norm(v):
+        return os.path.normcase(os.path.normpath(v))
+
     return norm(a) == norm(b)
 
 
@@ -121,13 +123,15 @@ with app.app.test_request_context('/video/7?episode=Season 02/Show S02E10.mkv'):
 print('\n=== 7. Playlist segments carry the episode ===')
 with app.app.test_request_context('/x?episode=Season 02/Show S02E10.mkv'):
     pl = app._build_vod_playlist(30.0, segment_query=app._segment_query_suffix())
-    seg_lines = [l for l in pl.splitlines() if l.startswith('segment_')]
-    check('every segment line has the query', all('?episode=' in l for l in seg_lines), seg_lines[:2])
+    seg_lines = [line for line in pl.splitlines() if line.startswith('segment_')]
+    check('every segment line has the query',
+          all('?episode=' in line for line in seg_lines), seg_lines[:2])
     rewritten = app._rewrite_playlist_segments('#EXTM3U\n#EXTINF:4,\nsegment_00000.ts\n')
     check('ffmpeg playlists are rewritten too', '?episode=' in rewritten, rewritten)
 with app.app.test_request_context('/x'):
     pl = app._build_vod_playlist(30.0, segment_query=app._segment_query_suffix())
-    check('films get clean segment names', all('?' not in l for l in pl.splitlines() if l.startswith('segment_')))
+    check('films get clean segment names',
+          all('?' not in line for line in pl.splitlines() if line.startswith('segment_')))
     check('rewrite is a no-op without an episode',
           app._rewrite_playlist_segments('#EXTM3U\nsegment_00000.ts\n') == '#EXTM3U\nsegment_00000.ts\n')
 

@@ -427,9 +427,9 @@ def scan_subtitles(media_path: str | None) -> str | None:
         for root, _dirs, files in os.walk(base_dir):
             for fname in files:
                 _, ext = os.path.splitext(fname)
-                if ext.lower() in SUBTITLE_EXTENSIONS:
-                    if _srt_is_english(os.path.join(root, fname)):
-                        return 'en'
+                if (ext.lower() in SUBTITLE_EXTENSIONS
+                        and _srt_is_english(os.path.join(root, fname))):
+                    return 'en'
     except PermissionError:
         pass
 
@@ -859,7 +859,9 @@ def _finalize_completed_download(row, torrent: dict) -> None:
 
     # Only retire the old file once the replacement is verifiably in place, and
     # never when it resolved to the very file we just wrote.
-    if mode == 'upgrade' and outgoing_video and os.path.isfile(dest_file):
+    if mode == 'upgrade' and outgoing_video and os.path.isfile(dest_file):  # noqa: SIM102
+        # Kept nested: the outer test is the guard that makes samefile() safe to
+        # call at all, and the two are separate conditions rather than one.
         if not os.path.samefile(outgoing_video, dest_file):
             outgoing_folder = os.path.dirname(outgoing_video)
             same_folder = os.path.samefile(outgoing_folder, dest_folder)
@@ -2287,7 +2289,9 @@ def backfill_genres() -> dict:
     updated = 0
     skipped = 0
     for item in store.list_media_items():
-        current_1 = (item['genre_1'] or '').strip() if 'genre_1' in item.keys() else ''
+        # sqlite3.Row has no __contains__, so `in item` would test the column
+        # *values*, not the column names. .keys() is required here.
+        current_1 = (item['genre_1'] or '').strip() if 'genre_1' in item.keys() else ''  # noqa: SIM118
         # A missing *second* genre is normal - plenty of titles carry only one
         # on TMDB - so only a missing first genre means the item never resolved.
         # Treating a single-genre title as incomplete would re-query TMDB for it
@@ -2924,7 +2928,9 @@ def _fetch_best_metadata(item) -> dict:
     imdb_id = (item['imdb_id'] or '').strip()
     media_type = item['media_type'] or 'movie'
 
-    stored_tmdb_id = item['tmdb_id'] if 'tmdb_id' in item.keys() else None
+    # .keys() is required: sqlite3.Row has no __contains__, so `in item` would
+    # test the column values instead of the column names.
+    stored_tmdb_id = item['tmdb_id'] if 'tmdb_id' in item.keys() else None  # noqa: SIM118
     if stored_tmdb_id:
         exact = tmdb.metadata_by_tmdb_id(stored_tmdb_id, media_type)
         if exact.get('poster_url') or exact.get('genre_1'):
@@ -3447,7 +3453,7 @@ def save_settings():
 
 def _find_video_file(media_path: str | None) -> str | None:
     """Locate the actual video file from a media_path (file or folder).
-    
+
     Returns the best (largest) video file, or None if not found.
     """
     if not media_path or not os.path.exists(media_path):
@@ -3562,7 +3568,7 @@ def _extract_embedded_subtitle_to_vtt(video_file: str, stream_index: int, out_pa
 
 def _find_subtitle_files(media_path: str | None, media_id: int | None = None) -> list[dict]:
     """Find all subtitle files (.srt, .vtt, etc.) near a video file.
-    
+
     Returns a list of dicts: [{'name': 'English', 'lang': 'en', 'index': 0}]
     Caches file paths keyed by media_id for later serving via API.
     """
@@ -4033,9 +4039,8 @@ def tv_unmatched_files(media_id: int):
         if requested == 'extras':
             if season is not None:
                 continue
-        elif requested:
-            if str(season) != requested:
-                continue
+        elif requested and str(season) != requested:
+            continue
         basename = os.path.basename(path)
         files.append({
             'name': basename,
@@ -4329,7 +4334,7 @@ def _start_job_kill_timer(media_id: int) -> None:
 
 def _get_video_info(video_file: str) -> dict | None:
     """Get video stream info using ffprobe.
-    
+
     Returns width, height, duration, video_codec, audio_codec, and container.
     """
     try:

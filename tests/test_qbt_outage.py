@@ -35,7 +35,7 @@ def add(imdb, title, year, path=None):
 
 
 def row_for(mid):
-    return [r for r in app.store.list_media_items() if r['id'] == mid][0]
+    return next(r for r in app.store.list_media_items() if r['id'] == mid)
 
 
 def stale(mid):

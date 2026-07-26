@@ -255,5 +255,7 @@ def _same_story(local: str, tmdb_title: str) -> bool:
     """Whether two titles name the same story, ignoring any part number."""
     if not local or not tmdb_title:
         return False
-    strip_part = lambda text: re.sub(r'\s*\(\d+\)\s*$', '', text).strip()
+    def strip_part(text):
+        return re.sub(r'\s*\(\d+\)\s*$', '', text).strip()
+
     return strip_part(local) == strip_part(tmdb_title)

@@ -77,7 +77,7 @@ app.store.set_download_state(
     previous_path=existing_path,
 )
 
-row = [r for r in app.store.list_media_items() if r['id'] == media_id][0]
+row = next(r for r in app.store.list_media_items() if r['id'] == media_id)
 torrent = {'state': 'stalledUP', 'progress': 1.0, 'amount_left': 0, 'content_path': dl_folder}
 
 app._finalize_completed_download(row, torrent)

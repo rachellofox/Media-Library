@@ -3,6 +3,7 @@ import datetime
 import os
 import sys
 import tempfile
+from typing import ClassVar
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
@@ -37,7 +38,7 @@ requests = {'status': 0, 'episodes': 0}
 class StubTmdb:
     """Two shows: one airing with a part-aired season, one ended with a gap."""
 
-    SHOWS = {
+    SHOWS: ClassVar[dict] = {
         100: {'status': 'Returning Series', 'in_production': True, 'next_air_date': NEXT_WEEK,
               'seasons': [
                   {'season_number': 0, 'name': 'Specials', 'episode_count': 2},
@@ -47,7 +48,7 @@ class StubTmdb:
         200: {'status': 'Ended', 'in_production': False, 'next_air_date': None,
               'seasons': [{'season_number': 1, 'name': 'Season 1', 'episode_count': 2}]},
     }
-    EPISODES = {
+    EPISODES: ClassVar[dict] = {
         (100, 0): [{'episode_number': 1, 'title': 'Special', 'air_date': YESTERDAY},
                    {'episode_number': 2, 'title': 'Special 2', 'air_date': YESTERDAY}],
         (100, 1): [{'episode_number': n, 'title': f'S1 Ep{n}', 'air_date': YESTERDAY}

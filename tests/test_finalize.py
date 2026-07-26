@@ -64,7 +64,7 @@ def add_item(imdb, title, year, path, quality):
 
 
 def row_for(media_id):
-    return [r for r in app.store.list_media_items() if r['id'] == media_id][0]
+    return next(r for r in app.store.list_media_items() if r['id'] == media_id)
 
 
 # ---------------------------------------------------------------- test 1

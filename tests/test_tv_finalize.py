@@ -53,17 +53,17 @@ def add_show(show_path, title='Some Show'):
         imdb_id='tt' + str(abs(hash(show_path)) % 10 ** 7), tmdb_id=None, title=title,
         year=2010, media_type='tv', collection_id=None, collection_name=None,
         current_quality='1080p', path=show_path)
-    return [r['id'] for r in app.store.list_media_items() if r['path'] == show_path][0]
+    return next(r['id'] for r in app.store.list_media_items() if r['path'] == show_path)
 
 
 def finalize(media_id, dl_folder, mode='upgrade', previous=None):
     app.store.set_download_state(
         media_item_id=media_id, status='downloading', source='qb_webui', message='x',
         torrent_hash='A' * 40, mode=mode, previous_path=previous)
-    row = [r for r in app.store.list_media_items() if r['id'] == media_id][0]
+    row = next(r for r in app.store.list_media_items() if r['id'] == media_id)
     app._finalize_completed_download(
         row, {'state': 'stalledUP', 'progress': 1.0, 'amount_left': 0, 'content_path': dl_folder})
-    return [r for r in app.store.list_media_items() if r['id'] == media_id][0]
+    return next(r for r in app.store.list_media_items() if r['id'] == media_id)
 
 
 def videos_under(path):
@@ -139,7 +139,7 @@ old = make(os.path.join(folder, 'A Film (2001).mkv'), 2)
 app.store.add_media_item(imdb_id='tt5555555', tmdb_id=None, title='A Film', year=2001,
                          media_type='movie', collection_id=None, collection_name=None,
                          current_quality='1080p', path=folder)
-mid = [r['id'] for r in app.store.list_media_items() if r['imdb_id'] == 'tt5555555'][0]
+mid = next(r['id'] for r in app.store.list_media_items() if r['imdb_id'] == 'tt5555555')
 dl = os.path.join(staging, 'A.Film.2001.2160p')
 make(os.path.join(dl, 'A.Film.2001.2160p.mkv'), 7)
 finalize(mid, dl, previous=folder)
@@ -157,7 +157,7 @@ bystander = make(os.path.join(pack, 'Another Film 1080p.mkv'), 3)
 app.store.add_media_item(imdb_id='tt6666666', tmdb_id=None, title='Odd Folder', year=2005,
                          media_type='movie', collection_id=None, collection_name=None,
                          current_quality='1080p', path=pack)
-mid = [r['id'] for r in app.store.list_media_items() if r['imdb_id'] == 'tt6666666'][0]
+mid = next(r['id'] for r in app.store.list_media_items() if r['imdb_id'] == 'tt6666666')
 dl = os.path.join(staging, 'Odd.Folder.2005.2160p')
 make(os.path.join(dl, 'Odd.Folder.2005.2160p.mkv'), 9)
 finalize(mid, dl, previous=pack)

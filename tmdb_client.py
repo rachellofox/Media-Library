@@ -327,10 +327,7 @@ class TmdbClient:
 
     def metadata_by_tmdb_id(self, tmdb_id: int | str, media_type: str) -> dict:
         """Fetch full metadata for a known TMDB ID. Returns dict matching IMDbClient.metadata() contract."""
-        if media_type == 'tv':
-            path = f'/tv/{tmdb_id}'
-        else:
-            path = f'/movie/{tmdb_id}'
+        path = f'/tv/{tmdb_id}' if media_type == 'tv' else f'/movie/{tmdb_id}'
 
         try:
             data = self._get(path, {'append_to_response': 'credits,external_ids', 'language': 'en-US'})

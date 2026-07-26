@@ -22,7 +22,7 @@ VERBOSE = '-v' in sys.argv
 
 
 def run(command, path):
-    result = subprocess.run(command + [path], capture_output=True, text=True,
+    result = subprocess.run([*command, path], capture_output=True, text=True,
                             cwd=REPO_ROOT, timeout=600)
     return result.returncode, (result.stdout or '') + (result.stderr or '')
 
