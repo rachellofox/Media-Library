@@ -117,6 +117,16 @@
     .status-info  { background: var(--cyan-dim);  border-bottom: 1px solid rgba(0,229,229,0.25); color: var(--cyan); }
     .status-error { background: var(--pink-dim);  border-bottom: 1px solid rgba(212,0,107,0.35); color: #ff7eb3; }
     .status-close { background: none; border: none; color: inherit; cursor: pointer; font-size: 14px; padding: 0 4px; }
+    .status-spinner {
+      display: inline-block; width: 11px; height: 11px; margin-right: 8px;
+      vertical-align: -1px; border-radius: 50%;
+      border: 2px solid currentColor; border-right-color: transparent;
+      animation: status-spin .7s linear infinite;
+    }
+    @keyframes status-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .status-spinner { animation: none; opacity: .6; }
+    }
 
     .toast-stack {
       position: fixed; top: 16px; right: 18px; z-index: 120;
@@ -158,8 +168,7 @@
     }
     .hero:not(.loaded) .hero-inner,
     .hero:not(.loaded) .hero-info-bar,
-    .hero:not(.loaded) #hero-fav-form,
-    .hero:not(.loaded) #hero-refresh-form {
+    .hero:not(.loaded) #hero-fav-form {
       display: none;
     }
     .hero.loaded .hero-idle { opacity: 0; }
@@ -192,8 +201,9 @@
       padding: 28px 32px; height: 100%; align-items: flex-start;
     }
     .hero-poster {
+      position: relative;
       flex-shrink: 0; width: 160px; height: 240px;
-      border-radius: 8px; overflow: hidden;
+      border-radius: 0; overflow: hidden;
       border: 1px solid rgba(0,229,229,0.2);
       box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 20px var(--pink-glow);
     }
@@ -217,7 +227,21 @@
     }
     .chip-year    { background: var(--purple-dim); border: 1px solid rgba(155,77,255,.4); color: #c9a7ff; }
     .chip-type    { background: var(--cyan-dim);   border: 1px solid rgba(0,229,229,.3);  color: var(--cyan); }
-    .chip-quality { background: var(--amber-dim);  border: 1px solid rgba(255,183,0,.45); color: var(--amber); }
+    .chip-genre   { background: var(--amber-dim);  border: 1px solid rgba(255,183,0,.35); color: var(--amber); }
+    .chip-airing  { background: rgba(0,230,118,.16); border: 1px solid rgba(0,230,118,.45); color: var(--green); }
+    .chip-type[role="button"] { cursor: pointer; }
+    .chip-type[role="button"]:hover,
+    .chip-type[role="button"]:focus-visible { border-color: var(--cyan); color: #6ff3f3; outline: none; }
+    .chip-genre[role="button"] { cursor: pointer; }
+    .chip-genre[role="button"]:hover,
+    .chip-genre[role="button"]:focus-visible {
+      border-color: var(--amber); color: #ffd24d; outline: none;
+    }
+    .library-genre-pill {
+      border-color: var(--amber) !important; color: var(--amber) !important;
+      background: var(--amber-dim) !important; display: none;
+    }
+    .library-genre-pill.is-visible { display: inline-block; }
     .hero-synopsis {
       font-size: 13px; color: var(--text-muted); line-height: 1.75;
       max-height: 72px; overflow: hidden; display: -webkit-box;
@@ -232,38 +256,120 @@
     .hero-library-actions {
       margin-top: 8px; display: none; align-items: center; gap: 10px; flex-wrap: wrap;
     }
-    .hero-discover-actions .hero-action-btn {
-      padding: 7px 14px; border: 1px solid var(--cyan); background: var(--cyan);
-      color: #0b0919; font-size: 11px; font-weight: 700; letter-spacing: .08em;
-      text-transform: uppercase; cursor: pointer;
-    }
+    .hero-discover-actions .hero-action-btn,
     .hero-library-actions .hero-action-btn {
       padding: 7px 14px; border: 1px solid var(--cyan); background: transparent;
       color: var(--cyan); font-size: 11px; font-weight: 700; letter-spacing: .08em;
       text-transform: uppercase; cursor: pointer;
     }
-    .hero-discover-actions .hero-action-btn:hover { background: #00cccc; }
+    .hero-discover-actions .hero-action-btn:hover,
     .hero-library-actions .hero-action-btn:hover { border-color: #6ff3f3; color: #6ff3f3; }
-    .hero-discover-actions .hero-action-btn[disabled] {
-      border-color: var(--border); background: var(--surface2); color: var(--text-muted); cursor: default;
-    }
+    .hero-discover-actions .hero-action-btn[disabled],
     .hero-library-actions .hero-action-btn[disabled] {
-      border-color: var(--border); color: var(--text-muted); cursor: default;
+      border-color: var(--border); background: transparent; color: var(--text-muted); cursor: default;
     }
     .hero-discover-status { font-size: 12px; color: var(--text-muted); min-height: 16px; }
     .hero-library-status { font-size: 12px; color: var(--text-muted); min-height: 16px; }
-    .hero-dl-progress-wrap {
-      width: 100%; margin-top: 6px; display: none;
+    .hero-season-select {
+      background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+      padding: 7px 10px; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; font-family: inherit; cursor: pointer;
     }
-    .hero-dl-progress-bar {
-      width: 100%; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden;
+    .hero-season-select:hover, .hero-season-select:focus-visible {
+      border-color: var(--cyan); color: var(--cyan); outline: none;
     }
-    .hero-dl-progress-fill {
-      height: 100%; width: 0%; background: var(--cyan); border-radius: 2px;
-      transition: width 0.6s ease;
+    .tv-episode-view { display: none; }
+    .tv-episode-view.is-open { display: block; }
+    .tv-episode-bar {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
     }
-    .hero-dl-progress-label {
-      font-size: 11px; color: var(--text-muted); margin-top: 4px;
+    .tv-episode-list { display: flex; flex-direction: column; gap: 8px; }
+    .tv-episode-row {
+      display: flex; align-items: flex-start; gap: 14px; padding: 12px 14px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    }
+    .tv-episode-num {
+      flex: 0 0 auto; min-width: 46px; font-size: 12px; font-weight: 800;
+      letter-spacing: .06em; color: var(--cyan);
+    }
+    .tv-episode-thumb {
+      flex: 0 0 auto; width: 132px; aspect-ratio: 16 / 9; border-radius: 4px;
+      background: var(--surface2); border: 1px solid var(--border);
+      object-fit: cover; display: block;
+    }
+    .discover-episodes { display: flex; flex-direction: column; gap: 10px; }
+    .dep-show {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      padding: 12px 14px;
+    }
+    .dep-show-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .dep-show-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .dep-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      padding: 2px 7px; border-radius: 10px;
+    }
+    .dep-badge-airing { background: var(--green); color: #0b0919; }
+    .dep-badge-ended { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+    .dep-count { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+    .dep-season { margin-top: 10px; }
+    .dep-season-head {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--cyan); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .dep-eps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .dep-ep {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 4px;
+      padding: 4px 8px; font-size: 11px; color: var(--text-muted); cursor: pointer;
+    }
+    .dep-ep:hover, .dep-ep:focus-visible { border-color: var(--cyan); color: var(--cyan); outline: none; }
+    .dep-ep-num { font-weight: 700; color: var(--cyan); }
+    .dep-actions { display: flex; gap: 6px; margin-left: auto; }
+    .tv-featurettes { margin-top: 26px; }
+    .tv-featurettes-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--text-muted); margin-bottom: 10px;
+    }
+    .tv-featurette-row {
+      display: flex; align-items: center; gap: 14px; padding: 10px 14px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    }
+    .tv-featurette-row + .tv-featurette-row { margin-top: 8px; }
+    .tv-featurette-name {
+      flex: 1; min-width: 0; font-size: 13px; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    @media (max-width: 720px) {
+      .tv-episode-thumb { width: 92px; }
+    }
+    .tv-episode-main { flex: 1; min-width: 0; }
+    .tv-episode-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .tv-episode-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .tv-episode-synopsis {
+      font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-top: 6px;
+      display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tv-episode-row .hero-action-btn { flex: 0 0 auto; }
+    .tv-episode-empty { padding: 28px 4px; color: var(--text-muted); font-size: 13px; }
+    /* Download progress sits inline beside the action buttons. A full-width bar
+       wrapped onto its own line and ended up behind the info cards below. */
+    .hero-dl-ring { display: none; position: relative; width: 44px; height: 44px; flex: 0 0 auto; }
+    .hero-dl-ring.is-visible { display: inline-flex; }
+    .hero-dl-ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .hero-dl-ring-track { fill: none; stroke: var(--surface2); stroke-width: 3.5; }
+    .hero-dl-ring-fill {
+      fill: none; stroke: var(--cyan); stroke-width: 3.5; stroke-linecap: round;
+      stroke-dasharray: 97.39; stroke-dashoffset: 97.39;
+      transition: stroke-dashoffset .6s ease;
+    }
+    .hero-dl-ring-label {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; color: var(--cyan); letter-spacing: .02em;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-dl-ring-fill { transition: none; }
     }
     .torrent-modal {
       position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
@@ -306,6 +412,85 @@
     .torrent-link:hover { border-color: var(--amber); color: #ffd24d; }
     .torrent-modal-note { font-size: 12px; color: var(--text-muted); padding: 8px 4px; }
 
+    .metadata-modal {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: rgba(11,9,25,.72); z-index: 60; padding: 18px;
+    }
+    .metadata-modal.open { display: flex; }
+    .metadata-modal-panel {
+      width: min(860px, 96vw); max-height: 84vh; overflow: hidden;
+      border: 1px solid var(--border); background: var(--surface); box-shadow: 0 14px 42px rgba(0,0,0,.65);
+      display: flex; flex-direction: column;
+    }
+    .metadata-modal-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 14px; border-bottom: 1px solid var(--border);
+    }
+    .metadata-modal-title { font-size: 12px; letter-spacing: .11em; text-transform: uppercase; color: var(--text-muted); }
+    .metadata-modal-close {
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+      padding: 4px 8px; font-size: 11px; cursor: pointer;
+    }
+    .metadata-modal-close:hover { border-color: var(--cyan); color: var(--cyan); }
+    .metadata-modal-body { overflow: auto; padding: 12px 14px 14px; }
+    .info-card-gear { font-size: 15px; line-height: 1; }
+    .poster-picker { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+    .poster-picker-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    .poster-lang-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); display: flex; align-items: center; gap: 6px; margin-left: auto;
+    }
+    .poster-lang-select {
+      background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+      padding: 4px 6px; font-size: 11px; font-family: inherit;
+    }
+    .poster-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 10px; margin-top: 10px;
+    }
+    .poster-option {
+      position: relative; border: 2px solid transparent; border-radius: 4px;
+      overflow: hidden; cursor: pointer; background: var(--surface2); padding: 0;
+    }
+    .poster-option img { width: 100%; display: block; aspect-ratio: 2 / 3; object-fit: cover; }
+    .poster-option:hover, .poster-option:focus-visible { border-color: var(--cyan); outline: none; }
+    .poster-option.is-current { border-color: var(--green); }
+    .poster-option-tag {
+      position: absolute; bottom: 0; left: 0; right: 0; font-size: 9px; text-align: center;
+      background: rgba(11,9,25,.82); color: var(--text-muted); padding: 2px 0;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .metadata-table { display: grid; gap: 8px; }
+    .metadata-row {
+      border: 1px solid var(--border); background: var(--surface2);
+      padding: 8px 10px; display: grid; grid-template-columns: 150px 1fr auto; gap: 8px; align-items: center;
+    }
+    .metadata-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
+    }
+    .metadata-value {
+      min-width: 0; font-size: 12px; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .metadata-state {
+      font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+      border: 1px solid var(--border); padding: 2px 6px;
+    }
+    .metadata-state.present { color: var(--green); border-color: rgba(0,230,118,.55); background: rgba(0,230,118,.12); }
+    .metadata-state.missing { color: #ff7eb3; border-color: rgba(212,0,107,.55); background: rgba(212,0,107,.15); }
+    .metadata-actions {
+      margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .metadata-action-btn {
+      border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+      padding: 6px 10px; font-size: 11px; font-weight: 700; letter-spacing: .06em; cursor: pointer;
+      text-transform: uppercase;
+    }
+    .metadata-action-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .metadata-action-btn.primary { border-color: var(--cyan); color: var(--cyan); }
+    .metadata-action-btn[disabled] { border-color: var(--border); color: var(--text-muted); cursor: default; }
+    .metadata-note { margin-top: 10px; font-size: 12px; color: var(--text-muted); min-height: 16px; }
+
     /* Info cards row at the bottom of the hero */
     .hero-info-bar {
       position: absolute; bottom: 0; left: 0; right: 0; z-index: 3;
@@ -323,28 +508,29 @@
     .info-card-value { font-size: 14px; font-weight: 700; color: var(--text); }
     .info-card-value.cyan  { color: var(--cyan); }
     .info-card-value.amber { color: var(--amber); }
+    .info-card-value.pink  { color: var(--pink); }
     .info-card-value.green { color: var(--green); }
+    .info-card.clickable { cursor: pointer; }
+    .info-card.clickable:hover { border-color: var(--pink); background: rgba(255,100,200,0.08); }
 
+    .hero-fav-form {
+      position: absolute; top: 8px; right: 8px; z-index: 5; display: none;
+    }
     .hero-fav-btn {
-      position: absolute; top: 20px; right: 28px; z-index: 4;
-      background: var(--pink-dim); border: 1px solid rgba(212,0,107,.4);
-      border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px;
-      color: var(--pink); font-weight: 700; transition: background .2s;
+      background: rgba(11,9,25,0.75); border: 1px solid rgba(212,0,107,.55);
+      border-radius: 999px; width: 32px; height: 32px; cursor: pointer;
+      font-size: 16px; line-height: 1; color: var(--pink); font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background .2s, border-color .2s, transform .2s;
     }
-    .hero-fav-btn:hover { background: rgba(212,0,107,.3); }
+    .hero-fav-btn:hover { background: rgba(212,0,107,.25); border-color: var(--pink); transform: scale(1.04); }
     .hero-fav-btn.active { background: var(--pink); color: #fff; }
-    .hero-refresh-btn {
-      position: absolute; top: 62px; right: 28px; z-index: 4;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 11px;
-      color: var(--text-muted); font-weight: 700; letter-spacing: .05em;
-      text-transform: uppercase; transition: all .2s;
-    }
-    .hero-refresh-btn:hover { border-color: var(--cyan); color: var(--cyan); }
-
     /* ── Grid area ──────────────────────────────────────────── */
     .grid-area {
       flex: 1; min-height: 0; overflow-y: auto; padding: 20px 28px 40px;
+    }
+    .library-grid-area {
+      padding-top: 0;
     }
     .grid-header {
       display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap;
@@ -362,25 +548,48 @@
     }
     .btn-sm:hover { border-color: var(--cyan); color: var(--cyan); }
     .btn-sm.active { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+    .btn-sm.filter-missing { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+    .btn-sm.filter-upgrade { border-color: var(--green); color: var(--green); background: rgba(0,230,118,.15); }
+    .btn-sm.filter-incomplete { border-color: var(--pink); color: var(--pink); background: var(--pink-dim); }
+    .btn-sm.filter-subtitles { border-color: var(--pink); color: var(--pink); background: var(--pink-dim); }
+    .btn-sm.filter-downloading { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+    .btn-sm.filter-missing.active { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); box-shadow: inset 0 0 0 1px rgba(255,183,0,.45); }
+    .btn-sm.filter-upgrade.active { border-color: var(--green); color: var(--green); background: rgba(0,230,118,.18); box-shadow: inset 0 0 0 1px rgba(0,230,118,.45); }
     .btn-sm.filter-incomplete.active { border-color: var(--pink); color: var(--pink); background: var(--pink-dim); }
+    .btn-sm.filter-subtitles.active { border-color: var(--pink); color: var(--pink); background: var(--pink-dim); }
     .btn-sm.filter-downloading.active { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
     .library-toolbar {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      margin-bottom: 12px; flex-wrap: wrap;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 0; flex-wrap: wrap;
     }
-    .library-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .library-search-row { display: none; margin-bottom: 12px; }
-    .library-search-row.open { display: block; }
+    .library-sticky-panel {
+      position: sticky; top: 0; z-index: 12;
+      background: var(--bg);
+      margin-bottom: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(45,26,82,0.65);
+    }
+    .library-search-form {
+      display: flex; gap: 10px; align-items: center;
+      width: min(23.8vw, 364px); min-width: 182px; max-width: 100%;
+    }
     .library-search-input {
-      width: min(420px, 100%); padding: 8px 12px; background: var(--surface2);
-      border: 1px solid var(--border); border-radius: 5px; color: var(--text);
-      font-size: 13px; font-family: monospace; outline: none;
+      flex: 1; min-width: 0; height: 36px; padding: 0 10px; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+      font-size: 11px; outline: none;
     }
     .library-search-input:focus { border-color: var(--cyan); }
-    .library-results-meta {
-      margin-bottom: 14px; font-size: 11px; color: var(--text-muted); min-height: 16px;
+    .library-filter-wrap {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     }
-
+    .library-filter-toggle {
+      height: 36px; min-width: 36px; text-align: center; padding: 0 9px;
+      font-size: 11px; font-weight: 700;
+    }
+    .library-filter-actions {
+      display: none; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .library-filter-actions.open { display: flex; }
     .media-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 14px;
     }
@@ -407,27 +616,22 @@
       font-size: 2.4rem; font-weight: 800; color: rgba(240,230,255,.15);
     }
     .card-overlay { display: none; }
-    .card-collection .card-overlay {
-      display: block; position: absolute; left: 0; right: 0; bottom: 0;
-      padding: 10px 8px 8px;
-      background: linear-gradient(transparent, rgba(11,9,25,0.92));
-    }
-    .card-collection .card-title {
-      font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.3;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .card-collection .card-year {
-      margin-top: 4px; font-size: 10px; color: var(--amber); letter-spacing: .05em; text-transform: uppercase;
-    }
     .card-badge {
       position: absolute; padding: 2px 6px; border-radius: 3px;
       font-size: 9px; font-weight: 700; letter-spacing: .04em;
     }
-    .card-badge-upgrade { top: 6px; left: 6px; background: var(--purple-dim); border: 1px solid var(--purple); color: var(--purple); animation: pulse 2s infinite; }
+    .card-badge-upgrade { top: 6px; left: 6px; background: rgba(0,230,118,.15); border: 1px solid var(--green); color: var(--green); animation: pulse 2s infinite; }
     .card-badge-download { top: 6px; right: 6px; background: var(--cyan-dim); border: 1px solid var(--cyan); color: var(--cyan); }
     .card-badge-fav { bottom: 28px; right: 6px; font-size: 12px; background: none; border: none; color: var(--pink); text-shadow: 0 0 8px var(--pink-glow); }
-    .card-badge-missing { top: 6px; left: 6px; background: rgba(220,38,38,.18); border: 1px solid #dc2626; color: #f87171; }
-    .card-badge-incomplete { bottom: 6px; left: 6px; background: var(--pink-dim); border: 1px solid var(--pink); color: var(--pink); font-size: 11px; padding: 1px 5px; border-radius: 3px; line-height: 1; }
+    .card-badge-missing { top: 6px; left: 6px; background: var(--amber-dim); border: 1px solid var(--amber); color: var(--amber); }
+    .card-badge-incomplete,
+    .card-badge-subtitles {
+      bottom: 6px; left: 6px; background: var(--pink-dim); border: 1px solid var(--pink); color: var(--pink);
+      border-radius: 3px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; min-width: 22px;
+    }
+    .card-badge-incomplete { font-size: 11px; padding: 2px 5px; }
+    .card-badge-subtitles { font-size: 10px; padding: 2px 5px; letter-spacing: .04em; }
+    .card-badge-subtitles.adjacent { left: 34px; }
     .card-badge-collection { top: 6px; right: 6px; background: var(--amber-dim); border: 1px solid var(--amber); color: var(--amber); }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
 
@@ -456,8 +660,22 @@
       margin-top: 10px; font-size: 12px; color: var(--text-muted); line-height: 1.6;
     }
     .discover-block-header {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-      margin-bottom: 12px;
+      display: flex; align-items: baseline; gap: 10px;
+      margin-bottom: 12px; cursor: pointer;
+    }
+    .discover-block-header .grid-count { margin-left: auto; }
+    .discover-block.collapsed .discover-block-header { margin-bottom: 0; }
+    .discover-collapse-btn {
+      background: none; border: none; padding: 0; cursor: pointer; line-height: 1;
+      color: var(--text-muted); font-size: 11px;
+    }
+    .discover-block-header:hover .discover-collapse-btn,
+    .discover-collapse-btn:focus-visible { color: var(--cyan); outline: none; }
+    .discover-chevron { display: inline-block; transition: transform .2s ease; }
+    .discover-block.collapsed .discover-chevron { transform: rotate(-90deg); }
+    .discover-block.collapsed .discover-block-body { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .discover-chevron { transition: none; }
     }
     .discover-block-title {
       font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
@@ -566,6 +784,14 @@
       text-transform: uppercase;
     }
     .settings-inline-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .settings-toggle { display: flex; align-items: center; gap: 8px; }
+    .settings-toggle input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--cyan); cursor: pointer; }
+    .settings-toggle-label { font-size: 12px; color: var(--text-muted); cursor: pointer; }
+    .settings-note.settings-warn { color: var(--amber); }
+    .settings-note.settings-warn strong { color: var(--amber); }
+    .settings-inline-btn:disabled { opacity: .45; cursor: default; }
+    .settings-inline-btn:disabled:hover { border-color: var(--border); color: var(--text-muted); }
+    .settings-inline-btn.is-running { border-color: var(--cyan); color: var(--cyan); opacity: 1; }
     .ignored-list { display: flex; flex-direction: column; gap: 8px; }
     .ignored-item {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -592,6 +818,8 @@
       .hero.open { height: auto; min-height: 280px; }
       .hero-title { font-size: 1.4rem; }
       .hero-poster { width: 110px; height: 165px; }
+      .library-search-form { width: 100%; min-width: 0; }
+      .library-filter-wrap { margin-left: 0; width: 100%; }
     }
   </style>
 </head>
@@ -627,7 +855,7 @@
   <div class="sidebar-footer">
     {{ (movies|length) + (tv_shows|length) }} titles
     {% set missing_count = (movies + tv_shows) | selectattr('file_missing') | list | length %}
-    {% if missing_count %}<br><span style="color:#f87171;">&#9888; {{ missing_count }} file{{ 's' if missing_count != 1 }} missing</span>{% endif %}
+    {% if missing_count %}<br><span style="color:var(--amber);">&#9888; {{ missing_count }} file{{ 's' if missing_count != 1 }} missing</span>{% endif %}
     {% if not trakt_configured %}<br><span style="color:var(--border);">Trakt: not configured</span>{% endif %}
   </div>
 </aside>
@@ -638,13 +866,15 @@
 <div class="main">
 
   {% if status %}
-  <div id="status-bar" class="status-bar {% if 'error' in status or 'not_configured' in status %}status-error{% else %}status-info{% endif %}">
+  <div id="status-bar" class="status-bar {% if 'error' in status or 'not_configured' in status or 'invalid' in status or 'unavailable' in status or 'failed' in status or 'mismatch' in status or 'too_short' in status or 'auth_required' in status %}status-error{% else %}status-info{% endif %}">
     <span>
       {% if   'settings_saved_' in status      %}Folder paths saved &mdash; {{ status.split('_')[-1] }} title{% if status.split('_')[-1] != '1' %}s{% endif %} imported.
       {% elif status == 'settings_saved'       %}Settings saved.
       {% elif 'quality_scanned_' in status      %}Quality scan complete &mdash; {{ status.split('_')[-1] }} item{% if status.split('_')[-1] != '1' %}s{% endif %} updated.
       {% elif 'subtitles_scanned_' in status    %}Subtitle scan complete &mdash; {{ status.split('_')[-1] }} item{% if status.split('_')[-1] != '1' %}s{% endif %} updated.
       {% elif status == 'quality_checked'      %}Quality check complete.
+      {% elif status == 'search_unavailable'   %}Torrent search engine unreachable &mdash; no upgrade check could run. Check the mirror URLs in Settings, or whether your network/ISP is blocking them.
+      {% elif 'quality_checked_partial_' in status %}Quality check stopped early &mdash; {{ status.split('_')[-2] }} checked, then the search engine became unreachable.
       {% elif 'trakt_synced_' in status        %}Trakt sync complete &mdash; {{ status.split('_')[-1] }} items imported.
       {% elif 'folder_sync_' in status         %}Folder scan complete &mdash; {{ status.split('_')[-1] }} new title{% if status.split('_')[-1] != '1' %}s{% endif %} imported.
       {% elif status == 'trakt_not_configured' %}Trakt sync not configured. Save your Trakt username, client ID, and client secret in Settings, then connect with OAuth.
@@ -654,6 +884,11 @@
       {% elif status == 'trakt_error_network'  %}Trakt sync failed. Check network access to api.trakt.tv.
       {% elif status == 'trakt_error'          %}Trakt sync failed. Check credentials and network.
       {% elif 'refreshed_all_' in status       %}Metadata refreshed for {{ status.split('_')[-1] }} item{% if status.split('_')[-1] != '1' %}s{% endif %}.
+      {% elif status == 'public_access_saved'  %}Public access settings saved &mdash; restart the app for them to take effect.
+      {% elif status == 'port_invalid'         %}Port must be a number between 1024 and 65535.
+      {% elif status == 'password_mismatch'    %}The two passwords do not match. Nothing was saved.
+      {% elif status == 'password_too_short'   %}Password must be at least 8 characters. Nothing was saved.
+      {% elif status == 'auth_required_for_public' %}Set a username and password before turning on public access. Nothing was saved.
       {% elif status == 'qbt_url_invalid'      %}qB WebUI URL must be http(s) and point to a local/private host.
       {% elif status == 'tmdb_not_configured'  %}TMDB API key not set. Save it in Settings.
       {% elif status == 'add_failed'           %}The selected title could not be added because TMDB did not return an IMDb ID.
@@ -672,25 +907,23 @@
     <div class="hero-scrim"></div>
     <div class="hero-scrim-bottom"></div>
 
-    <form id="hero-fav-form" method="post" style="position:absolute;top:0;right:0;z-index:4;display:none;">
-      <button id="hero-fav-btn" type="submit" class="hero-fav-btn">&#10084; Favourite</button>
-    </form>
-    <form id="hero-refresh-form" method="post" style="position:absolute;top:0;right:0;z-index:4;display:none;">
-      <button id="hero-refresh-btn" type="submit" class="hero-refresh-btn">Refresh metadata</button>
-    </form>
-
     <div class="hero-inner">
       <div class="hero-poster">
         <img id="hero-poster-img" src="" alt="" style="display:none">
         <div id="hero-poster-ph" class="hero-poster-ph"></div>
+        <form id="hero-fav-form" method="post" class="hero-fav-form">
+          <button id="hero-fav-btn" type="submit" class="hero-fav-btn" aria-label="Toggle favourite" title="Toggle favourite">&#9825;</button>
+        </form>
       </div>
       <div class="hero-details">
         <h2 id="hero-title" class="hero-title"></h2>
         <div class="hero-chips">
           <span id="hero-chip-year"    class="chip chip-year"></span>
           <span id="hero-chip-type"    class="chip chip-type"></span>
-          <span id="hero-chip-quality" class="chip chip-quality"></span>
+          <span id="hero-chip-genre-1" class="chip chip-genre"></span>
+          <span id="hero-chip-genre-2" class="chip chip-genre"></span>
           <span id="hero-chip-download" class="chip chip-type" style="display:none">Downloading</span>
+          <span id="hero-chip-airing" class="chip chip-airing" style="display:none">Airing</span>
         </div>
         <p   id="hero-synopsis" class="hero-synopsis"></p>
         <div id="hero-actors"   class="hero-actors"></div>
@@ -699,12 +932,19 @@
           <span id="hero-discover-status" class="hero-discover-status"></span>
         </div>
         <div id="hero-library-actions" class="hero-library-actions">
-          <button id="hero-retry-download-btn" type="button" class="hero-action-btn">Retry / Find Torrent</button>
-          <span id="hero-library-status" class="hero-library-status"></span>
-          <div id="hero-dl-progress-wrap" class="hero-dl-progress-wrap">
-            <div class="hero-dl-progress-bar"><div id="hero-dl-progress-fill" class="hero-dl-progress-fill"></div></div>
-            <div id="hero-dl-progress-label" class="hero-dl-progress-label"></div>
+          <button id="hero-watch-btn" type="button" class="hero-action-btn" style="display:none">▶ Watch</button>
+          <select id="hero-season-select" class="hero-season-select" style="display:none" aria-label="Choose a season"></select>
+          <button id="hero-check-new-btn" type="button" class="hero-action-btn" style="display:none">Check for new content</button>
+          <button id="hero-retry-download-btn" type="button" class="hero-action-btn" style="display:none">Retry / Find Torrent</button>
+          <button id="hero-add-missing-btn" type="button" class="hero-action-btn" style="display:none">Add to library</button>
+          <div id="hero-dl-ring" class="hero-dl-ring" role="img" aria-label="Download progress">
+            <svg class="hero-dl-ring-svg" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+              <circle class="hero-dl-ring-track" cx="18" cy="18" r="15.5"></circle>
+              <circle id="hero-dl-ring-fill" class="hero-dl-ring-fill" cx="18" cy="18" r="15.5"></circle>
+            </svg>
+            <span id="hero-dl-ring-label" class="hero-dl-ring-label"></span>
           </div>
+          <span id="hero-library-status" class="hero-library-status"></span>
         </div>
       </div>
     </div>
@@ -717,7 +957,7 @@
       </div>
       <div id="hero-card-subs" class="info-card" style="display:none">
         <span class="info-card-label">Subtitles</span>
-        <span id="hero-subs-val" class="info-card-value green"></span>
+        <span id="hero-subs-val" class="info-card-value pink"></span>
       </div>
       <div id="hero-card-resolution" class="info-card" style="display:none">
         <span class="info-card-label">Quality</span>
@@ -726,6 +966,11 @@
       <div id="hero-card-upgrade" class="info-card" style="display:none">
         <span class="info-card-label">Upgrade</span>
         <span id="hero-upgrade-val" class="info-card-value green"></span>
+      </div>
+      <div id="hero-card-metadata" class="info-card clickable" style="display:none"
+           role="button" tabindex="0" title="Metadata and artwork">
+        <span class="info-card-label">Settings</span>
+        <span class="info-card-value cyan info-card-gear" aria-hidden="true">&#x2699;</span>
       </div>
     </div>
   </div>
@@ -747,31 +992,64 @@
 
       <div id="discover-search-results" class="discover-results" style="display:none"></div>
 
-      <div class="discover-block">
-        <div class="discover-block-header">
+      <div class="discover-block" id="discover-block-watchlist" data-discover-block="watchlist">
+        <div class="discover-block-header" data-discover-toggle="watchlist">
+          <button type="button" class="discover-collapse-btn" aria-expanded="true"
+                  aria-controls="discover-block-body-watchlist" aria-label="Collapse Your Watchlist">
+            <span class="discover-chevron" aria-hidden="true">&#x25BE;</span>
+          </button>
           <span class="discover-block-title">Your Watchlist</span>
           <span id="discover-watchlist-meta" class="grid-count"></span>
         </div>
-        <div id="discover-watchlist" class="discover-strip"></div>
-        <div id="discover-watchlist-note" class="discover-block-note">Loading watchlist…</div>
+        <div id="discover-block-body-watchlist" class="discover-block-body">
+          <div id="discover-watchlist" class="discover-strip"></div>
+          <div id="discover-watchlist-note" class="discover-block-note">Loading watchlist…</div>
+        </div>
       </div>
 
-      <div class="discover-block">
-        <div class="discover-block-header">
+      <div class="discover-block" id="discover-block-collections" data-discover-block="collections">
+        <div class="discover-block-header" data-discover-toggle="collections">
+          <button type="button" class="discover-collapse-btn" aria-expanded="true"
+                  aria-controls="discover-block-body-collections" aria-label="Collapse Incomplete Collections">
+            <span class="discover-chevron" aria-hidden="true">&#x25BE;</span>
+          </button>
           <span class="discover-block-title">Incomplete Collections</span>
           <span id="discover-collections-meta" class="grid-count"></span>
         </div>
-        <div id="discover-collections" class="discover-collections"></div>
-        <div id="discover-collections-note" class="discover-block-note">Loading collections…</div>
+        <div id="discover-block-body-collections" class="discover-block-body">
+          <div id="discover-collections" class="discover-collections"></div>
+          <div id="discover-collections-note" class="discover-block-note">Loading collections…</div>
+        </div>
       </div>
 
-      <div class="discover-block">
-        <div class="discover-block-header">
+      <div class="discover-block" id="discover-block-episodes" data-discover-block="episodes">
+        <div class="discover-block-header" data-discover-toggle="episodes">
+          <button type="button" class="discover-collapse-btn" aria-expanded="true"
+                  aria-controls="discover-block-body-episodes" aria-label="Collapse New &amp; Missing Episodes">
+            <span class="discover-chevron" aria-hidden="true">&#x25BE;</span>
+          </button>
+          <span class="discover-block-title">New &amp; Missing Episodes</span>
+          <span id="discover-episodes-meta" class="grid-count"></span>
+        </div>
+        <div id="discover-block-body-episodes" class="discover-block-body">
+          <div id="discover-episodes" class="discover-episodes"></div>
+          <div id="discover-episodes-note" class="discover-block-note">Loading episodes…</div>
+        </div>
+      </div>
+
+      <div class="discover-block" id="discover-block-trending" data-discover-block="trending">
+        <div class="discover-block-header" data-discover-toggle="trending">
+          <button type="button" class="discover-collapse-btn" aria-expanded="true"
+                  aria-controls="discover-block-body-trending" aria-label="Collapse Trending">
+            <span class="discover-chevron" aria-hidden="true">&#x25BE;</span>
+          </button>
           <span class="discover-block-title">Trending</span>
           <span id="discover-trending-meta" class="grid-count"></span>
         </div>
-        <div id="discover-trending" class="discover-strip"></div>
-        <div id="discover-trending-note" class="discover-block-note">Loading trending titles…</div>
+        <div id="discover-block-body-trending" class="discover-block-body">
+          <div id="discover-trending" class="discover-strip"></div>
+          <div id="discover-trending-note" class="discover-block-note">Loading trending titles…</div>
+        </div>
       </div>
     </div>
   </div>
@@ -781,30 +1059,39 @@
       ('tv',         'TV Shows',   tv_shows,   tv_path,     tv_files|length),
       ('favourites', 'Favourites', favourites, '',          0)
   ] %}
-  <div id="section-{{ section_id }}" class="grid-area" style="display:none">
+  <div id="section-{{ section_id }}" class="grid-area{% if section_id in ['movies', 'tv'] %} library-grid-area{% endif %}" style="display:none">
+    {% if section_id in ['movies', 'tv'] %}
+    <div class="library-sticky-panel">
+      <div class="library-toolbar">
+        <div class="library-search-form">
+          <input id="library-search-input-{{ section_id }}" class="library-search-input" type="search" placeholder="Filter {{ section_label|lower }}...">
+        </div>
+        <button type="button" id="library-genre-pill-{{ section_id }}" class="btn-sm library-genre-pill"
+                data-library-genre-clear="{{ section_id }}" title="Clear genre filter"></button>
+        <div class="library-filter-wrap">
+          <button type="button" class="btn-sm library-filter-toggle" data-library-filter-toggle="{{ section_id }}" title="Filters" aria-label="Toggle filters">&#x1F5D0;</button>
+          <div id="library-filter-actions-{{ section_id }}" class="library-filter-actions">
+            <button type="button" class="btn-sm filter-missing" data-library-filter="{{ section_id }}" data-filter-key="missing" title="File missing">&#x26A0;</button>
+            <button type="button" class="btn-sm filter-upgrade" data-library-filter="{{ section_id }}" data-filter-key="upgrade" title="Upgrade available">&#x2191;</button>
+            <button type="button" class="btn-sm filter-incomplete" data-library-filter="{{ section_id }}" data-filter-key="incomplete">&#x3C;&#x2F;&#x3E;</button>
+            <button type="button" class="btn-sm filter-subtitles" data-library-filter="{{ section_id }}" data-filter-key="missingSubtitles">CC</button>
+            <button type="button" class="btn-sm filter-downloading" data-library-filter="{{ section_id }}" data-filter-key="downloading">&#x2193;</button>
+            {% if section_id == 'movies' %}
+            <button type="button" class="btn-sm" data-library-filter="{{ section_id }}" data-filter-key="collections">Collections</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
     <div class="grid-header">
       <span class="grid-heading">{{ section_label }}</span>
     </div>
-    {% if section_id in ['movies', 'tv'] %}
-    <div class="library-toolbar">
-      <div class="library-toolbar-actions">
-        <button type="button" class="btn-sm" data-library-search-toggle="{{ section_id }}">Search</button>
-        <button type="button" class="btn-sm filter-incomplete" data-library-filter="{{ section_id }}" data-filter-key="incomplete">!</button>
-        <button type="button" class="btn-sm filter-downloading" data-library-filter="{{ section_id }}" data-filter-key="downloading">DL</button>
-        {% if section_id == 'movies' %}
-        <button type="button" class="btn-sm" data-library-filter="{{ section_id }}" data-filter-key="collections">Collections</button>
-        {% endif %}
-      </div>
-    </div>
-    <div id="library-search-row-{{ section_id }}" class="library-search-row">
-      <input id="library-search-input-{{ section_id }}" class="library-search-input" type="search" placeholder="Filter {{ section_label|lower }}...">
-    </div>
-    <div id="library-results-meta-{{ section_id }}" class="library-results-meta"></div>
     {% endif %}
     {% if items %}
     <div id="media-grid-{{ section_id }}" class="media-grid">
       {% for item in items %}
-      <div class="card{% if item.found == 1 %} has-upgrade{% endif %}"
+      <div class="card{% if item.upgrade_available %} has-upgrade{% endif %}"
            id="card-{{ item.id }}"
            data-id="{{ item.id }}"
            onclick="openHero(this)">
@@ -824,14 +1111,21 @@
             {% endif %}
           </div>
           {% endif %}
-          {% if item.file_missing %}<div class="card-badge card-badge-missing" title="File not found on disk">&#9888; MISSING</div>
-          {% elif item.found == 1 %}<div class="card-badge card-badge-upgrade" title="Higher quality available">&#x2191; HQ</div>{% endif %}
-          {% if item.download_status in ['starting', 'handed_off', 'downloading'] %}
-          <div class="card-badge card-badge-download" title="{{ item.download_message or item.download_status }}">DL</div>
+          {% set is_missing = item.file_missing %}
+          {% set is_downloading = item.download_status in ['starting', 'handed_off', 'downloading'] %}
+          {% set is_incomplete = (not is_missing) and (not is_downloading) and (not item.poster_url or not item.synopsis or not item.year or not item.current_quality) %}
+          {% set is_missing_subtitles = (not is_missing) and (not is_downloading) and (not item.subtitles) %}
+          {% if is_missing %}<div class="card-badge card-badge-missing" title="file missing">&#x26A0;</div>
+          {% elif item.upgrade_available and not is_downloading %}<div class="card-badge card-badge-upgrade" title="Higher quality available">&#x2191;</div>{% endif %}
+          {% if is_downloading %}
+          <div class="card-badge card-badge-download" title="{{ item.download_message or item.download_status }}">&#x2193;</div>
           {% endif %}
           {% if item.favourite %}<div class="card-badge card-badge-fav">&#10084;</div>{% endif %}
-          {% if item.download_status not in ['starting', 'handed_off', 'downloading'] and (not item.poster_url or not item.synopsis or not item.year or not item.current_quality or not item.subtitles) %}
-          <div class="card-badge card-badge-incomplete" title="Incomplete metadata: {% if not item.poster_url %}poster {% endif %}{% if not item.synopsis %}synopsis {% endif %}{% if not item.year %}year {% endif %}{% if not item.current_quality %}quality {% endif %}{% if not item.subtitles %}subtitles{% endif %}">!</div>
+          {% if is_incomplete %}
+          <div class="card-badge card-badge-incomplete" title="Incomplete metadata: {% if not item.poster_url %}poster {% endif %}{% if not item.synopsis %}synopsis {% endif %}{% if not item.year %}year {% endif %}{% if not item.current_quality %}quality{% endif %}">&#x3C;&#x2F;&#x3E;</div>
+          {% endif %}
+          {% if is_missing_subtitles %}
+          <div class="card-badge card-badge-subtitles{% if is_incomplete %} adjacent{% endif %}" title="Missing subtitles">CC</div>
           {% endif %}
           <div class="card-overlay">
             <div class="card-title">{% if item.title and not item.title.startswith('tt') %}{{ item.title }}{% elif item.path %}{{ item.path.split('\\')[-1].split('/')[-1] }}{% else %}{{ item.imdb_id }}{% endif %}</div>
@@ -850,6 +1144,16 @@
       {% endif %}
     </div>
     {% endif %}
+    {% if section_id == 'tv' %}
+    <div id="tv-episode-view" class="tv-episode-view">
+      <div class="tv-episode-bar">
+        <button type="button" id="tv-back-to-shows" class="btn-sm">&#x2190; Back to Shows</button>
+        <span id="tv-episode-heading" class="grid-heading"></span>
+        <span id="tv-episode-count" class="grid-count"></span>
+      </div>
+      <div id="tv-episode-list" class="tv-episode-list"></div>
+    </div>
+    {% endif %}
   </div>
   {% endfor %}
 
@@ -865,12 +1169,87 @@
               <input type="text" id="movies_path" name="movies_path" value="{{ movies_path }}" placeholder="e.g. D:\Movies">
               <label for="tv_path">TV Shows folder</label>
               <input type="text" id="tv_path" name="tv_path" value="{{ tv_path }}" placeholder="e.g. D:\TV Shows">
+              <label for="downloads_path">Downloads staging folder</label>
+              <input type="text" id="downloads_path" name="downloads_path" value="{{ downloads_path }}" placeholder="e.g. D:\Downloads">
+              <span></span>
+              <p class="settings-note" style="margin:0 0 4px;">
+                In-progress downloads land here, then move into the library under
+                their canonical name once complete. Keep it on the same drive as
+                your library so finished files link instantly instead of copying.
+              </p>
               <span></span>
               <div>
                 <button type="submit" class="btn-save">Save settings</button>
               </div>
             </div>
           </form>
+        </div>
+
+        <div class="settings-block">
+          <div class="settings-subtitle" style="margin-top:0"><span>Public access</span></div>
+          <form action="/settings" method="post">
+            <input type="hidden" name="public_access_submitted" value="1">
+            <div class="settings-grid" style="margin-bottom:8px;">
+              <label for="public_access">Allow other devices</label>
+              <div class="settings-toggle">
+                <input type="checkbox" id="public_access" name="public_access" value="1" {% if public_access %}checked{% endif %}>
+                <label for="public_access" class="settings-toggle-label">
+                  {% if public_access %}On &mdash; reachable from your network{% else %}Off &mdash; this computer only{% endif %}
+                </label>
+              </div>
+              <label for="server_port">Port</label>
+              <input type="number" id="server_port" name="server_port" value="{{ server_port }}" min="1024" max="65535" step="1">
+              <span></span>
+              <p class="settings-note" style="margin:0 0 4px;">
+                Off binds to 127.0.0.1, so only this computer can connect. On binds to all
+                network interfaces.
+                {%- if lan_ips %} This machine currently answers to:
+                {% for ip in lan_ips %}<strong>http://{{ ip }}:{{ server_port }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}.
+                Use the one on the same network as your other device &mdash; a VPN adapter
+                will also show up here and other devices cannot reach it.
+                {%- endif %}
+              </p>
+
+              <label for="auth_username">Username</label>
+              <input type="text" id="auth_username" name="auth_username" value="{{ auth_username }}" placeholder="Choose a username" autocomplete="username">
+              <label for="auth_password">Password</label>
+              <input type="password" id="auth_password" name="auth_password" value="" placeholder="{% if auth_configured %}Saved. Leave blank to keep it.{% else %}At least 8 characters{% endif %}" autocomplete="new-password">
+              <label for="auth_password_confirm">Confirm password</label>
+              <input type="password" id="auth_password_confirm" name="auth_password_confirm" value="" placeholder="Repeat the password" autocomplete="new-password">
+              <span></span>
+              <p class="settings-note" style="margin:0 0 4px;">
+                {% if auth_configured %}
+                Sign-in is set up. It is only enforced while public access is on &mdash;
+                browsing from this computer stays open when it is off.
+                {% else %}
+                Set a username and password before turning public access on. Sign-in is only
+                enforced while public access is on.
+                {% endif %}
+              </p>
+              <span></span>
+              <p class="settings-note settings-warn" style="margin:0 0 4px;">
+                Anyone who signs in has full control &mdash; they can browse and stream your
+                library, change these settings and start downloads. Only expose this on a
+                network you trust, and do not forward the port to the internet.
+              </p>
+              {% if public_access != running_public or server_port != running_port %}
+              <span></span>
+              <p class="settings-note settings-warn" style="margin:0 0 4px;">
+                Restart the app for this to take effect &mdash; currently serving on
+                <strong>{% if running_public %}all interfaces{% else %}127.0.0.1{% endif %}:{{ running_port }}</strong>.
+              </p>
+              {% endif %}
+              <span></span>
+              <div>
+                <button type="submit" class="btn-save">Save settings</button>
+              </div>
+            </div>
+          </form>
+          {% if signed_in %}
+          <form action="/logout" method="post" style="margin-top:4px;">
+            <button type="submit" class="settings-inline-btn">Sign out</button>
+          </form>
+          {% endif %}
         </div>
 
         <div class="settings-block">
@@ -985,11 +1364,11 @@
         <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Bulk Actions</span></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           {% if movies_path or tv_path %}
-          <form action="/sync-library" method="post"><button type="submit" class="settings-inline-btn">Scan folders</button></form>
+          <form action="/sync-library" method="post" data-bulk-label="Scanning library folders for new titles"><button type="submit" class="settings-inline-btn">Scan folders</button></form>
           {% endif %}
-          <form action="/scan-quality" method="post"><button type="submit" class="settings-inline-btn">Scan media quality</button></form>
-          <form action="/scan-subtitles" method="post"><button type="submit" class="settings-inline-btn">Scan subtitles</button></form>
-          <form action="/refresh-all" method="post"><button type="submit" class="settings-inline-btn">Refresh all metadata</button></form>
+          <form action="/scan-quality" method="post" data-bulk-label="Scanning media quality"><button type="submit" class="settings-inline-btn">Scan media quality</button></form>
+          <form action="/scan-subtitles" method="post" data-bulk-label="Scanning subtitles"><button type="submit" class="settings-inline-btn">Scan subtitles</button></form>
+          <form action="/refresh-all" method="post" data-bulk-label="Refreshing metadata from TMDB"><button type="submit" class="settings-inline-btn">Refresh all metadata</button></form>
         </div>
       </div>
 
@@ -1025,6 +1404,33 @@
   </div>
 </div>
 
+<div id="metadata-modal" class="metadata-modal" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="metadata-modal-panel">
+    <div class="metadata-modal-head">
+      <div id="metadata-modal-title" class="metadata-modal-title">Metadata inspector</div>
+      <button id="metadata-modal-close" type="button" class="metadata-modal-close">Close</button>
+    </div>
+    <div class="metadata-modal-body">
+      <div id="metadata-modal-table" class="metadata-table"></div>
+      <div id="metadata-modal-actions" class="metadata-actions"></div>
+      <div id="metadata-modal-note" class="metadata-note"></div>
+
+      <div id="poster-picker" class="poster-picker">
+        <div class="poster-picker-head">
+          <span class="metadata-modal-title">Artwork</span>
+          <label class="poster-lang-label" for="poster-lang">
+            Language
+            <select id="poster-lang" class="poster-lang-select"></select>
+          </label>
+          <button type="button" id="poster-load-btn" class="settings-inline-btn">Find posters</button>
+        </div>
+        <div id="poster-picker-note" class="metadata-note">Load the artwork TMDB has for this title.</div>
+        <div id="poster-grid" class="poster-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   // ── Item data (safe JSON in script context, not HTML attributes) ──
   const ITEMS = {
@@ -1041,6 +1447,7 @@
   const TMDB_CONFIGURED = {{ tmdb_api_configured | tojson }};
   const IGNORES_STATE = { loaded: false, loading: false };
   const HERO_STATE = { source: 'library', item: null };
+  const SUBTITLE_FETCH_INFLIGHT = new Set();
   const TORRENT_MODAL_STATE = { mediaId: null, title: '' };
   let activeCardId = null;
   let _dlPollTimer = null;
@@ -1060,8 +1467,8 @@
     favourites: [{% for item in favourites %}{{ item.id }}{% if not loop.last %}, {% endif %}{% endfor %}],
   };
   const LIBRARY_VIEW_STATE = {
-    movies: { query: '', searchOpen: false, incomplete: false, downloading: false, collections: false },
-    tv: { query: '', searchOpen: false, incomplete: false, downloading: false },
+    movies: { query: '', genre: '', filtersOpen: false, missing: false, upgrade: false, incomplete: false, missingSubtitles: false, downloading: false, collections: false },
+    tv: { query: '', genre: '', filtersOpen: false, missing: false, upgrade: false, incomplete: false, missingSubtitles: false, downloading: false },
   };
 
   // ── Section switching ──────────────────────────────────
@@ -1079,8 +1486,9 @@
   }
 
   // Reset hero to idle state when switching sections.
-  function showSection(name) {
-    closeHero();
+  // Swaps which section is on screen without touching the hero, so opening an
+  // episode list can keep the show's hero card in place above it.
+  function activateSection(name) {
     SECTIONS.forEach(s => {
       const el = document.getElementById('section-' + s);
       if (el) el.style.display = 'none';
@@ -1098,6 +1506,13 @@
     }
     if (name === 'discover') loadDiscoverOnce();
     if (name === 'settings') loadIgnoredItemsOnce();
+  }
+
+  function showSection(name) {
+    closeHero();
+    // Navigating by hand should land on the poster grid, not a stale episode list.
+    closeEpisodeView();
+    activateSection(name);
   }
 
   // Show the section selected by the server.
@@ -1141,13 +1556,27 @@
     return item.imdb_id || 'Untitled';
   }
 
+  function libraryItemMissing(item) {
+    return !!item.file_missing;
+  }
+
   function libraryItemIncomplete(item) {
-    const active = ['starting', 'handed_off', 'downloading'];
-    return !active.includes(item.download_status) && (!item.poster_url || !item.synopsis || !item.year || !item.current_quality || !item.subtitles);
+    if (libraryItemMissing(item) || libraryItemDownloading(item)) return false;
+    return !item.poster_url || !item.synopsis || !item.year || !item.current_quality;
+  }
+
+  function libraryItemMissingSubtitles(item) {
+    if (libraryItemMissing(item) || libraryItemDownloading(item)) return false;
+    return !item.subtitles;
   }
 
   function libraryItemDownloading(item) {
     return ['starting', 'handed_off', 'downloading'].includes(item.download_status);
+  }
+
+  function libraryItemUpgrade(item) {
+    if (libraryItemMissing(item) || libraryItemDownloading(item)) return false;
+    return item.upgrade_available === true;
   }
 
   function libraryItemMatchesQuery(item, query) {
@@ -1162,7 +1591,7 @@
       ? String(item.path).split(/[\\/]/).pop().slice(0, 40)
       : (item.imdb_id || '?');
     return `
-      <div class="card${item.found === 1 ? ' has-upgrade' : ''}" id="card-${escAttr(item.id)}" data-id="${escAttr(item.id)}" onclick="openHero(this)">
+      <div class="card${item.upgrade_available ? ' has-upgrade' : ''}" id="card-${escAttr(item.id)}" data-id="${escAttr(item.id)}" onclick="openHero(this)">
         <div class="card-poster">
           ${item.poster_url ? `
             <img src="${escAttr(item.poster_url)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -1170,11 +1599,12 @@
           ` : `
             <div class="card-no-poster" style="font-size:1rem;padding:8px;text-align:center;color:rgba(240,230,255,0.35);">${escHtml(noPoster || '?')}</div>
           `}
-          ${item.file_missing ? '<div class="card-badge card-badge-missing" title="File not found on disk">&#9888; MISSING</div>' : ''}
-          ${!item.file_missing && item.found === 1 ? '<div class="card-badge card-badge-upgrade" title="Higher quality available">&#x2191; HQ</div>' : ''}
-          ${libraryItemDownloading(item) ? `<div class="card-badge card-badge-download" title="${escAttr(item.download_message || item.download_status || 'Downloading')}">DL</div>` : ''}
+          ${libraryItemMissing(item) ? '<div class="card-badge card-badge-missing" title="file missing">&#x26A0;</div>' : ''}
+          ${!libraryItemMissing(item) && !libraryItemDownloading(item) && item.upgrade_available ? '<div class="card-badge card-badge-upgrade" title="Higher quality available">&#x2191;</div>' : ''}
+          ${libraryItemDownloading(item) ? `<div class="card-badge card-badge-download" title="${escAttr(item.download_message || item.download_status || 'Downloading')}">&#x2193;</div>` : ''}
           ${item.favourite ? '<div class="card-badge card-badge-fav">&#10084;</div>' : ''}
-          ${libraryItemIncomplete(item) ? '<div class="card-badge card-badge-incomplete" title="Incomplete metadata">!</div>' : ''}
+          ${libraryItemIncomplete(item) ? '<div class="card-badge card-badge-incomplete" title="Incomplete metadata">&#x3C;&#x2F;&#x3E;</div>' : ''}
+          ${libraryItemMissingSubtitles(item) ? `<div class="card-badge card-badge-subtitles${libraryItemIncomplete(item) ? ' adjacent' : ''}" title="Missing subtitles">CC</div>` : ''}
           <div class="card-overlay">
             <div class="card-title">${escHtml(title)}</div>
             ${item.year ? `<div class="card-year">${escHtml(String(item.year))}</div>` : ''}
@@ -1197,10 +1627,6 @@
         <div class="card-poster">
           ${posterUrl ? `<img src="${escAttr(posterUrl)}" alt="" loading="lazy">` : `<div class="card-no-poster">${escHtml((group.name || '?').charAt(0).toUpperCase() || '?')}</div>`}
           <div class="card-badge card-badge-collection">${escHtml(String(group.items.length))}</div>
-          <div class="card-overlay">
-            <div class="card-title">${escHtml(group.name)}</div>
-            <div class="card-year">${escHtml(String(group.items.length))} titles</div>
-          </div>
         </div>
       </div>
     `;
@@ -1210,16 +1636,284 @@
     return (LIBRARY_SECTION_ITEMS[sectionId] || []).map(id => ITEMS[id]).filter(Boolean);
   }
 
+  // ── TV seasons and episodes ───────────────────────────────
+  function tvEpisodeElements() {
+    return {
+      view: document.getElementById('tv-episode-view'),
+      grid: document.getElementById('media-grid-tv'),
+      panel: document.querySelector('#section-tv .library-sticky-panel'),
+      list: document.getElementById('tv-episode-list'),
+      heading: document.getElementById('tv-episode-heading'),
+      count: document.getElementById('tv-episode-count'),
+      select: document.getElementById('hero-season-select'),
+    };
+  }
+
+  function closeEpisodeView() {
+    const el = tvEpisodeElements();
+    if (el.view) el.view.classList.remove('is-open');
+    if (el.grid) el.grid.style.display = '';
+    if (el.panel) el.panel.style.display = '';
+    if (el.list) el.list.innerHTML = '';
+  }
+
+  // The chip reports whether the show is still running; the button is about
+  // whether anything is missing. They are deliberately independent — an ended
+  // show can still be missing whole seasons, and gating the button on "airing"
+  // left those unreachable from the hero.
+  function setAiringUi(inProduction, status, missingCount) {
+    const chip = document.getElementById('hero-chip-airing');
+    const btn = document.getElementById('hero-check-new-btn');
+    if (chip) {
+      chip.style.display = inProduction ? 'inline-block' : 'none';
+      chip.textContent = 'Airing';
+      chip.title = status ? `TMDB status: ${status}` : '';
+    }
+    if (!btn) return;
+    const missing = Number(missingCount) || 0;
+    // An airing show is worth re-checking even when nothing is missing today.
+    const offer = missing > 0 || !!inProduction;
+    btn.style.display = offer ? 'inline-block' : 'none';
+    btn.textContent = missing > 0
+      ? `Find ${missing} missing`
+      : 'Check for new content';
+    btn.title = missing > 0
+      ? `${missing} aired episode${missing === 1 ? '' : 's'} you do not have`
+      : 'Check TMDB for episodes you do not have';
+  }
+
+  async function loadSeasonsForHero(item) {
+    const el = tvEpisodeElements();
+    setAiringUi(false, null, 0);
+    if (!el.select) return;
+    el.select.style.display = 'none';
+    el.select.innerHTML = '';
+    if (!item || item.media_type !== 'tv' || !item.id) return;
+
+    let data;
+    try {
+      const response = await fetch(`/api/tv/${item.id}/seasons`, { headers: { 'Accept': 'application/json' } });
+      if (!response.ok) return;
+      data = await response.json();
+    } catch (_error) {
+      return;
+    }
+    if (!data.ok) return;
+    setAiringUi(!!data.in_production, data.status, data.missing_count);
+    if (!(data.seasons || []).length) return;
+
+    const options = ['<option value="">Season…</option>'].concat(data.seasons.map(season => {
+      const counts = season.owned_count
+        ? `${season.owned_count}`
+        : `${season.featurette_count} extra${season.featurette_count === 1 ? '' : 's'}`;
+      return `<option value="${escAttr(season.season_number)}">${escHtml(season.name)} (${counts})</option>`;
+    }));
+    // Extras that no folder attributes to a season would otherwise be
+    // unreachable — and for a show with no SxxExx at all, that is everything.
+    if (data.extras_count) {
+      options.push(`<option value="extras">Extras (${data.extras_count})</option>`);
+    }
+    el.select.innerHTML = options.join('');
+    el.select.style.display = 'inline-block';
+  }
+
+  async function showSeasonEpisodes(mediaId, seasonNumber) {
+    const el = tvEpisodeElements();
+    if (!el.view || !el.list) return;
+    const item = ITEMS[mediaId] || {};
+    const isExtras = seasonNumber === 'extras';
+
+    // The episode list takes the place of the poster grid, so the toolbar that
+    // filters posters is hidden too until Back to Shows restores both.
+    if (el.grid) el.grid.style.display = 'none';
+    if (el.panel) el.panel.style.display = 'none';
+    el.view.classList.add('is-open');
+    el.heading.textContent = isExtras
+      ? `${item.title || 'Show'} — Extras`
+      : `${item.title || 'Show'} — Season ${seasonNumber}`;
+    el.count.textContent = '';
+    el.list.innerHTML = '<div class="tv-episode-empty">Loading…</div>';
+
+    if (isExtras) {
+      el.list.innerHTML = '';
+      const added = await renderFeaturettes(mediaId, el.list, 'extras');
+      if (!added) {
+        el.list.innerHTML = '<div class="tv-episode-empty">No extras found.</div>';
+      }
+      return;
+    }
+
+    let data;
+    try {
+      const response = await fetch(`/api/tv/${mediaId}/season/${seasonNumber}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'failed');
+    } catch (_error) {
+      el.list.innerHTML = '<div class="tv-episode-empty">Could not load episodes.</div>';
+      return;
+    }
+
+    const episodes = data.episodes || [];
+    if (!episodes.length) {
+      el.list.innerHTML = '';
+      const added = await renderFeaturettes(mediaId, el.list, seasonNumber);
+      if (!added) {
+        el.list.innerHTML = '<div class="tv-episode-empty">No episodes found for this season.</div>';
+      }
+      return;
+    }
+    el.count.textContent = `${episodes.length} episode${episodes.length === 1 ? '' : 's'}`;
+    el.list.innerHTML = episodes.map(episode => {
+      const meta = [
+        episode.air_date || '',
+        episode.runtime ? `${episode.runtime} min` : '',
+      ].filter(Boolean).join(' · ');
+      const href = `/video/${mediaId}?episode=${encodeURIComponent(episode.file)}`;
+      // A plain div stands in when TMDB has no still, so rows stay aligned.
+      const thumb = episode.still_url
+        ? `<img class="tv-episode-thumb" src="${escAttr(episode.still_url)}" alt="" loading="lazy">`
+        : '<div class="tv-episode-thumb"></div>';
+      return `
+        <div class="tv-episode-row">
+          <div class="tv-episode-num">S${String(episode.season_number).padStart(2, '0')}E${String(episode.episode_number).padStart(2, '0')}</div>
+          ${thumb}
+          <div class="tv-episode-main">
+            <div class="tv-episode-title">${escHtml(episode.title)}</div>
+            ${meta ? `<div class="tv-episode-meta">${escHtml(meta)}</div>` : ''}
+            ${episode.synopsis ? `<div class="tv-episode-synopsis">${escHtml(episode.synopsis)}</div>` : ''}
+          </div>
+          <a class="hero-action-btn" href="${escAttr(href)}">▶ Watch</a>
+        </div>`;
+    }).join('');
+
+    renderFeaturettes(mediaId, el.list, seasonNumber);
+  }
+
+  async function showMissingForShow(mediaId) {
+    const el = tvEpisodeElements();
+    if (!el.view || !el.list) return;
+    const item = ITEMS[mediaId] || {};
+    const btn = document.getElementById('hero-check-new-btn');
+    if (btn) btn.disabled = true;
+
+    if (el.grid) el.grid.style.display = 'none';
+    if (el.panel) el.panel.style.display = 'none';
+    el.view.classList.add('is-open');
+    el.heading.textContent = `${item.title || 'Show'} — New & Missing`;
+    el.count.textContent = '';
+    el.list.innerHTML = '<div class="tv-episode-empty">Checking TMDB for new episodes…</div>';
+
+    try {
+      const response = await fetch(`/api/tv/${mediaId}/missing`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'failed');
+
+      if (!data.show) {
+        el.list.innerHTML =
+          '<div class="tv-episode-empty">Nothing missing — you have every episode that has aired.</div>';
+        return;
+      }
+      el.count.textContent = `${data.missing_count} episode${data.missing_count === 1 ? '' : 's'}`;
+      // Same markup as the Discover block, so the two entry points look alike.
+      el.list.innerHTML = showMissingEpisodesMarkup(data.show);
+    } catch (_error) {
+      el.list.innerHTML = '<div class="tv-episode-empty">Could not check for new episodes.</div>';
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // Bonus features carry no episode number, so they hang off the bottom of the
+  // list rather than being mixed in with the episodes. Scoped to the season whose
+  // folder holds them, so browsing Season 4 does not list Season 1's extras.
+  async function renderFeaturettes(mediaId, listEl, season) {
+    let data;
+    try {
+      const url = `/api/tv/${mediaId}/unmatched?season=${encodeURIComponent(season)}`;
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!response.ok) return false;
+      data = await response.json();
+    } catch (_error) {
+      return false;
+    }
+    const files = (data && data.ok && data.files) || [];
+    if (!files.length) return false;
+
+    const rows = files.map(file => {
+      const href = `/video/${mediaId}?episode=${encodeURIComponent(file.file)}`;
+      return `
+        <div class="tv-featurette-row">
+          <div class="tv-featurette-name" title="${escAttr(file.name)}">${escHtml(file.label || file.name)}</div>
+          <a class="hero-action-btn" href="${escAttr(href)}">▶ Watch</a>
+        </div>`;
+    }).join('');
+
+    const block = document.createElement('div');
+    block.className = 'tv-featurettes';
+    block.innerHTML =
+      `<div class="tv-featurettes-title">Featurettes &amp; Extras (${files.length})</div>${rows}`;
+    listEl.appendChild(block);
+    return true;
+  }
+
+  function libraryItemHasGenre(item, genre) {
+    const wanted = String(genre || '').trim().toLowerCase();
+    if (!wanted) return true;
+    return [item.genre_1, item.genre_2]
+      .some(value => String(value || '').trim().toLowerCase() === wanted);
+  }
+
+  // Genre chips are shown on the hero for discover items too, where the title may
+  // not be in the library at all; filtering the matching library section is still
+  // the useful outcome, so the media type picks the section rather than the source.
+  function applyGenreFilter(genre, mediaType) {
+    const sectionId = mediaType === 'tv' ? 'tv' : 'movies';
+    const state = LIBRARY_VIEW_STATE[sectionId];
+    if (!state) return;
+    state.genre = String(genre || '').trim();
+    showSection(sectionId);
+    renderLibrarySection(sectionId);
+    syncLibraryToolbar(sectionId);
+  }
+
+  function clearGenreFilter(sectionId) {
+    const state = LIBRARY_VIEW_STATE[sectionId];
+    if (!state) return;
+    state.genre = '';
+    renderLibrarySection(sectionId);
+    syncLibraryToolbar(sectionId);
+  }
+
+  // Reuses the existing "downloading" toolbar filter rather than a second
+  // mechanism, so the toolbar button lights up and can be clicked off again.
+  function applyDownloadingFilter(mediaType) {
+    const sectionId = mediaType === 'tv' ? 'tv' : 'movies';
+    const state = LIBRARY_VIEW_STATE[sectionId];
+    if (!state) return;
+    state.downloading = true;
+    state.filtersOpen = true;
+    showSection(sectionId);
+    renderLibrarySection(sectionId);
+    syncLibraryToolbar(sectionId);
+  }
+
   function renderLibrarySection(sectionId) {
     const grid = document.getElementById(`media-grid-${sectionId}`);
     if (!grid) return;
-    const meta = document.getElementById(`library-results-meta-${sectionId}`);
-    const state = LIBRARY_VIEW_STATE[sectionId] || { query: '', incomplete: false, downloading: false, collections: false };
+    const state = LIBRARY_VIEW_STATE[sectionId] || { query: '', missing: false, upgrade: false, incomplete: false, missingSubtitles: false, downloading: false, collections: false };
     const query = String(state.query || '').trim().toLowerCase();
     const items = getSectionItems(sectionId).filter(item => {
       if (!libraryItemMatchesQuery(item, query)) return false;
+      if (state.missing && !libraryItemMissing(item)) return false;
+      if (state.upgrade && !libraryItemUpgrade(item)) return false;
       if (state.incomplete && !libraryItemIncomplete(item)) return false;
+      if (state.missingSubtitles && !libraryItemMissingSubtitles(item)) return false;
       if (state.downloading && !libraryItemDownloading(item)) return false;
+      if (state.genre && !libraryItemHasGenre(item, state.genre)) return false;
       return true;
     });
 
@@ -1247,33 +1941,27 @@
 
     entries.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
     grid.innerHTML = entries.map(entry => entry.html).join('');
-
-    if (meta) {
-      const filters = [];
-      if (state.incomplete) filters.push('!');
-      if (state.downloading) filters.push('DL');
-      if (state.collections) filters.push('Collections');
-      const parts = [];
-      if (query) parts.push(`Search: ${state.query}`);
-      if (filters.length) parts.push(`Filters: ${filters.join(', ')}`);
-      parts.push(`${entries.length} result${entries.length === 1 ? '' : 's'}`);
-      meta.textContent = parts.join(' · ');
-    }
   }
 
   function syncLibraryToolbar(sectionId) {
     const state = LIBRARY_VIEW_STATE[sectionId];
     if (!state) return;
-    const searchRow = document.getElementById(`library-search-row-${sectionId}`);
     const searchInput = document.getElementById(`library-search-input-${sectionId}`);
-    if (searchRow) searchRow.classList.toggle('open', !!state.searchOpen);
     if (searchInput && searchInput.value !== state.query) searchInput.value = state.query;
     document.querySelectorAll(`[data-library-filter="${sectionId}"]`).forEach(btn => {
       const key = btn.dataset.filterKey;
       btn.classList.toggle('active', !!state[key]);
     });
-    const searchBtn = document.querySelector(`[data-library-search-toggle="${sectionId}"]`);
-    if (searchBtn) searchBtn.classList.toggle('active', !!state.searchOpen || !!state.query);
+    const filterToggle = document.querySelector(`[data-library-filter-toggle="${sectionId}"]`);
+    if (filterToggle) filterToggle.classList.toggle('active', !!state.filtersOpen);
+    const filterActions = document.getElementById(`library-filter-actions-${sectionId}`);
+    if (filterActions) filterActions.classList.toggle('open', !!state.filtersOpen);
+    const genrePill = document.getElementById(`library-genre-pill-${sectionId}`);
+    if (genrePill) {
+      const genre = String(state.genre || '').trim();
+      genrePill.classList.toggle('is-visible', !!genre);
+      genrePill.textContent = genre ? `${genre} ✕` : '';
+    }
   }
 
   function discoverCardMarkup(item) {
@@ -1628,9 +2316,18 @@
 
   async function addDiscoverHeroItem() {
     const item = HERO_STATE.item;
-    if (!item || HERO_STATE.source !== 'discover') return;
-    const addBtn = document.getElementById('hero-add-btn');
-    const statusEl = document.getElementById('hero-discover-status');
+    if (!item) return;
+    const isDiscover = HERO_STATE.source === 'discover';
+    const isMissingLibraryItem = HERO_STATE.source === 'library' && !!item.file_missing;
+    if (!isDiscover && !isMissingLibraryItem) return;
+    if (!item.tmdb_id || !TMDB_CONFIGURED) return;
+
+    const addBtn = isMissingLibraryItem
+      ? document.getElementById('hero-add-missing-btn')
+      : document.getElementById('hero-add-btn');
+    const statusEl = isMissingLibraryItem
+      ? document.getElementById('hero-library-status')
+      : document.getElementById('hero-discover-status');
     addBtn.disabled = true;
     statusEl.textContent = 'Adding…';
     try {
@@ -1651,7 +2348,9 @@
       }
       statusEl.textContent = 'Added to library. Choose a torrent below.';
       showTorrentModal(payload.media_id, payload.title || item.title || 'Title', payload.candidates || []);
-      await refreshDiscover();
+      if (isDiscover) {
+        await refreshDiscover();
+      }
       addBtn.disabled = false;
     } catch (_error) {
       addBtn.disabled = false;
@@ -1659,9 +2358,12 @@
     }
   }
 
-  async function retryLibraryDownloadSearch() {
+  async function retryLibraryDownloadSearch(options = {}) {
     const item = HERO_STATE.item;
     if (!item || HERO_STATE.source !== 'library' || !item.id) return;
+    const allowUpgradeSearch = !!options.allowUpgradeSearch;
+    if ((item.media_type || 'movie') !== 'movie') return;
+    if (!libraryItemDownloading(item) && !(allowUpgradeSearch && item.upgrade_available)) return;
     const retryBtn = document.getElementById('hero-retry-download-btn');
     const statusEl = document.getElementById('hero-library-status');
     retryBtn.disabled = true;
@@ -1671,6 +2373,12 @@
         headers: { 'Accept': 'application/json' },
       });
       const payload = await response.json();
+      if (payload.error === 'search_unavailable') {
+        // Distinct from an empty result set: the search never actually ran.
+        statusEl.textContent = 'Search engine unreachable.';
+        showToast(payload.message || 'Torrent search engine unreachable.', 'error');
+        return;
+      }
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || 'retry_failed');
       }
@@ -1724,6 +2432,218 @@
     const modal = document.getElementById('torrent-modal');
     modal.classList.remove('open');
     modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function metadataFieldState(value, kind = 'text') {
+    if (kind === 'number') return Number.isFinite(value) ? 'present' : 'missing';
+    if (kind === 'year') return value ? 'present' : 'missing';
+    return String(value || '').trim() ? 'present' : 'missing';
+  }
+
+  function metadataFieldRows(item) {
+    const fields = [
+      { label: 'Title', value: item.title },
+      { label: 'IMDb ID', value: item.imdb_id },
+      { label: 'TMDB ID', value: item.tmdb_id },
+      { label: 'Year', value: item.year, kind: 'year' },
+      { label: 'Type', value: item.media_type },
+      { label: 'Path', value: item.path },
+      { label: 'Poster URL', value: item.poster_url },
+      { label: 'Synopsis', value: item.synopsis },
+      { label: 'Actors', value: item.actors },
+      { label: 'Rating', value: item.rating, kind: 'number' },
+      { label: 'Quality', value: item.current_quality },
+      { label: 'Subtitles', value: item.subtitles },
+    ];
+
+    return fields.map(field => {
+      const state = metadataFieldState(field.value, field.kind);
+      const valueText = state === 'present' ? String(field.value) : 'Missing';
+      return `
+        <div class="metadata-row">
+          <div class="metadata-label">${escHtml(field.label)}</div>
+          <div class="metadata-value" title="${escAttr(valueText)}">${escHtml(valueText)}</div>
+          <div class="metadata-state ${state}">${state}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function closeMetadataModal() {
+    const modal = document.getElementById('metadata-modal');
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  const POSTER_LANGUAGES = [
+    ['en', 'English'], ['all', 'Any language'], ['none', 'No text'],
+    ['fr', 'French'], ['de', 'German'], ['es', 'Spanish'], ['it', 'Italian'],
+    ['ja', 'Japanese'], ['ru', 'Russian'], ['zh', 'Chinese'],
+  ];
+
+  function resetPosterPicker(item) {
+    const picker = document.getElementById('poster-picker');
+    const grid = document.getElementById('poster-grid');
+    const note = document.getElementById('poster-picker-note');
+    const langSelect = document.getElementById('poster-lang');
+    const loadBtn = document.getElementById('poster-load-btn');
+    if (!picker) return;
+
+    grid.innerHTML = '';
+    // Artwork is not fetched until asked for: TMDB returns 100+ images for some
+    // titles, which is a lot to pull just for opening the settings panel.
+    if (!item.tmdb_id) {
+      note.textContent = 'No TMDB id for this title, so its artwork cannot be looked up.';
+      langSelect.style.display = 'none';
+      loadBtn.style.display = 'none';
+      return;
+    }
+    note.textContent = 'Load the artwork TMDB has for this title.';
+    langSelect.style.display = '';
+    loadBtn.style.display = '';
+    if (!langSelect.options.length) {
+      langSelect.innerHTML = POSTER_LANGUAGES
+        .map(([code, label]) => `<option value="${escAttr(code)}">${escHtml(label)}</option>`).join('');
+    }
+  }
+
+  async function loadPosterOptions() {
+    const item = HERO_STATE.item;
+    const grid = document.getElementById('poster-grid');
+    const note = document.getElementById('poster-picker-note');
+    const langSelect = document.getElementById('poster-lang');
+    const loadBtn = document.getElementById('poster-load-btn');
+    if (!item || !item.id) return;
+
+    loadBtn.disabled = true;
+    note.textContent = 'Loading artwork…';
+    grid.innerHTML = '';
+    try {
+      const url = `/api/library/${item.id}/posters?language=${encodeURIComponent(langSelect.value)}`;
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'failed');
+
+      const posters = data.posters || [];
+      if (!posters.length) {
+        note.textContent = 'No artwork in that language.';
+        return;
+      }
+      note.textContent = `${posters.length} to choose from — click one to use it.`;
+      const current = String(data.current_poster_url || '');
+      grid.innerHTML = posters.map(poster => {
+        const isCurrent = current && current === poster.poster_url;
+        const tag = poster.language ? poster.language.toUpperCase() : 'No text';
+        return `<button type="button" class="poster-option${isCurrent ? ' is-current' : ''}"
+                        data-poster-url="${escAttr(poster.poster_url)}"
+                        title="${escAttr(`${poster.width}×${poster.height} · rated ${poster.vote_average}`)}">
+                  <img src="${escAttr(poster.thumb_url)}" alt="" loading="lazy">
+                  <span class="poster-option-tag">${escHtml(tag)}</span>
+                </button>`;
+      }).join('');
+    } catch (_error) {
+      note.textContent = 'Could not load artwork.';
+    } finally {
+      loadBtn.disabled = false;
+    }
+  }
+
+  async function choosePoster(posterUrl) {
+    const item = HERO_STATE.item;
+    const note = document.getElementById('poster-picker-note');
+    if (!item || !item.id || !posterUrl) return;
+    note.textContent = 'Saving…';
+    try {
+      const response = await fetch(`/api/library/${item.id}/poster`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ poster_url: posterUrl }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'failed');
+
+      // Update the card, the hero background and the in-memory item together, so
+      // the change shows without a reload. A cache-buster is needed because the
+      // poster is cached under the same filename.
+      const bust = `${data.poster_url}?v=${Date.now()}`;
+      item.poster_url = data.poster_url;
+      if (ITEMS[item.id]) ITEMS[item.id].poster_url = data.poster_url;
+      const cardImg = document.querySelector(`#card-${item.id} .card-poster img`);
+      if (cardImg) cardImg.src = bust;
+      const heroBg = document.getElementById('hero-bg');
+      if (heroBg) heroBg.style.backgroundImage = `url('${bust}')`;
+      note.textContent = 'Artwork updated.';
+      showToast('Poster updated.', 'success');
+      document.querySelectorAll('.poster-option').forEach(el => {
+        el.classList.toggle('is-current', el.dataset.posterUrl === posterUrl);
+      });
+    } catch (_error) {
+      note.textContent = 'Could not save that poster.';
+      showToast('Unable to save the poster.', 'error');
+    }
+  }
+
+  function openMetadataModal() {
+    const item = HERO_STATE.item;
+    if (HERO_STATE.source !== 'library' || !item || !item.id) return;
+
+    const modal = document.getElementById('metadata-modal');
+    const title = document.getElementById('metadata-modal-title');
+    const table = document.getElementById('metadata-modal-table');
+    const actions = document.getElementById('metadata-modal-actions');
+    const note = document.getElementById('metadata-modal-note');
+
+    title.textContent = 'Settings · ' + (item.title || item.imdb_id || 'Title');
+    table.innerHTML = metadataFieldRows(item);
+    note.textContent = '';
+    resetPosterPicker(item);
+
+    const actionButtons = [];
+    actionButtons.push('<button type="button" id="metadata-refresh-btn" class="metadata-action-btn primary">Refresh metadata</button>');
+    if (!String(item.current_quality || '').trim() && item.path && !item.file_missing) {
+      actionButtons.push('<button type="button" id="metadata-quality-btn" class="metadata-action-btn">Scan quality</button>');
+    }
+    if (!String(item.subtitles || '').trim() && item.path && !item.file_missing) {
+      actionButtons.push('<button type="button" id="metadata-subs-btn" class="metadata-action-btn">Fetch subtitles</button>');
+    }
+    actions.innerHTML = actionButtons.join('');
+
+    const refreshBtn = document.getElementById('metadata-refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        refreshBtn.disabled = true;
+        note.textContent = 'Refreshing metadata...';
+        const ok = await refreshMetadataForItem(item.id, { button: refreshBtn, noteEl: note });
+        if (ok) {
+          openMetadataModal();
+        }
+      });
+    }
+
+    const qualityBtn = document.getElementById('metadata-quality-btn');
+    if (qualityBtn) {
+      qualityBtn.addEventListener('click', async () => {
+        qualityBtn.disabled = true;
+        note.textContent = 'Scanning quality...';
+        await scanQualityForItem(item.id);
+        note.textContent = 'Quality scan complete.';
+        openMetadataModal();
+      });
+    }
+
+    const subsBtn = document.getElementById('metadata-subs-btn');
+    if (subsBtn) {
+      subsBtn.addEventListener('click', async () => {
+        subsBtn.disabled = true;
+        note.textContent = 'Fetching subtitles...';
+        await fetchSubtitles(item.id);
+        note.textContent = 'Subtitle fetch complete.';
+        openMetadataModal();
+      });
+    }
+
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
   }
 
   /** Update (or remove) the DL badge on a card element without a page reload. */
@@ -1828,6 +2748,89 @@
     } finally {
       DISCOVER_STATE.loading = false;
     }
+    // Fetched separately: checking every show against TMDB is slower than the
+    // rest of Discover, so it must not hold the other blocks up.
+    loadMissingEpisodes();
+  }
+
+  async function loadMissingEpisodes() {
+    const listEl = document.getElementById('discover-episodes');
+    const noteEl = document.getElementById('discover-episodes-note');
+    const metaEl = document.getElementById('discover-episodes-meta');
+    if (!listEl) return;
+    noteEl.textContent = 'Checking your shows for new episodes…';
+    listEl.innerHTML = '';
+
+    let data;
+    try {
+      const response = await fetch('/api/discover/missing-episodes', {
+        headers: { 'Accept': 'application/json' },
+      });
+      data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'failed');
+    } catch (_error) {
+      noteEl.textContent = 'Could not check for new episodes.';
+      return;
+    }
+
+    const shows = data.shows || [];
+    metaEl.textContent = shows.length
+      ? `${data.episode_count} episode${data.episode_count === 1 ? '' : 's'} across ${shows.length} show${shows.length === 1 ? '' : 's'}`
+      : '';
+    if (!shows.length) {
+      noteEl.textContent = 'Every show in your library is up to date.';
+      return;
+    }
+    noteEl.textContent = '';
+    listEl.innerHTML = shows.map(showMissingEpisodesMarkup).join('');
+  }
+
+  function showMissingEpisodesMarkup(show) {
+    const badge = show.in_production
+      ? '<span class="dep-badge dep-badge-airing">Airing</span>'
+      : `<span class="dep-badge dep-badge-ended">${escHtml(show.status || 'Ended')}</span>`;
+    const next = show.next_air_date
+      ? `<span class="dep-count">next episode ${escHtml(show.next_air_date)}</span>`
+      : `<span class="dep-count">${show.missing_count} missing</span>`;
+
+    const seasons = (show.seasons || []).map(season => {
+      const episodes = season.missing.map(episode => {
+        const label = `S${String(season.season_number).padStart(2, '0')}E${String(episode.episode_number).padStart(2, '0')}`;
+        const title = episode.title || '';
+        return `<span class="dep-ep" role="button" tabindex="0"
+                      data-episode-search="${escAttr(show.media_id)}"
+                      data-season="${escAttr(season.season_number)}"
+                      data-episode="${escAttr(episode.episode_number)}"
+                      title="${escAttr(title + ' — click to find a torrent')}">
+                  <span class="dep-ep-num">${label}</span>${escHtml(title.slice(0, 34))}
+                </span>`;
+      }).join('');
+      return `
+        <div class="dep-season">
+          <div class="dep-season-head">
+            ${escHtml(season.name)} &middot; ${season.owned_count}/${season.episode_count} owned
+            <span class="dep-actions">
+              <button type="button" class="settings-inline-btn" data-ignore-tv="${escAttr(show.tmdb_id)}"
+                      data-ignore-season="${escAttr(season.season_number)}">Hide season</button>
+            </span>
+          </div>
+          <div class="dep-eps">${episodes}</div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="dep-show">
+        <div class="dep-show-head">
+          <span class="dep-show-title">${escHtml(show.title || 'Untitled')}</span>
+          ${badge}
+          ${next}
+          <span class="dep-actions">
+            <button type="button" class="settings-inline-btn" data-ignore-tv="${escAttr(show.tmdb_id)}"
+                    data-ignore-season="all">Hide show</button>
+          </span>
+        </div>
+        ${seasons}
+      </div>`;
   }
 
   async function runDiscoverSearch(rawQuery) {
@@ -1916,22 +2919,13 @@
     runDiscoverSearch();
   });
 
-  document.querySelectorAll('[data-library-search-toggle]').forEach(btn => {
+  document.querySelectorAll('[data-library-filter-toggle]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const sectionId = btn.dataset.librarySearchToggle;
+      const sectionId = btn.dataset.libraryFilterToggle;
       const state = LIBRARY_VIEW_STATE[sectionId];
       if (!state) return;
-      state.searchOpen = !state.searchOpen;
-      if (!state.searchOpen && !state.query) {
-        syncLibraryToolbar(sectionId);
-        renderLibrarySection(sectionId);
-        return;
-      }
+      state.filtersOpen = !state.filtersOpen;
       syncLibraryToolbar(sectionId);
-      if (state.searchOpen) {
-        const input = document.getElementById(`library-search-input-${sectionId}`);
-        if (input) input.focus();
-      }
     });
   });
 
@@ -1944,6 +2938,196 @@
       state[key] = !state[key];
       syncLibraryToolbar(sectionId);
       renderLibrarySection(sectionId);
+    });
+  });
+
+  document.querySelectorAll('[data-library-genre-clear]').forEach(btn => {
+    btn.addEventListener('click', () => clearGenreFilter(btn.dataset.libraryGenreClear));
+  });
+
+  const seasonSelect = document.getElementById('hero-season-select');
+  if (seasonSelect) {
+    seasonSelect.addEventListener('change', () => {
+      const season = seasonSelect.value;
+      const item = HERO_STATE.item;
+      if (!season || !item || !item.id) return;
+      // activateSection, not showSection: the show's hero card stays above the
+      // episode list so you can still see what you are browsing.
+      activateSection('tv');
+      showSeasonEpisodes(item.id, season === 'extras' ? 'extras' : Number(season));
+    });
+  }
+
+  const backToShowsBtn = document.getElementById('tv-back-to-shows');
+  if (backToShowsBtn) backToShowsBtn.addEventListener('click', closeEpisodeView);
+
+  const checkNewBtn = document.getElementById('hero-check-new-btn');
+  if (checkNewBtn) {
+    checkNewBtn.addEventListener('click', () => {
+      const item = HERO_STATE.item;
+      if (!item || !item.id) return;
+      // activateSection keeps the hero card in place above the results.
+      activateSection('tv');
+      showMissingForShow(item.id);
+    });
+  }
+
+  async function findEpisodeTorrents(mediaId, season, episode) {
+    const noteEl = document.getElementById('discover-episodes-note');
+    const label = `S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`;
+    if (noteEl) noteEl.textContent = `Searching for ${label}…`;
+    try {
+      const url = `/api/tv/${mediaId}/episode-candidates?season=${encodeURIComponent(season)}`
+        + `&episode=${encodeURIComponent(episode)}`;
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const payload = await response.json();
+      if (payload.error === 'search_unavailable') {
+        // Distinct from "no releases exist": the search never ran.
+        if (noteEl) noteEl.textContent = 'Search engine unreachable.';
+        showToast('Torrent search engine unreachable.', 'error');
+        return;
+      }
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'search_failed');
+      if (noteEl) {
+        noteEl.textContent = (payload.candidates || []).length
+          ? '' : `No releases found for ${label}.`;
+      }
+      showTorrentModal(payload.media_id, payload.title || label, payload.candidates || []);
+    } catch (_error) {
+      if (noteEl) noteEl.textContent = 'Episode search failed.';
+      showToast('Unable to search for that episode.', 'error');
+    }
+  }
+
+  // Delegated: the episode rows are rebuilt whenever the block reloads.
+  document.addEventListener('click', event => {
+    const epEl = event.target.closest('[data-episode-search]');
+    if (epEl) {
+      findEpisodeTorrents(
+        Number(epEl.dataset.episodeSearch), Number(epEl.dataset.season), Number(epEl.dataset.episode));
+      return;
+    }
+    const ignoreEl = event.target.closest('[data-ignore-tv]');
+    if (ignoreEl) {
+      const body = { tmdb_id: Number(ignoreEl.dataset.ignoreTv), season: ignoreEl.dataset.ignoreSeason };
+      fetch('/api/discover/ignore-tv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(body),
+      }).then(() => loadMissingEpisodes());
+    }
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const epEl = event.target.closest && event.target.closest('[data-episode-search]');
+    if (!epEl) return;
+    event.preventDefault();
+    findEpisodeTorrents(
+      Number(epEl.dataset.episodeSearch), Number(epEl.dataset.season), Number(epEl.dataset.episode));
+  });
+
+  const DISCOVER_COLLAPSED_KEY = 'media-library.discover-collapsed';
+
+  function loadCollapsedDiscoverBlocks() {
+    try {
+      const raw = localStorage.getItem(DISCOVER_COLLAPSED_KEY);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (_error) {
+      return new Set();
+    }
+  }
+
+  function setDiscoverBlockCollapsed(key, collapsed) {
+    const block = document.querySelector(`[data-discover-block="${key}"]`);
+    if (!block) return;
+    block.classList.toggle('collapsed', collapsed);
+    const btn = block.querySelector('.discover-collapse-btn');
+    if (!btn) return;
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    const titleEl = block.querySelector('.discover-block-title');
+    const title = titleEl ? titleEl.textContent.trim() : '';
+    btn.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${title}`.trim());
+  }
+
+  document.querySelectorAll('[data-discover-toggle]').forEach(header => {
+    const key = header.dataset.discoverToggle;
+    setDiscoverBlockCollapsed(key, loadCollapsedDiscoverBlocks().has(key));
+    // The chevron button carries no listener of its own, so a click on it (or
+    // Enter/Space, which fires a click) bubbles here and toggles exactly once.
+    header.addEventListener('click', () => {
+      const stored = loadCollapsedDiscoverBlocks();
+      const collapsed = !stored.has(key);
+      if (collapsed) stored.add(key); else stored.delete(key);
+      try {
+        localStorage.setItem(DISCOVER_COLLAPSED_KEY, JSON.stringify([...stored]));
+      } catch (_error) {
+        // Storage unavailable; the collapse still applies for this page view.
+      }
+      setDiscoverBlockCollapsed(key, collapsed);
+    });
+  });
+
+  const posterLoadBtn = document.getElementById('poster-load-btn');
+  if (posterLoadBtn) posterLoadBtn.addEventListener('click', loadPosterOptions);
+  const posterLangSelect = document.getElementById('poster-lang');
+  if (posterLangSelect) {
+    // Changing language reloads only when posters are already on screen, so it
+    // does not fire a request the moment the panel opens.
+    posterLangSelect.addEventListener('change', () => {
+      const grid = document.getElementById('poster-grid');
+      if (grid && grid.children.length) loadPosterOptions();
+    });
+  }
+  const posterGridEl = document.getElementById('poster-grid');
+  if (posterGridEl) {
+    posterGridEl.addEventListener('click', event => {
+      const option = event.target.closest('[data-poster-url]');
+      if (option) choosePoster(option.dataset.posterUrl);
+    });
+  }
+
+  const heroMetadataCard = document.getElementById('hero-card-metadata');
+  if (heroMetadataCard) {
+    heroMetadataCard.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        if (heroMetadataCard.style.display !== 'none') openMetadataModal();
+      }
+    });
+  }
+
+  const downloadChipEl = document.getElementById('hero-chip-download');
+  if (downloadChipEl) {
+    const activate = () => {
+      // HERO_STATE is cleared by showSection, so read the type before filtering.
+      const mediaType = downloadChipEl.dataset.mediaType
+        || (HERO_STATE.item || {}).media_type;
+      applyDownloadingFilter(mediaType);
+    };
+    downloadChipEl.addEventListener('click', activate);
+    downloadChipEl.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        activate();
+      }
+    });
+  }
+
+  ['hero-chip-genre-1', 'hero-chip-genre-2'].forEach(chipId => {
+    const chip = document.getElementById(chipId);
+    if (!chip) return;
+    const activate = () => {
+      const genre = String(chip.textContent || '').trim();
+      if (!genre) return;
+      applyGenreFilter(genre, (HERO_STATE.item || {}).media_type);
+    };
+    chip.addEventListener('click', activate);
+    chip.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        activate();
+      }
     });
   });
 
@@ -2145,12 +3329,33 @@
     }
   });
 
+  document.getElementById('metadata-modal-close').addEventListener('click', () => {
+    closeMetadataModal();
+  });
+
+  document.getElementById('metadata-modal').addEventListener('click', event => {
+    if (event.target.id === 'metadata-modal') {
+      closeMetadataModal();
+    }
+  });
+
   document.getElementById('hero-add-btn').addEventListener('click', () => {
+    addDiscoverHeroItem();
+  });
+
+  document.getElementById('hero-add-missing-btn').addEventListener('click', () => {
     addDiscoverHeroItem();
   });
 
   document.getElementById('hero-retry-download-btn').addEventListener('click', () => {
     retryLibraryDownloadSearch();
+  });
+
+  document.getElementById('hero-watch-btn').addEventListener('click', () => {
+    const item = HERO_STATE.item;
+    if (item && item.id) {
+      window.location.href = '/video/' + item.id;
+    }
   });
 
   async function autoFinalizeDownload() {
@@ -2182,17 +3387,24 @@
     }
   }
 
+  // Circumference of the r=15.5 ring in the SVG above; the stroke is drawn by
+  // offsetting a dash this long, so the two must stay in step.
+  const DL_RING_CIRCUMFERENCE = 97.39;
+
   function _hideDlProgress() {
-    document.getElementById('hero-dl-progress-wrap').style.display = 'none';
+    document.getElementById('hero-dl-ring').classList.remove('is-visible');
   }
 
-  function _showDlProgress(percent, label) {
-    const wrap = document.getElementById('hero-dl-progress-wrap');
-    const fill = document.getElementById('hero-dl-progress-fill');
-    const lbl  = document.getElementById('hero-dl-progress-label');
-    wrap.style.display = 'block';
-    fill.style.width = Math.min(100, Math.max(0, percent || 0)) + '%';
-    lbl.textContent = label || '';
+  function _showDlProgress(percent, tooltip) {
+    const ring = document.getElementById('hero-dl-ring');
+    const fill = document.getElementById('hero-dl-ring-fill');
+    const lbl  = document.getElementById('hero-dl-ring-label');
+    const pct  = Math.min(100, Math.max(0, percent || 0));
+    ring.classList.add('is-visible');
+    fill.style.strokeDashoffset = DL_RING_CIRCUMFERENCE * (1 - pct / 100);
+    lbl.textContent = Math.round(pct) + '%';
+    ring.setAttribute('aria-label', 'Download progress ' + Math.round(pct) + '%');
+    ring.title = tooltip || '';
   }
 
   function _stopDlPoll() {
@@ -2218,16 +3430,18 @@
         return;
       }
 
+      // No "downloading…" text: the ring carries the progress and the hero chip
+      // already says the item is downloading, so a third indicator is noise.
       if (data.source === 'qbittorrent' && data.progress !== null) {
         const pct = data.progress_percent || 0;
         const eta = data.eta != null && data.eta > 0
           ? ' · ETA ' + _formatEta(data.eta)
           : '';
-        _showDlProgress(pct, pct.toFixed(1) + '%' + eta);
-        statusEl.textContent = _capitalise(data.state || 'downloading') + '…';
+        _showDlProgress(pct, _capitalise(data.state || 'downloading') + ' — ' + pct.toFixed(1) + '%' + eta);
+        statusEl.textContent = '';
       } else {
         _hideDlProgress();
-        statusEl.textContent = 'Waiting for torrent client…';
+        statusEl.textContent = '';
       }
     } catch (_e) { /* silent */ }
     // Schedule next poll in 30 s only if hero still shows this item.
@@ -2303,18 +3517,17 @@
     }
   });
 
-  document.getElementById('hero-refresh-form').addEventListener('submit', async event => {
-    event.preventDefault();
-    if (HERO_STATE.source !== 'library' || !HERO_STATE.item || !HERO_STATE.item.id) return;
-
-    const form = event.currentTarget;
-    const btn = document.getElementById('hero-refresh-btn');
-    const originalText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Refreshing...';
+  async function refreshMetadataForItem(itemId, options = {}) {
+    const btn = options.button || null;
+    const noteEl = options.noteEl || null;
+    const originalText = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Refreshing...';
+    }
 
     try {
-      const response = await fetch(form.action, {
+      const response = await fetch('/refresh/' + itemId, {
         method: 'POST',
         headers: {
           'X-Requested-With': 'fetch',
@@ -2326,27 +3539,77 @@
         throw new Error('refresh_failed');
       }
 
-      const itemId = HERO_STATE.item.id;
-      const merged = { ...(ITEMS[itemId] || HERO_STATE.item), ...payload.item };
+      const merged = { ...(ITEMS[itemId] || HERO_STATE.item || {}), ...payload.item };
       ITEMS[itemId] = merged;
-      HERO_STATE.item = merged;
+      if (HERO_STATE.item && HERO_STATE.item.id === itemId) {
+        HERO_STATE.item = merged;
+      }
 
       const card = document.getElementById('card-' + itemId);
       openHeroFromItem(merged, card, true);
-      btn.textContent = 'Refreshed';
+      if (btn) btn.textContent = 'Refreshed';
+      if (noteEl) noteEl.textContent = 'Metadata refreshed.';
       showToast('Metadata refreshed.');
+      return true;
     } catch (_error) {
-      btn.textContent = 'Refresh failed';
+      if (btn) btn.textContent = 'Refresh failed';
+      if (noteEl) noteEl.textContent = 'Metadata refresh failed.';
       showToast('Metadata refresh failed.', 'error');
+      return false;
     } finally {
-      window.setTimeout(() => {
-        btn.disabled = false;
-        btn.textContent = originalText;
-      }, 1000);
+      if (btn) {
+        window.setTimeout(() => {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }, 1000);
+      }
     }
-  });
+  }
 
   // ── Hero panel ─────────────────────────────────────────
+
+  async function fetchSubtitles(mediaId) {
+    if (SUBTITLE_FETCH_INFLIGHT.has(mediaId)) return;
+    SUBTITLE_FETCH_INFLIGHT.add(mediaId);
+
+    const subsCard = document.getElementById('hero-card-subs');
+    const subsVal = document.getElementById('hero-subs-val');
+    subsCard.classList.remove('clickable');
+    subsCard.onclick = null;
+    subsVal.textContent = 'Fetching…';
+    try {
+      const resp = await fetch(`/api/library/fetch-subtitles/${mediaId}`, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'fetch' },
+      });
+      const data = await resp.json();
+      if (data.ok && data.item) {
+        const merged = { ...(ITEMS[mediaId] || {}), ...data.item };
+        ITEMS[mediaId] = merged;
+        HERO_STATE.item = merged;
+        const card = document.getElementById('card-' + mediaId);
+        openHeroFromItem(merged, card, true, { suppressToggle: true });
+        const sectionId = (merged.media_type || 'movie') === 'tv' ? 'tv' : 'movies';
+        renderLibrarySection(sectionId);
+        showToast('Subtitles fetched.');
+      } else {
+        subsVal.textContent = 'Fetch';
+        subsCard.classList.add('clickable');
+        subsCard.onclick = () => fetchSubtitles(mediaId);
+        showToast('No subtitles found.', 'error');
+      }
+    } catch (_) {
+      subsVal.textContent = 'Fetch';
+      subsCard.classList.add('clickable');
+      subsCard.onclick = () => fetchSubtitles(mediaId);
+      showToast('Subtitle fetch failed.', 'error');
+    } finally {
+      SUBTITLE_FETCH_INFLIGHT.delete(mediaId);
+      if (HERO_STATE.source === 'library' && HERO_STATE.item && HERO_STATE.item.id === mediaId) {
+        openHeroFromItem(HERO_STATE.item, document.getElementById('card-' + mediaId), true, { suppressToggle: true });
+      }
+    }
+  }
 
   async function runQualityCheck(mediaId) {
     const upgradeCard = document.getElementById('hero-card-upgrade');
@@ -2363,6 +3626,13 @@
         },
       });
       const payload = await response.json();
+      if (payload.error === 'search_unavailable') {
+        // Nothing was recorded, so leave the previous result showing rather
+        // than implying the title was checked and found up to date.
+        upgradeVal.textContent = oldText;
+        showToast(payload.message || 'Torrent search engine unreachable.', 'error');
+        return;
+      }
       if (!response.ok || !payload.ok || !payload.item) {
         throw new Error('check_failed');
       }
@@ -2370,13 +3640,62 @@
       ITEMS[mediaId] = merged;
       HERO_STATE.item = merged;
       const card = document.getElementById('card-' + mediaId);
-      openHeroFromItem(merged, card, true);
+      try {
+        openHeroFromItem(merged, card, true, { suppressToggle: true });
+      } catch (_renderError) {
+        // Keep the check outcome visible even if a non-critical UI refresh step fails.
+        setInfoCard(
+          'hero-card-upgrade',
+          'hero-upgrade-val',
+          merged.upgrade_available ? ('↑ ' + (merged.best_found_quality || 'Available')) : '↑ Check'
+        );
+      }
       showToast(payload.outcome && payload.outcome.found ? 'Higher quality found.' : 'Quality check complete.');
-    } catch (_error) {
+      if (payload.outcome && payload.outcome.found) {
+        retryLibraryDownloadSearch({ allowUpgradeSearch: true }).catch(() => {
+          // Ignore modal lookup errors here; they are handled in the retry helper status text.
+        });
+      }
+    } catch (error) {
+      console.error('runQualityCheck failed', error);
       upgradeVal.textContent = oldText;
       showToast('Quality check failed.', 'error');
     } finally {
       upgradeCard.style.pointerEvents = '';
+    }
+  }
+
+  async function scanQualityForItem(mediaId) {
+    try {
+      const response = await fetch('/api/quality/' + mediaId + '/scan', {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'fetch',
+          'Accept': 'application/json',
+        },
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok || !payload.item) {
+        throw new Error('scan_failed');
+      }
+      const merged = { ...(ITEMS[mediaId] || {}), ...payload.item };
+      ITEMS[mediaId] = merged;
+      HERO_STATE.item = merged;
+      const card = document.getElementById('card-' + mediaId);
+      try {
+        openHeroFromItem(merged, card, true, { suppressToggle: true });
+      } catch (_renderError) {
+        // Keep the scan outcome visible even if a non-critical UI refresh step fails.
+        setInfoCard(
+          'hero-card-quality',
+          'hero-quality-val',
+          merged.current_quality || 'Unknown'
+        );
+      }
+      showToast('Quality scan complete: ' + (merged.current_quality || 'detected'));
+    } catch (error) {
+      console.error('scanQualityForItem failed', error);
+      showToast('Quality scan failed.', 'error');
     }
   }
 
@@ -2388,39 +3707,54 @@
     openHeroFromItem(item, el, true);
   }
 
-  function openHeroFromItem(item, el, isLibraryItem) {
+  function openHeroFromItem(item, el, isLibraryItem, options = {}) {
     const favBtn  = document.getElementById('hero-fav-btn');
     const favForm = document.getElementById('hero-fav-form');
-    const refreshForm = document.getElementById('hero-refresh-form');
     const upgradeCard = document.getElementById('hero-card-upgrade');
+    const metadataCard = document.getElementById('hero-card-metadata');
     const discoverActions = document.getElementById('hero-discover-actions');
     const discoverStatus = document.getElementById('hero-discover-status');
     const libraryActions = document.getElementById('hero-library-actions');
     const libraryStatus = document.getElementById('hero-library-status');
     const addBtn = document.getElementById('hero-add-btn');
+    const retryBtn = document.getElementById('hero-retry-download-btn');
+    const addMissingBtn = document.getElementById('hero-add-missing-btn');
 
     HERO_STATE.source = isLibraryItem ? 'library' : 'discover';
     HERO_STATE.item = item;
 
     if (isLibraryItem) {
       const id = item.id;
+      const suppressToggle = !!options.suppressToggle;
       // Toggle off if same card clicked again
-      if (activeCardId === id && el) { activeCardId = null; el.classList.remove('active-card'); return; }
+      if (activeCardId === id && el && !suppressToggle) { activeCardId = null; el.classList.remove('active-card'); return; }
       activeCardId = id;
       document.querySelectorAll('.card').forEach(c => c.classList.remove('active-card'));
-      if (el) el.classList.add('active-card');
+      if (el) {
+        el.classList.add('active-card');
+      } else {
+        const currentCard = document.getElementById('card-' + id);
+        if (currentCard) currentCard.classList.add('active-card');
+      }
       favForm.style.display = 'block';
-      refreshForm.style.display = 'block';
+      metadataCard.style.display = 'flex';
+      metadataCard.classList.add('clickable');
+      metadataCard.onclick = () => openMetadataModal();
       discoverActions.style.display = 'none';
       libraryActions.style.display = 'none';
       discoverStatus.textContent = '';
       libraryStatus.textContent = '';
+      retryBtn.style.display = 'none';
+      retryBtn.disabled = false;
       addBtn.disabled = false;
+      addMissingBtn.style.display = 'none';
+      addMissingBtn.disabled = false;
     } else {
       activeCardId = null;
       document.querySelectorAll('.card').forEach(c => c.classList.remove('active-card'));
       favForm.style.display = 'none';
-      refreshForm.style.display = 'none';
+      metadataCard.style.display = 'none';
+      metadataCard.onclick = null;
       discoverActions.style.display = 'flex';
       libraryActions.style.display = 'none';
       discoverStatus.textContent = '';
@@ -2455,13 +3789,26 @@
     cy.textContent   = item.year ? String(item.year) : '';
     cy.style.display = item.year ? 'inline-block' : 'none';
     document.getElementById('hero-chip-type').textContent    = item.media_type === 'tv' ? 'TV Show' : 'Movie';
-    const cq = document.getElementById('hero-chip-quality');
-    if (isLibraryItem) {
-      cq.textContent = item.current_quality || 'Unknown quality';
-      cq.style.display = 'inline-block';
-    } else {
-      cq.style.display = 'none';
-    }
+    // Plenty of titles genuinely carry a single genre on TMDB, so an absent
+    // chip is normal rather than missing data - hide it instead of labelling it.
+    const g1 = document.getElementById('hero-chip-genre-1');
+    const g2 = document.getElementById('hero-chip-genre-2');
+    const genre1 = String(item.genre_1 || '').trim();
+    const genre2 = String(item.genre_2 || '').trim();
+    [[g1, genre1], [g2, genre2]].forEach(([chip, genre]) => {
+      chip.textContent = genre;
+      chip.style.display = genre ? 'inline-block' : 'none';
+      // Only advertise the chip as a control while it actually holds a genre.
+      if (genre) {
+        chip.setAttribute('role', 'button');
+        chip.setAttribute('tabindex', '0');
+        chip.title = `Show all ${genre}`;
+      } else {
+        chip.removeAttribute('role');
+        chip.removeAttribute('tabindex');
+        chip.title = '';
+      }
+    });
 
     const synEl = document.getElementById('hero-synopsis');
     synEl.textContent = item.synopsis || '';
@@ -2480,57 +3827,114 @@
       handed_off: 'Queued',
       downloading: 'Downloading',
     };
+    // Reset the download UI for every hero, not just the downloading branch.
+    // Switching from a downloading title to any other one left the progress ring
+    // frozen on the previous title's percentage, and a pending poll still queued.
+    _stopDlPoll();
+    _hideDlProgress();
+
     if (isLibraryItem && item.download_status && statusMap[item.download_status]) {
       downloadChip.textContent = statusMap[item.download_status];
       downloadChip.style.display = 'inline-block';
-      downloadChip.title = item.download_message || item.download_status;
+      downloadChip.setAttribute('role', 'button');
+      downloadChip.setAttribute('tabindex', '0');
+      downloadChip.dataset.mediaType = item.media_type || 'movie';
+      downloadChip.title = (item.download_message || item.download_status)
+        + ' — click to see everything downloading';
       libraryActions.style.display = 'flex';
-      // Begin / restart polling if qB WebUI mode with a hash, else just show buttons.
-      _stopDlPoll();
-      _hideDlProgress();
+      if ((item.media_type || 'movie') === 'movie') {
+        retryBtn.style.display = 'inline-block';
+        retryBtn.textContent = 'Retry / Find Torrent';
+      } else {
+        retryBtn.style.display = 'none';
+      }
+      // Begin polling if qB WebUI mode with a hash, else just show buttons.
       libraryStatus.textContent = '';
       if (item.download_source === 'qb_webui' && item.download_torrent_hash) {
         _dlPollTimer = setTimeout(_pollDownloadProgress, 800);
       }
+      document.getElementById('hero-watch-btn').style.display = 'none';
     } else {
       downloadChip.style.display = 'none';
       downloadChip.title = '';
-      libraryActions.style.display = 'none';
+      // Stop advertising it as a control while it is hidden.
+      downloadChip.removeAttribute('role');
+      downloadChip.removeAttribute('tabindex');
+      // Show watch button if item has a local path that exists
+      if (isLibraryItem && item.path && !item.file_missing) {
+        libraryActions.style.display = 'flex';
+        document.getElementById('hero-watch-btn').style.display = 'inline-block';
+        retryBtn.style.display = 'none';
+      } else if (isLibraryItem && item.file_missing) {
+        document.getElementById('hero-watch-btn').style.display = 'none';
+        retryBtn.style.display = 'none';
+        const addMissingBtn = document.getElementById('hero-add-missing-btn');
+        addMissingBtn.style.display = 'inline-block';
+        addMissingBtn.disabled = !TMDB_CONFIGURED || !item.tmdb_id;
+        libraryActions.style.display = 'flex';
+        discoverActions.style.display = 'none';
+      } else {
+        libraryActions.style.display = 'none';
+        document.getElementById('hero-watch-btn').style.display = 'none';
+        retryBtn.style.display = 'none';
+      }
+    }
+
+    // A TV show's path is a folder of episodes, so Watch alone cannot say which
+    // one to play; the season dropdown is what makes a choice possible.
+    if (isLibraryItem && item.media_type === 'tv' && item.path && !item.file_missing) {
+      libraryActions.style.display = 'flex';
+      loadSeasonsForHero(item);
+    } else {
+      const seasonEl = document.getElementById('hero-season-select');
+      if (seasonEl) {
+        seasonEl.style.display = 'none';
+        seasonEl.innerHTML = '';
+      }
+      setAiringUi(false, null, 0);
     }
 
     setInfoCard('hero-card-rating', 'hero-rating-val', item.rating ? item.rating.toFixed(1) + ' / 10' : null);
     if (isLibraryItem) {
       setInfoCard('hero-card-resolution', 'hero-resolution-val', item.current_quality || null);
-      setInfoCard('hero-card-subs', 'hero-subs-val', item.subtitles || null);
+      const subsCard = document.getElementById('hero-card-subs');
+      const subsVal = document.getElementById('hero-subs-val');
+      if (item.subtitles) {
+        subsVal.textContent = item.subtitles;
+        subsCard.style.display = 'flex';
+        subsCard.classList.remove('clickable');
+        subsCard.onclick = null;
+      } else if (SUBTITLE_FETCH_INFLIGHT.has(item.id)) {
+        subsVal.textContent = 'Fetching…';
+        subsCard.style.display = 'flex';
+        subsCard.classList.remove('clickable');
+        subsCard.onclick = null;
+      } else if (item.path && !item.file_missing) {
+        subsVal.textContent = 'Fetch';
+        subsCard.style.display = 'flex';
+        subsCard.classList.add('clickable');
+        subsCard.onclick = () => fetchSubtitles(item.id);
+      } else {
+        subsCard.style.display = 'none';
+        subsCard.classList.remove('clickable');
+        subsCard.onclick = null;
+      }
       const belowPreferred = qualityRank(item.current_quality) < qualityRank(PREFERRED_QUALITY);
-      const shouldShowUpgrade = item.found === 1 || belowPreferred;
+      // Not while a download is running. file_missing is deliberately suppressed
+      // for an active download, so without the extra check a title with no file
+      // yet reads as "below preferred quality" and is offered an upgrade — and
+      // clicking it could start a second download for the same title.
+      const shouldShowUpgrade = !item.file_missing
+        && !libraryItemDownloading(item)
+        && (item.upgrade_available || belowPreferred);
       if (shouldShowUpgrade) {
         setInfoCard(
           'hero-card-upgrade',
           'hero-upgrade-val',
-          item.found === 1 ? ('↑ ' + (item.best_found_quality || 'Available')) : '↑ Check'
+          item.upgrade_available ? ('↑ ' + (item.best_found_quality || 'Available')) : '↑ Check'
         );
       } else {
         upgradeCard.style.display = 'none';
-      }
-
-      // Torrent link on the upgrade card
-      if (item.found === 1 && item.best_found_desc_link) {
-        let linkEl = upgradeCard.querySelector('.hero-upgrade-link');
-        if (!linkEl) {
-          linkEl = document.createElement('a');
-          linkEl.className = 'hero-upgrade-link';
-          linkEl.target = '_blank';
-          linkEl.rel = 'noopener noreferrer';
-          linkEl.style.cssText = 'display:block;font-size:11px;color:var(--amber);margin-top:4px;word-break:break-all;text-decoration:none;';
-          upgradeCard.appendChild(linkEl);
-        }
-        linkEl.href = item.best_found_desc_link;
-        linkEl.textContent = (item.best_found_name || 'View torrent').substring(0, 60) + (item.best_found_name && item.best_found_name.length > 60 ? '…' : '');
-        linkEl.style.display = 'block';
-      } else {
-        const old = upgradeCard.querySelector('.hero-upgrade-link');
-        if (old) old.style.display = 'none';
       }
 
       // Upgrade card acts as the search trigger.
@@ -2547,9 +3951,10 @@
       }
 
       favForm.action = '/favourite/' + item.id;
-      refreshForm.action = '/refresh/' + item.id;
       favBtn.classList.toggle('active', !!item.favourite);
-      favBtn.textContent = item.favourite ? '♥ Unfavourite' : '♡ Favourite';
+      favBtn.textContent = item.favourite ? '♥' : '♡';
+      favBtn.title = item.favourite ? 'Remove from favourites' : 'Add to favourites';
+      favBtn.setAttribute('aria-label', favBtn.title);
     } else {
       document.getElementById('hero-card-resolution').style.display = 'none';
       document.getElementById('hero-card-subs').style.display = 'none';
@@ -2557,8 +3962,6 @@
       upgradeCard.style.cursor = '';
       upgradeCard.title = '';
       upgradeCard.onclick = null;
-      const old = upgradeCard.querySelector('.hero-upgrade-link');
-      if (old) old.style.display = 'none';
     }
 
     document.getElementById('hero').classList.add('loaded');
@@ -2567,18 +3970,37 @@
   function closeHero() {
     _stopDlPoll();
     _hideDlProgress();
+    closeMetadataModal();
     document.getElementById('hero').classList.remove('loaded');
     document.getElementById('hero-bg').style.backgroundImage = 'linear-gradient(135deg, #1b1035 0%, #3a0033 100%)';
     document.getElementById('hero-fav-form').style.display = 'none';
-    document.getElementById('hero-refresh-form').style.display = 'none';
+    const metadataCard = document.getElementById('hero-card-metadata');
+    metadataCard.style.display = 'none';
+    metadataCard.onclick = null;
     document.getElementById('hero-discover-actions').style.display = 'none';
     document.getElementById('hero-library-actions').style.display = 'none';
+    const heroSeasonSelect = document.getElementById('hero-season-select');
+    if (heroSeasonSelect) heroSeasonSelect.style.display = 'none';
+    // The airing chip lives among the genre chips, outside hero-library-actions,
+    // so hiding that container does not hide it.
+    const heroAiringChip = document.getElementById('hero-chip-airing');
+    if (heroAiringChip) heroAiringChip.style.display = 'none';
+    const heroCheckNewBtn = document.getElementById('hero-check-new-btn');
+    if (heroCheckNewBtn) heroCheckNewBtn.style.display = 'none';
     document.querySelectorAll('.card').forEach(c => c.classList.remove('active-card'));
     activeCardId = null;
   }
 
-  // Escape key still closes / deselects
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHero(); });
+  // Escape key closes metadata modal first, then hero.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const modal = document.getElementById('metadata-modal');
+    if (modal && modal.classList.contains('open')) {
+      closeMetadataModal();
+      return;
+    }
+    closeHero();
+  });
 
   function setInfoCard(cardId, valId, value) {
     const card = document.getElementById(cardId);
@@ -2593,6 +4015,41 @@
   function escHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
+
+  // ── Bulk action progress ──────────────────────────────────
+  // These actions are plain form posts that can run for a long time on a large
+  // library. Show an in-progress bar as soon as one starts; the page reload
+  // that follows carries the completion status and replaces it.
+  function showRunningStatus(text) {
+    let bar = document.getElementById('status-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'status-bar';
+      const main = document.querySelector('.main');
+      if (!main) return;
+      main.insertBefore(bar, main.firstChild);
+    }
+    bar.className = 'status-bar status-info';
+    bar.innerHTML =
+      '<span><span class="status-spinner" aria-hidden="true"></span>' +
+      escHtml(text) + '&hellip;</span>';
+    bar.setAttribute('role', 'status');
+    bar.setAttribute('aria-live', 'polite');
+  }
+
+  document.querySelectorAll('form[data-bulk-label]').forEach(form => {
+    form.addEventListener('submit', () => {
+      showRunningStatus(form.dataset.bulkLabel || 'Working');
+      const clicked = form.querySelector('button[type="submit"]');
+      if (clicked) clicked.classList.add('is-running');
+      // Deferred so disabling cannot interfere with the submission already
+      // under way; blocks a second bulk action from being queued mid-run.
+      setTimeout(() => {
+        document.querySelectorAll('form[data-bulk-label] button[type="submit"]')
+          .forEach(btn => { btn.disabled = true; });
+      }, 0);
+    });
+  });
 </script>
 </body>
 </html>

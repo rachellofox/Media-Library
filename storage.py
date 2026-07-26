@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -23,6 +24,8 @@ CREATE TABLE IF NOT EXISTS media_items (
     poster_url TEXT,
     synopsis TEXT,
     actors TEXT,
+    genre_1 TEXT,
+    genre_2 TEXT,
     rating REAL,
     subtitles TEXT,
     favourite INTEGER NOT NULL DEFAULT 0,
@@ -47,6 +50,8 @@ CREATE TABLE IF NOT EXISTS download_states (
     source TEXT,
     message TEXT,
     torrent_hash TEXT,
+    mode TEXT,
+    previous_path TEXT,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(media_item_id) REFERENCES media_items(id)
 );
@@ -63,6 +68,28 @@ CREATE TABLE IF NOT EXISTS discover_ignored_collections (
     collection_id INTEGER PRIMARY KEY,
     collection_name TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tmdb_season_cache (
+    tmdb_id INTEGER NOT NULL,
+    season_number INTEGER NOT NULL,
+    episodes_json TEXT NOT NULL,
+    fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(tmdb_id, season_number)
+);
+
+CREATE TABLE IF NOT EXISTS tmdb_tv_status_cache (
+    tmdb_id INTEGER PRIMARY KEY,
+    status_json TEXT NOT NULL,
+    fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS discover_ignored_tv (
+    tmdb_id INTEGER NOT NULL,
+    season_number INTEGER NOT NULL,
+    title TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(tmdb_id, season_number)
 );
 
 CREATE TABLE IF NOT EXISTS tmdb_collection_parts_cache (
@@ -85,6 +112,14 @@ CREATE TABLE IF NOT EXISTS discover_watchlist_cache (
     media_type TEXT,
     poster_url TEXT,
     fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS playback_positions (
+    media_item_id INTEGER PRIMARY KEY,
+    position_seconds REAL NOT NULL,
+    duration_seconds REAL,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(media_item_id) REFERENCES media_items(id)
 );
 '''
 
@@ -113,6 +148,8 @@ class Storage:
                 ('poster_url', 'TEXT'),
                 ('synopsis', 'TEXT'),
                 ('actors', 'TEXT'),
+                ('genre_1', 'TEXT'),
+                ('genre_2', 'TEXT'),
                 ('rating', 'REAL'),
                 ('subtitles', 'TEXT'),
                 ('favourite', 'INTEGER NOT NULL DEFAULT 0'),
@@ -128,6 +165,8 @@ class Storage:
                 ('discover_ignored_titles', 'collection_name', 'TEXT'),
                 ('discover_ignored_collections', 'collection_name', 'TEXT'),
                 ('download_states', 'torrent_hash', 'TEXT'),
+                ('download_states', 'mode', 'TEXT'),
+                ('download_states', 'previous_path', 'TEXT'),
             ]:
                 try:
                     c.execute(f'ALTER TABLE {table_name} ADD COLUMN {col} {col_type}')
@@ -148,6 +187,8 @@ class Storage:
         poster_url: str | None = None,
         synopsis: str | None = None,
         actors: str | None = None,
+        genre_1: str | None = None,
+        genre_2: str | None = None,
         rating: float | None = None,
         subtitles: str | None = None,
     ) -> None:
@@ -158,9 +199,9 @@ class Storage:
                     (
                         imdb_id, tmdb_id, title, year, media_type, collection_id,
                         collection_name, current_quality, path, poster_url,
-                        synopsis, actors, rating, subtitles
+                        synopsis, actors, genre_1, genre_2, rating, subtitles
                     )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(imdb_id) DO UPDATE SET
                     tmdb_id=COALESCE(excluded.tmdb_id, media_items.tmdb_id),
                     title=excluded.title,
@@ -173,13 +214,15 @@ class Storage:
                     poster_url=COALESCE(excluded.poster_url, media_items.poster_url),
                     synopsis=COALESCE(excluded.synopsis, media_items.synopsis),
                     actors=COALESCE(excluded.actors, media_items.actors),
+                    genre_1=COALESCE(excluded.genre_1, media_items.genre_1),
+                    genre_2=COALESCE(excluded.genre_2, media_items.genre_2),
                     rating=COALESCE(excluded.rating, media_items.rating),
                     subtitles=COALESCE(excluded.subtitles, media_items.subtitles)
                 ''',
                 (
                     imdb_id, tmdb_id, title, year, media_type, collection_id,
                     collection_name, current_quality, path, poster_url,
-                    synopsis, actors, rating, subtitles,
+                    synopsis, actors, genre_1, genre_2, rating, subtitles,
                 ),
             )
 
@@ -191,6 +234,8 @@ class Storage:
         poster_url: str | None,
         synopsis: str | None,
         actors: str | None,
+        genre_1: str | None = None,
+        genre_2: str | None = None,
         rating: float | None = None,
         title: str | None = None,
         media_type: str | None = None,
@@ -214,6 +259,8 @@ class Storage:
                     poster_url=?,
                     synopsis=?,
                     actors=?,
+                    genre_1=COALESCE(?, genre_1),
+                    genre_2=COALESCE(?, genre_2),
                     rating=COALESCE(?, rating),
                     title=COALESCE(?, title),
                     media_type=COALESCE(?, media_type),
@@ -223,7 +270,7 @@ class Storage:
                 WHERE id=?''',
                 (
                     effective_imdb_id,
-                    tmdb_id, poster_url, synopsis, actors, rating, title,
+                    tmdb_id, poster_url, synopsis, actors, genre_1, genre_2, rating, title,
                     media_type, year, collection_id, collection_name, media_id,
                 ),
             )
@@ -231,6 +278,10 @@ class Storage:
     def update_path(self, media_id: int, path: str) -> None:
         with self.conn() as c:
             c.execute('UPDATE media_items SET path=? WHERE id=?', (path, media_id))
+
+    def update_poster(self, media_id: int, poster_url: str | None) -> None:
+        with self.conn() as c:
+            c.execute('UPDATE media_items SET poster_url=? WHERE id=?', (poster_url, media_id))
 
     def update_subtitles(self, media_id: int, subtitles: str | None) -> None:
         with self.conn() as c:
@@ -259,6 +310,8 @@ class Storage:
                       d.source AS download_source,
                       d.message AS download_message,
                       d.torrent_hash AS download_torrent_hash,
+                      d.mode AS download_mode,
+                      d.previous_path AS download_previous_path,
                       d.updated_at AS download_updated_at
                 FROM media_items m
                 LEFT JOIN quality_checks q ON q.id = (
@@ -289,20 +342,33 @@ class Storage:
         source: str | None = None,
         message: str | None = None,
         torrent_hash: str | None = None,
+        mode: str | None = None,
+        previous_path: str | None = None,
     ) -> None:
+        """Record download progress.
+
+        `mode` is 'upgrade' when the item already has a playable file that the
+        download is meant to replace, otherwise 'fill'. `previous_path` is the
+        path captured at submit time so finalisation knows what to retire even
+        if the library entry moves in the meantime. Both are preserved across
+        status updates so only the initial submit needs to supply them.
+        """
         with self.conn() as c:
             c.execute(
                 '''
-                INSERT INTO download_states (media_item_id, status, source, message, torrent_hash)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO download_states
+                    (media_item_id, status, source, message, torrent_hash, mode, previous_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(media_item_id) DO UPDATE SET
                     status=excluded.status,
                     source=excluded.source,
                     message=excluded.message,
                     torrent_hash=COALESCE(excluded.torrent_hash, download_states.torrent_hash),
+                    mode=COALESCE(excluded.mode, download_states.mode),
+                    previous_path=COALESCE(excluded.previous_path, download_states.previous_path),
                     updated_at=CURRENT_TIMESTAMP
                 ''',
-                (media_item_id, status, source, message, torrent_hash),
+                (media_item_id, status, source, message, torrent_hash, mode, previous_path),
             )
 
     def clear_download_state(self, media_item_id: int) -> None:
@@ -417,6 +483,103 @@ class Storage:
     def unignore_all_discover_collections(self) -> None:
         with self.conn() as c:
             c.execute('DELETE FROM discover_ignored_collections')
+
+    # A season's episode list is stable once aired, so it is cached in the
+    # database rather than in process: checking every show for new episodes would
+    # otherwise mean hundreds of TMDB requests after each restart.
+    IGNORE_WHOLE_SHOW = -1
+
+    def get_cached_season(self, tmdb_id: int, season_number: int, max_age_hours: int) -> list[dict] | None:
+        with self.conn() as c:
+            row = c.execute(
+                'SELECT episodes_json, fetched_at FROM tmdb_season_cache '
+                'WHERE tmdb_id = ? AND season_number = ?',
+                (tmdb_id, season_number),
+            ).fetchone()
+        if not row or not row['fetched_at']:
+            return None
+        try:
+            fetched_at = datetime.strptime(row['fetched_at'], '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return None
+        if fetched_at < datetime.now() - timedelta(hours=max_age_hours):
+            return None
+        try:
+            return json.loads(row['episodes_json'])
+        except (TypeError, ValueError):
+            return None
+
+    def set_cached_season(self, tmdb_id: int, season_number: int, episodes: list[dict]) -> None:
+        with self.conn() as c:
+            c.execute(
+                '''
+                INSERT INTO tmdb_season_cache (tmdb_id, season_number, episodes_json, fetched_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(tmdb_id, season_number) DO UPDATE SET
+                    episodes_json=excluded.episodes_json,
+                    fetched_at=CURRENT_TIMESTAMP
+                ''',
+                (tmdb_id, season_number, json.dumps(episodes)),
+            )
+
+    def get_cached_tv_status(self, tmdb_id: int, max_age_hours: int) -> dict | None:
+        with self.conn() as c:
+            row = c.execute(
+                'SELECT status_json, fetched_at FROM tmdb_tv_status_cache WHERE tmdb_id = ?',
+                (tmdb_id,),
+            ).fetchone()
+        if not row or not row['fetched_at']:
+            return None
+        try:
+            fetched_at = datetime.strptime(row['fetched_at'], '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return None
+        if fetched_at < datetime.now() - timedelta(hours=max_age_hours):
+            return None
+        try:
+            return json.loads(row['status_json'])
+        except (TypeError, ValueError):
+            return None
+
+    def set_cached_tv_status(self, tmdb_id: int, status: dict) -> None:
+        with self.conn() as c:
+            c.execute(
+                '''
+                INSERT INTO tmdb_tv_status_cache (tmdb_id, status_json, fetched_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(tmdb_id) DO UPDATE SET
+                    status_json=excluded.status_json,
+                    fetched_at=CURRENT_TIMESTAMP
+                ''',
+                (tmdb_id, json.dumps(status)),
+            )
+
+    def ignore_tv_season(self, tmdb_id: int, season_number: int, title: str | None = None) -> None:
+        """Hide a season's missing episodes. Season -1 hides the whole show."""
+        with self.conn() as c:
+            c.execute(
+                'INSERT OR REPLACE INTO discover_ignored_tv (tmdb_id, season_number, title) '
+                'VALUES (?, ?, ?)',
+                (tmdb_id, season_number, title),
+            )
+
+    def unignore_tv(self, tmdb_id: int, season_number: int | None = None) -> None:
+        with self.conn() as c:
+            if season_number is None:
+                c.execute('DELETE FROM discover_ignored_tv WHERE tmdb_id = ?', (tmdb_id,))
+            else:
+                c.execute(
+                    'DELETE FROM discover_ignored_tv WHERE tmdb_id = ? AND season_number = ?',
+                    (tmdb_id, season_number),
+                )
+
+    def list_ignored_tv(self) -> dict[int, set[int]]:
+        with self.conn() as c:
+            rows = c.execute('SELECT tmdb_id, season_number FROM discover_ignored_tv').fetchall()
+        ignored: dict[int, set[int]] = {}
+        for row in rows:
+            ignored.setdefault(int(row['tmdb_id']), set()).add(int(row['season_number']))
+        return ignored
 
     def get_cached_collection_parts(self, collection_id: int, max_age_hours: int) -> list[dict] | None:
         with self.conn() as c:
@@ -567,6 +730,15 @@ class Storage:
         with self.conn() as c:
             c.execute('DELETE FROM settings WHERE key = ?', (key,))
 
+    def clear_quality_checks(self, media_item_id: int) -> None:
+        """Drop stored upgrade results for an item.
+
+        Called once the local file changes, since a recorded "better release
+        available" refers to the quality the item had at search time.
+        """
+        with self.conn() as c:
+            c.execute('DELETE FROM quality_checks WHERE media_item_id = ?', (media_item_id,))
+
     def add_quality_check(
         self,
         media_item_id: int,
@@ -593,3 +765,33 @@ class Storage:
                     raw_result_count,
                 ),
             )
+
+    def get_playback_position(self, media_item_id: int) -> dict | None:
+        """Get saved playback position for a media item (seconds and duration)."""
+        with self.conn() as c:
+            row = c.execute(
+                'SELECT position_seconds, duration_seconds FROM playback_positions WHERE media_item_id = ?',
+                (media_item_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def set_playback_position(
+        self,
+        media_item_id: int,
+        position_seconds: float,
+        duration_seconds: float | None = None,
+    ) -> None:
+        """Save playback position for a media item."""
+        with self.conn() as c:
+            c.execute(
+                '''
+                INSERT INTO playback_positions (media_item_id, position_seconds, duration_seconds)
+                VALUES (?, ?, ?)
+                ON CONFLICT(media_item_id) DO UPDATE SET
+                    position_seconds=excluded.position_seconds,
+                    duration_seconds=COALESCE(excluded.duration_seconds, playback_positions.duration_seconds),
+                    last_updated=CURRENT_TIMESTAMP
+                ''',
+                (media_item_id, position_seconds, duration_seconds),
+            )
+
