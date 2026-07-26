@@ -49,7 +49,7 @@ jobs:
       - name: Compile all sources
         run: python -m compileall -q app.py storage.py tmdb_client.py trakt_client.py
           imdb_client.py qb_search.py quality.py naming.py episode_match.py
-          subtitle_client.py scripts tests
+          subtitle_client.py medialibrary scripts tests
 
       - name: Tests
         run: python tests/run_all.py

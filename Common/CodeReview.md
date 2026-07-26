@@ -253,12 +253,28 @@ module should be split.
 This section is large enough that it needs sub-sections. Proposed split, to be
 worked one at a time:
 
-- [ ] E1. **Decide the split first.** Everything else in this section is easier
-  once the file is divided. Natural seams, by inspection: auth/session, settings,
-  library scan and import, downloads and qBittorrent, playback and HLS, TV and
-  episodes, Discover, and the routes themselves. Proposal is a `medialibrary/`
-  package with `app.py` reduced to app setup and route registration. **Big
-  change — needs your agreement before any code moves.**
+- [~] E1. **Split agreed and started 2026-07-26.** Approach settled by measuring
+  rather than guessing: an AST pass over app.py showed 191 top-level functions —
+  62 route handlers (1,975 lines) and 129 helpers (2,748 lines) — of which **92
+  helpers totalling 1,705 lines touch none of the `app`/`store`/`tmdb`/`qb`
+  singletons**. Those extract with no circular-import risk, so they are the seam
+  to cut along, and the singleton-bound code stays put for now.
+  **Migration rule:** every moved name is imported back into app.py by name, so
+  `app.X` keeps resolving for the maintenance scripts and tests. No caller
+  changes when code moves.
+  Done so far — `medialibrary/` package created with:
+  - `config.py` — BASE_DIR, DB_PATH, POSTER_DIR, HLS_CACHE_DIR, FFPROBE_EXE,
+    FFMPEG_EXE. app.py now consumes these instead of defining its own, so there
+    is one source of truth rather than two.
+  - `playback.py` (558 lines) — the direct-play / direct-stream / HLS cluster:
+    20 functions and 7 module constants including the live transcode job state.
+    Chosen first because it is the largest cohesive group that needs nothing but
+    three config values and one request helper.
+  app.py: **5,386 → 4,922 lines.** Verified after each step: ruff clean, 19/19
+  test files pass, app answers with all 62 routes and 352 items, and every CI
+  step passes from a clean checkout.
+  Remaining clusters, in rough size order: subtitles (~250 lines), qBittorrent
+  WebUI (~180), matching and naming (~280), then the singleton-bound groups.
 - [ ] E2. Auth and session handling — review for correctness and security.
 - [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
 - [ ] E4. Downloads and qBittorrent integration, including the finalisation path
@@ -421,6 +437,10 @@ the test suite recovered in item 3.
 - **2026-07-26** — A1, B1, B3, H1, H2, H4 done. Two `.gitignore` fixes (the live
   database and the transcode cache were both exposed; the standards directory was
   hidden), and the test suite recovered from temporary storage into `tests/`.
+- **2026-07-26** — E1 started. `medialibrary/` package created; playback/HLS
+  (558 lines) and shared config moved out of app.py, which drops to 4,922 lines.
+  Every moved name is re-imported into app.py so no caller changed. Verified
+  against a clean checkout through the full CI sequence.
 - **2026-07-26** — C2 done, plus C2a. CI workflow added and validated by running
   every step by hand against a clean checkout, which found that the app returned
   500 from any entry point other than `python app.py` because the schema was only
