@@ -79,7 +79,7 @@ def row_for(media_id):
     return next(r for r in app.store.list_media_items() if r['id'] == media_id)
 
 
-# ---------------------------------------------------------------- test 1
+# test 1
 print('\n=== 1. Upgrade replaces existing file and renames canonically ===')
 with tempfile.TemporaryDirectory() as tmp:
     lib, staging, recycled = setup(tmp)
@@ -135,7 +135,7 @@ with tempfile.TemporaryDirectory() as tmp:
         str(app.store.get_media_item(mid)['current_quality']),
     )
 
-# ---------------------------------------------------------------- test 2
+# test 2
 print('\n=== 2. Downgrade is refused, original is preserved ===')
 with tempfile.TemporaryDirectory() as tmp:
     lib, staging, recycled = setup(tmp)
@@ -173,7 +173,7 @@ with tempfile.TemporaryDirectory() as tmp:
         str(row_for(mid)['download_status']),
     )
 
-# ---------------------------------------------------------------- test 3
+# test 3
 print('\n=== 3. Incomplete download is not finalised ===')
 with tempfile.TemporaryDirectory() as tmp:
     lib, staging, recycled = setup(tmp)
@@ -198,7 +198,7 @@ with tempfile.TemporaryDirectory() as tmp:
         ),
     )
 
-# ---------------------------------------------------------------- test 4
+# test 4
 print('\n=== 4. Fresh fill (no existing file) still works ===')
 with tempfile.TemporaryDirectory() as tmp:
     lib, staging, recycled = setup(tmp)
@@ -222,7 +222,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check('nothing recycled on a fill', len(recycled) == 0)
     check('download state cleared', row_for(mid)['download_status'] is None)
 
-# ---------------------------------------------------------------- test 5
+# test 5
 print('\n=== 5. Staging folder is never scanned into the library ===')
 with tempfile.TemporaryDirectory() as tmp:
     lib, staging, recycled = setup(tmp)
@@ -237,7 +237,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check('real movie folder scanned', 'Real Movie (2001)' in names, str(names))
     check('staging folder skipped', 'Downloads' not in names, str(names))
 
-# ---------------------------------------------------------------- test 6
+# test 6
 print('\n=== 6. Upgrading an already-canonical file (destination occupied) ===')
 with tempfile.TemporaryDirectory() as tmp:
     lib, staging, recycled = setup(tmp)
@@ -290,7 +290,7 @@ with tempfile.TemporaryDirectory() as tmp:
         str(app.store.get_media_item(mid)['current_quality']),
     )
 
-# ---------------------------------------------------------------- test 7
+# test 7
 print('\n=== 7. Failure to recycle leaves the original intact ===')
 with tempfile.TemporaryDirectory() as tmp:
     lib, staging, recycled = setup(tmp)

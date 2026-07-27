@@ -33,7 +33,16 @@ CANARY = b'CANARY-outside-the-cache-directory'
 # these assertions are about path handling rather than the front door.
 app._auth_required = lambda: False
 client = app.app.test_client()
-media_id = next((i['id'] for i in app.store.list_media_items()), 1)
+
+# A media id that does not exist. The filename filters on both routes run before
+# the item is looked up, so they are still exercised — but nothing resolves to a
+# real video, and nothing starts a transcode.
+#
+# This matters: an earlier version used a real library id, and requesting a
+# well-formed segment name is a legitimate playback request. It started ffmpeg
+# against an actual film, which then ran unattended at full CPU. A test must not
+# be able to do that.
+media_id = 999999999
 
 with tempfile.TemporaryDirectory() as tmp:
     bait = os.path.join(tmp, 'bait.mp4')
@@ -76,6 +85,10 @@ with tempfile.TemporaryDirectory() as tmp:
         'ordinary segment name is not treated as an attack',
         response.status_code == 404,
         f'HTTP {response.status_code}',
+    )
+    check(
+        'and it was not rejected by the path filter',
+        b'Invalid filename' not in response.get_data(),
     )
     response = client.get(f'/api/video/{media_id}/hls/segment_00000.ts')
     check(

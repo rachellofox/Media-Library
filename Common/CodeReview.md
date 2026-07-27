@@ -406,17 +406,54 @@ worked one at a time:
 the destructive ones are safe.
 
 - [-] G1. All 10 carry module docstrings, as the standard requires. Verified by scan.
-- [ ] G2. **Classify each as ongoing tool or spent one-off.** Several were written
-  for a single migration that has now been applied. Candidates for deletion once
-  classified — `[?]` each, since a spent script is still a record of what was done.
-- [ ] G3. **Audit the destructive ones** (`_consolidate_duplicates`, `_split_packs`,
-  `_qbt_prune_broken`, `_plan_tv_naming --apply`) for dry-run-by-default and for
-  `os.rename` rather than `shutil.move` — the latter caused a 10 GB duplication
-  incident and the fix must not regress.
+- [x] G0. **My "0 style violations" baseline was wrong.** The original scan
+  required the rule characters immediately after the `#`, so
+  `# ── 1. Rename … ──────` did not match. A regex looking for rule characters
+  anywhere in a comment finds **10 dividers** across `_cleanup_movies.py` and
+  `test_finalize.py`. All replaced with plain comments. Corrected here rather
+  than quietly, because the wrong number was used to argue this review was not
+  about style.
+- [x] G2. **Classified. Done 2026-07-27.** Four are read-only diagnostics
+  (`_audit_movies`, `_dbcheck`, `_debug_missing`, `_debug_query`) and six change
+  files. None turned out to be a spent one-off: every one addresses a condition
+  that recurs whenever new media arrives, so none is proposed for deletion. Git
+  dates were no help in judging this — all ten show the same date, being the
+  commit that first tracked them.
+- [x] G3. **Audited, and `_cleanup_movies.py` was the one that never got fixed.**
+  Done 2026-07-27. The other five write-capable scripts are all dry-run by
+  default and all use `os.rename`. `_cleanup_movies.py` had four separate
+  problems:
+  - **It crashed before doing anything.** It logs an arrow (`→`) but never
+    reconfigured stdout, so on a cp1252 Windows console it died with
+    `UnicodeEncodeError` on its first log line, in dry run. It has been unusable
+    as shipped. Every other script has the guard.
+  - **`shutil.move`** — the exact call behind the 10 GB duplication. Now
+    `os.rename`.
+  - **Hard deletes.** `os.remove` and `shutil.rmtree` on leftovers and junk, with
+    no recycle. Now routed through `send2trash` like the rest of the codebase.
+  - **A silent overwrite.** Promoting a nested video onto a name the folder's own
+    video already held: `shutil.move` overwrote it, destroying the root video.
+    Swapping to `os.rename` turned that into a loud failure, which is how the bug
+    surfaced at all; it now skips and reports, leaving both files.
+  Also standardised the flag on `--apply`, with `--execute` still accepted so an
+  older invocation applies rather than silently doing nothing.
+  Exercised against a sandbox with the recycle bin redirected: dry run changes
+  nothing, `--apply` renames, promotes, skips the collision, recycles junk, and
+  leaves `Featurettes`, `Subs` and root subtitles untouched.
+- [x] G4. **`_qbt_prune_broken.py` failed unreadably, and unsafely.** Done
+  2026-07-27. With qBittorrent unreachable it exited with a raw traceback; worse,
+  had the call returned `[]` instead of raising, the script would have printed
+  "qBittorrent reported no torrents" and exited 0 — a failure indistinguishable
+  from an empty result, in a script whose job is to delete torrents that appear
+  to have no files. Now reports the failure and exits non-zero without changing
+  anything.
 - [ ] G4. `_debug_missing.py` (30 lines) and `_debug_query.py` (58 lines) look
   like scratch debugging kept by accident. *Deletion candidates, your call.*
-- [ ] G5. Add `scripts/README.md` — what each script is for, and which are safe
-  to run. *(Also C7.)*
+- [x] G5. **`scripts/README.md` added. Done 2026-07-27.** What each script is
+  for, which of the ten change files, and the four rules they follow — dry run by
+  default, `os.rename` never `shutil.move`, recycle never unlink, refuse rather
+  than guess — each with the incident that earned it. Also answers C7: the
+  leading underscore marks them internal to the repo, not "do not run".
 
 ---
 

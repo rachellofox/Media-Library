@@ -37,7 +37,16 @@ if not app._qbt_webui_enabled():
     print('qBittorrent WebUI is not configured - nothing to do.')
     sys.exit(0)
 
-torrents = app._qbt_webui_torrents_info() or []
+# An unreachable qBittorrent must not read as "no torrents" — this script
+# deletes torrents that appear to have no files, and everything appears to have
+# no files when the answer never arrived.
+try:
+    torrents = app._qbt_webui_torrents_info() or []
+except Exception as error:
+    print(f'Could not reach qBittorrent: {error}')
+    print('Nothing was changed. Check the WebUI URL and credentials in Settings.')
+    sys.exit(1)
+
 if not torrents:
     print('qBittorrent reported no torrents.')
     sys.exit(0)
