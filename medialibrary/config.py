@@ -28,3 +28,14 @@ QBT_WEBUI_PASSWORD = os.environ.get('QBT_WEBUI_PASSWORD', '').strip()
 # about a minute, so these are deliberately generous.
 DISCOVER_COLLECTION_CACHE_HOURS = int(os.environ.get('DISCOVER_COLLECTION_CACHE_HOURS', '24'))
 DISCOVER_WATCHLIST_CACHE_HOURS = int(os.environ.get('DISCOVER_WATCHLIST_CACHE_HOURS', '24'))
+
+TRUSTED_RELEASE_GROUPS = (
+    'qxr',
+    'tigole',
+    'ctrlhd',
+    'framestor',
+    'flux',
+    'ntb',
+    'rarbg',
+    'yts',
+)

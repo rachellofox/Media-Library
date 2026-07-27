@@ -70,7 +70,7 @@ print('\n=== 5. Nothing is refused when the title is unknown ===')
 check('no show title means no opinion', names_other_show('Chernobyl.S01E01.mkv', '') is False)
 
 print('\n=== 6. End to end: the scan reports it as unmatched, not as an episode ===')
-import app
+from medialibrary.identify import scan_local_episodes
 
 with tempfile.TemporaryDirectory() as root:
     show = os.path.join(root, 'Parks and Recreation')
@@ -84,7 +84,7 @@ with tempfile.TemporaryDirectory() as root:
     with open(stray, 'wb') as fh:
         fh.write(b'x' * 50000)
 
-    matched, unmatched = app.scan_local_episodes(show, 'Parks and Recreation')
+    matched, unmatched = scan_local_episodes(show, 'Parks and Recreation')
     check(
         'S01E01 resolves to the real Pilot even though the stray is bigger',
         matched.get((1, 1)) == real,
@@ -94,7 +94,7 @@ with tempfile.TemporaryDirectory() as root:
     check('the stray claimed no episode number', stray not in matched.values(), matched)
 
     # And with the title left out, the folder name is used instead.
-    matched, _u = app.scan_local_episodes(show)
+    matched, _u = scan_local_episodes(show)
     check(
         'folder name works as the fallback title', matched.get((1, 1)) == real, matched.get((1, 1))
     )

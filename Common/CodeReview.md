@@ -30,8 +30,8 @@ progress is measurable rather than asserted.
 | Measure | At review start | Now |
 | --- | --- | --- |
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
-| `app.py` | 5,318 lines, 61 routes, 205 functions | **2,746 lines**, 48 routes |
-| Modules in `medialibrary/` | 0 | 18 — the whole codebase bar `app.py` |
+| `app.py` | 5,318 lines, 61 routes, 205 functions | **2,486 lines**, 43 routes |
+| Modules in `medialibrary/` | 0 | 21 — the whole codebase bar `app.py` |
 | Python files at the repo root | 9 | **1** (`app.py`) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
 | Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
@@ -411,10 +411,20 @@ worked one at a time:
   Endpoint names change under a blueprint (`watch_video` → `video.watch_video`).
   Checked before moving: every `url_for` in the codebase names `index` or `login`,
   and the front end builds video URLs as literal paths, so nothing broke.
-  Remaining groups, by size: core (12 routes, 388 lines, needs 19 helpers —
-  hardest), discover (14/297), settings (8/279), tv (5/230), library (7/215),
-  auth (2/42). The error-shape consistency review this item originally called for
-  is still to do.
+  **The tv group followed (2026-07-27):** `medialibrary/web/tv.py`, 5 routes and
+  272 lines. `app.py` now 2,486 lines and 43 routes.
+  `configured_mirror_urls` moved to `medialibrary.qb_search`, since six callers
+  across the application and the route modules need it and a route module
+  importing `app` would be circular.
+  Two things cost time and are worth recording. Git Bash rewrites an argument
+  that looks like a Unix absolute path — `/api/tv` arrived as
+  `C:/Program Files/Git/api/tv`, so the extractor matched nothing and reported
+  success twice before I looked at what Python actually received. And re-running
+  it with a different argument list overwrote the output file, losing a function
+  the first run had moved; it was restored from the call sites.
+  Remaining groups, by size: core (12 routes, needs 19 helpers — hardest),
+  discover (14/297), settings (8/279), library (7/215), auth (2/42). The
+  error-shape consistency review this item originally called for is still to do.
 - [ ] E9. Sweep for dead code across the whole module once the above are done.
 
 ---

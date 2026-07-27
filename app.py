@@ -18,19 +18,22 @@ from flask import Flask, jsonify, redirect, render_template, request, session, u
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from medialibrary import runtime
-from medialibrary.config import (  # noqa: F401  BASE_DIR re-exported for scripts
-    BASE_DIR,
+from medialibrary.config import (
     DB_PATH,
-    FFMPEG_EXE,
     FFPROBE_EXE,
-    HLS_CACHE_DIR,
     POSTER_DIR,
+    TRUSTED_RELEASE_GROUPS,
 )
-from medialibrary.qb_search import DEFAULT_MIRROR_URLS, QBSearch, SearchEngineError
+from medialibrary.qb_search import (
+    QBSearch,
+    SearchEngineError,
+    configured_mirror_urls,
+)
 from medialibrary.quality import compare_quality, detect_quality, detect_quality_from_file
 from medialibrary.storage import Storage
 from medialibrary.tmdb_client import TmdbClient
 from medialibrary.trakt_client import TraktClient, TraktRequestError
+from medialibrary.web.tv import bp as tv_bp
 from medialibrary.web.video import bp as video_bp
 
 try:
@@ -69,16 +72,6 @@ QBT_NOVA_PATH = os.environ.get(
 QBT_WEBUI_URL = os.environ.get('QBT_WEBUI_URL', '').strip().rstrip('/')
 QBT_WEBUI_USERNAME = os.environ.get('QBT_WEBUI_USERNAME', '').strip()
 QBT_WEBUI_PASSWORD = os.environ.get('QBT_WEBUI_PASSWORD', '').strip()
-TRUSTED_RELEASE_GROUPS = (
-    'qxr',
-    'tigole',
-    'ctrlhd',
-    'framestor',
-    'flux',
-    'ntb',
-    'rarbg',
-    'yts',
-)
 TRAKT_TOKEN_SETTING = 'trakt_oauth_token'
 TRAKT_PROFILE_SETTING = 'trakt_oauth_profile'
 TRAKT_DEVICE_SETTING = 'trakt_oauth_device'
@@ -625,15 +618,12 @@ from medialibrary.downloads import (  # noqa: F401
 from medialibrary.identify import (
     VIDEO_EXTENSIONS,
     _best_local_video_path,
-    _featurette_label,
-    _infer_season_from_path,
     _normalized_title_tokens,
     _pack_films_in,
     _resolve_episode_file,  # noqa: F401
     _titles_likely_match,
     choose_search_result,
     normalize_media_name,
-    scan_local_episodes,
 )
 from medialibrary.playback import (  # noqa: F401
     _DIRECT_PLAY_AUDIO_CODECS,
@@ -755,15 +745,10 @@ qb = QBSearch(nova_path=QBT_NOVA_PATH)
 # Registered after the singletons exist, since runtime.configure() above is
 # what the blueprint reads them through.
 app.register_blueprint(video_bp)
+app.register_blueprint(tv_bp)
 
 # Clean up old HLS cache on startup
 _cleanup_hls_cache()
-
-
-def configured_mirror_urls() -> list[str]:
-    raw = store.get_setting('mirror_urls') or ''
-    urls = [line.strip() for line in raw.splitlines() if line.strip()]
-    return urls or list(DEFAULT_MIRROR_URLS)
 
 
 AUTH_EXEMPT_ENDPOINTS = {'login', 'static'}
@@ -2432,251 +2417,6 @@ def discover_unignore_tv():
             return jsonify({'ok': False, 'error': 'invalid_season'}), 400
     store.unignore_tv(tmdb_id, season_number)
     return jsonify({'ok': True})
-
-
-@app.route('/api/tv/<int:media_id>/missing')
-def tv_missing_episodes(media_id: int):
-    """Aired-but-unowned episodes for one show, for the hero's check button."""
-    item = store.get_media_item(media_id)
-    if not item or (item['media_type'] or '') != 'tv':
-        return jsonify({'ok': False, 'error': 'not_a_tv_show'}), 404
-    if not tmdb:
-        return jsonify({'ok': False, 'error': 'tmdb_not_configured'}), 503
-
-    ignored = store.list_ignored_tv().get(int(item['tmdb_id'] or 0), set())
-    show = _missing_episodes_for_show(item, ignored)
-    return jsonify(
-        {
-            'ok': True,
-            'media_id': media_id,
-            'title': item['title'],
-            'show': show,
-            'missing_count': show['missing_count'] if show else 0,
-        }
-    )
-
-
-@app.route('/api/tv/<int:media_id>/episode-candidates')
-def tv_episode_candidates(media_id: int):
-    """Torrent candidates for one episode, for the add-to-library flow."""
-    item = store.get_media_item(media_id)
-    if not item or (item['media_type'] or '') != 'tv':
-        return jsonify({'ok': False, 'error': 'not_a_tv_show'}), 404
-    try:
-        season = int(request.args.get('season'))
-        episode = int(request.args.get('episode'))
-    except (TypeError, ValueError):
-        return jsonify({'ok': False, 'error': 'invalid_episode'}), 400
-
-    title = (item['title'] or '').strip()
-    if not title:
-        return jsonify({'ok': False, 'error': 'missing_title'}), 400
-
-    # Searched as "Show S04E02" — the year is deliberately left out, since a
-    # series year rarely appears in an episode release name.
-    query = f'{title} S{season:02d}E{episode:02d}'
-    try:
-        qb.set_mirror_urls(configured_mirror_urls())
-        rows = qb._run_search(query)
-    except SearchEngineError as exc:
-        return jsonify({'ok': False, 'error': 'search_unavailable', 'detail': str(exc)}), 503
-
-    candidates = []
-    for row in rows:
-        name = row.get('name') or ''
-        candidates.append(
-            {
-                'name': name,
-                'size': row.get('size') or '',
-                'seeds': row.get('seeds') or '0',
-                'leech': row.get('leech') or '0',
-                'desc_link': row.get('desc_link') or '',
-                'link': row.get('link') or '',
-                'quality': detect_quality(name),
-                'trusted': any(group in name.lower() for group in TRUSTED_RELEASE_GROUPS),
-            }
-        )
-    candidates.sort(key=lambda c: (not c['trusted'], -int(c['seeds'] or 0)))
-    return jsonify(
-        {
-            'ok': True,
-            'media_id': media_id,
-            'query': query,
-            'title': f'{title} S{season:02d}E{episode:02d}',
-            'candidates': candidates[:25],
-        }
-    )
-
-
-@app.route('/api/tv/<int:media_id>/seasons')
-def tv_seasons_listing(media_id: int):
-    item = store.get_media_item(media_id)
-    if not item or (item['media_type'] or '') != 'tv':
-        return jsonify({'ok': False, 'error': 'not_a_tv_show'}), 404
-
-    show_path = (item['path'] or '').strip()
-    matched, unmatched = scan_local_episodes(show_path, item['title'] or '')
-
-    owned_counts: dict[int, int] = {}
-    for season_number, _episode in matched:
-        owned_counts[season_number] = owned_counts.get(season_number, 0) + 1
-
-    # The cached status carries the season list too, so the hero learns whether
-    # the show is still airing without a second request.
-    overview = _cached_tv_status(int(item['tmdb_id'])) if (tmdb and item['tmdb_id']) else {}
-    tmdb_names = {}
-    tmdb_counts = {}
-    for season in overview.get('seasons') or []:
-        tmdb_names[season['season_number']] = season['name']
-        tmdb_counts[season['season_number']] = season['episode_count']
-
-    # A show whose files carry no SxxExx has no seasons to list, so its folders
-    # would offer nothing at all without the extras entry below.
-    featurette_seasons: dict[int, int] = {}
-    show_level_extras = 0
-    for path in unmatched:
-        season = _infer_season_from_path(show_path, path)
-        if season is None:
-            show_level_extras += 1
-        else:
-            featurette_seasons[season] = featurette_seasons.get(season, 0) + 1
-
-    seasons = [
-        {
-            'season_number': number,
-            'name': tmdb_names.get(number) or ('Specials' if number == 0 else f'Season {number}'),
-            'owned_count': count,
-            'episode_count': tmdb_counts.get(number) or count,
-            'featurette_count': featurette_seasons.get(number, 0),
-        }
-        for number, count in sorted(owned_counts.items())
-    ]
-
-    # Seasons that hold only featurettes still deserve an entry.
-    for number in sorted(set(featurette_seasons) - set(owned_counts)):
-        seasons.append(
-            {
-                'season_number': number,
-                'name': tmdb_names.get(number)
-                or ('Specials' if number == 0 else f'Season {number}'),
-                'owned_count': 0,
-                'episode_count': tmdb_counts.get(number) or 0,
-                'featurette_count': featurette_seasons[number],
-            }
-        )
-    seasons.sort(key=lambda entry: entry['season_number'])
-
-    # Included so the hero can offer its "missing" action to any show with gaps,
-    # not just one still airing — an ended show can be missing whole seasons.
-    ignored = store.list_ignored_tv().get(int(item['tmdb_id'] or 0), set())
-    gaps = _missing_episodes_for_show(item, ignored)
-
-    return jsonify(
-        {
-            'ok': True,
-            'media_id': media_id,
-            'title': item['title'],
-            'seasons': seasons,
-            'extras_count': show_level_extras,
-            'unmatched_count': len(unmatched),
-            'status': overview.get('status'),
-            'in_production': bool(overview.get('in_production')),
-            'next_air_date': overview.get('next_air_date'),
-            'missing_count': gaps['missing_count'] if gaps else 0,
-        }
-    )
-
-
-@app.route('/api/tv/<int:media_id>/season/<int:season_number>')
-def tv_season_episodes(media_id: int, season_number: int):
-    item = store.get_media_item(media_id)
-    if not item or (item['media_type'] or '') != 'tv':
-        return jsonify({'ok': False, 'error': 'not_a_tv_show'}), 404
-
-    show_path = (item['path'] or '').strip()
-    matched, unmatched = scan_local_episodes(show_path, item['title'] or '')
-    metadata = {
-        entry['episode_number']: entry
-        for entry in (
-            _cached_season_episodes(item['tmdb_id'], season_number) if item['tmdb_id'] else []
-        )
-    }
-
-    owned = {number: path for (season, number), path in matched.items() if season == season_number}
-
-    episodes = []
-    for number in sorted(owned):
-        meta = metadata.get(number, {})
-        episodes.append(
-            {
-                'season_number': season_number,
-                'episode_number': number,
-                'title': meta.get('title') or f'Episode {number}',
-                'synopsis': meta.get('synopsis'),
-                'air_date': meta.get('air_date'),
-                'runtime': meta.get('runtime'),
-                'still_url': meta.get('still_url'),
-                'file': os.path.relpath(owned[number], show_path),
-            }
-        )
-
-    # Files with no SxxExx are listed for the specials/unknown view only, so a
-    # show that uses another convention is still playable rather than invisible.
-    extras = (
-        []
-        if season_number != 0
-        else [
-            {'name': os.path.basename(path), 'file': os.path.relpath(path, show_path)}
-            for path in unmatched
-        ]
-    )
-
-    return jsonify(
-        {
-            'ok': True,
-            'media_id': media_id,
-            'season_number': season_number,
-            'episodes': episodes,
-            'unmatched': extras,
-        }
-    )
-
-
-@app.route('/api/tv/<int:media_id>/unmatched')
-def tv_unmatched_files(media_id: int):
-    """Video files in a show folder with no SxxExx marker.
-
-    These are overwhelmingly featurettes and extras. They are listed separately so
-    they stay playable without being given episode numbers they do not have.
-    """
-    item = store.get_media_item(media_id)
-    if not item or (item['media_type'] or '') != 'tv':
-        return jsonify({'ok': False, 'error': 'not_a_tv_show'}), 404
-
-    show_path = (item['path'] or '').strip()
-    _matched, unmatched = scan_local_episodes(show_path, item['title'] or '')
-
-    # 'season=4' narrows to that season's folder; 'season=extras' returns the
-    # show-wide ones that no folder attributes to a season.
-    requested = (request.args.get('season') or '').strip().lower()
-    files = []
-    for path in sorted(unmatched):
-        season = _infer_season_from_path(show_path, path)
-        if requested == 'extras':
-            if season is not None:
-                continue
-        elif requested and str(season) != requested:
-            continue
-        basename = os.path.basename(path)
-        files.append(
-            {
-                'name': basename,
-                'label': _featurette_label(basename),
-                'season': season,
-                'file': os.path.relpath(path, show_path),
-            }
-        )
-    return jsonify({'ok': True, 'media_id': media_id, 'files': files})
 
 
 # Per-media lock guards segment-endpoint restarts so concurrent hls.js requests cooperate.

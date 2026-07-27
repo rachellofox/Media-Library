@@ -215,3 +215,18 @@ class QBSearch:
             'best': best,
             'result_count': len(rows),
         }
+
+
+def configured_mirror_urls() -> list[str]:
+    """Mirrors to search: the configured list, or the defaults if none is set.
+
+    Lives here rather than in the application because both the routes and the
+    request handlers need it, and a route module importing `app` would be
+    circular. The store is reached through `runtime`, which is how everything
+    outside `app` gets at it.
+    """
+    from medialibrary import runtime
+
+    raw = runtime.store().get_setting('mirror_urls') or ''
+    urls = [line.strip() for line in raw.splitlines() if line.strip()]
+    return urls or list(DEFAULT_MIRROR_URLS)

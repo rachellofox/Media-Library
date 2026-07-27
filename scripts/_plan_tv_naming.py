@@ -35,7 +35,13 @@ from medialibrary.episode_match import (
     names_other_show,
     normalise_episode_title,
 )
-from medialibrary.identify import _SEASON_DIR_EXACT, _SPECIALS_DIR, _episodes_covered
+from medialibrary.identify import (
+    _SEASON_DIR_EXACT,
+    _SPECIALS_DIR,
+    _episodes_covered,
+    _infer_season_from_path,
+    scan_local_episodes,
+)
 from medialibrary.naming import canonical_episode_name, canonical_season_folder
 
 APPLY = '--apply' in sys.argv
@@ -325,7 +331,7 @@ for item in app.store.list_media_items():
         continue
 
     episodes = tmdb_episodes(item['tmdb_id'])
-    marked, unmarked = app.scan_local_episodes(show_path, show_title)
+    marked, unmarked = scan_local_episodes(show_path, show_title)
 
     # A file naming another show is never renamed, whatever its marker says. It
     # is a misplacement to be moved out by hand, not an episode of this show.
@@ -454,7 +460,7 @@ for item in app.store.list_media_items():
         # Anything already being renamed as an episode is not a stray.
         if path in planned:
             continue
-        season = app._infer_season_from_path(show_path, path)
+        season = _infer_season_from_path(show_path, path)
         if season is None:
             continue
         season_folder = os.path.join(show_path, canonical_season_folder(season))
@@ -485,7 +491,7 @@ for item in app.store.list_media_items():
             if extension in app.VIDEO_EXTENSIONS or extension in SUBTITLE_EXTENSIONS:
                 continue  # handled above
             path = os.path.join(root, name)
-            season = app._infer_season_from_path(show_path, path)
+            season = _infer_season_from_path(show_path, path)
             if season is None:
                 continue
             season_folder = os.path.join(show_path, canonical_season_folder(season))

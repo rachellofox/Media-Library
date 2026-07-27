@@ -9,6 +9,7 @@ sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
+from medialibrary.identify import _featurette_label, _infer_season_from_path, scan_local_episodes
 from medialibrary.web.video import _request_video_file
 
 PASS, FAIL = [], []
@@ -51,7 +52,7 @@ make('Season 02/Show_s02e01_Return.mkv')  # lowercase
 make('Season 02/Show S02E10.mkv')
 make('Extras/Behind the Scenes.mkv')  # no marker
 make('Season 02/Season 2 Outtakes.mkv')  # no marker
-matched, unmatched = app.scan_local_episodes(show)
+matched, unmatched = scan_local_episodes(show)
 check('finds all 5 marked episodes', len(matched) == 5, sorted(matched))
 check('season 1 has 3 episodes', sum(1 for s, _ in matched if s == 1) == 3)
 check('lowercase s02e01 parsed', (2, 1) in matched)
@@ -62,13 +63,13 @@ check('extras are not given episode numbers', not any('Behind' in p for p in mat
 
 print('\n=== 2. Folder is ignored; the filename wins ===')
 mislabelled = make('Season 09/Show - S03E07 - Wrong Folder.mkv')
-matched, _ = app.scan_local_episodes(show)
+matched, _ = scan_local_episodes(show)
 check('S03E07 indexed from its name, not Season 09', same(matched.get((3, 7)), mislabelled))
 
 print('\n=== 3. Duplicate rips keep the largest ===')
 small = make('Season 01/dupe/Show S01E01 small.mkv', 10)
 big = make('Season 01/dupe/Show S01E01 big.mkv', 999999)
-matched, _ = app.scan_local_episodes(show)
+matched, _ = scan_local_episodes(show)
 check('largest duplicate wins', same(matched[(1, 1)], big), matched[(1, 1)])
 check('smaller duplicate discarded', not same(matched[(1, 1)], small))
 
@@ -181,13 +182,13 @@ label_cases = [
     ('Behind.The.Scenes.1080p.WEB-DL.mkv', 'Behind The Scenes'),
 ]
 for raw, expected in label_cases:
-    got = app._featurette_label(raw)
+    got = _featurette_label(raw)
     check(f'{expected!r} from a release filename', got == expected, got)
 check(
     'a name that is entirely junk still returns something',
-    app._featurette_label('1080p.x265.mkv') != '',
+    _featurette_label('1080p.x265.mkv') != '',
 )
-check('extension alone does not empty the label', app._featurette_label('.mkv') != '')
+check('extension alone does not empty the label', _featurette_label('.mkv') != '')
 
 print('\n=== 10. Featurettes are scoped by their folder ===')
 season_cases = [
@@ -221,17 +222,17 @@ season_cases = [
     ('Season 2/Featurettes/x.mkv', 2, 'nested inside a season'),
 ]
 for rel, expected, why in season_cases:
-    got = app._infer_season_from_path(show, os.path.join(show, rel.replace('/', os.sep)))
+    got = _infer_season_from_path(show, os.path.join(show, rel.replace('/', os.sep)))
     check(f'{why} -> {expected}', got == expected, got)
 
 print('\n=== 11. The unmatched endpoint filters by season ===')
 os.makedirs(os.path.join(show, 'Season 03'), exist_ok=True)
 make('Season 03/A Bonus Feature (1080p x265).mkv')
 make('Featurettes/A Show Wide Extra.mkv')
-_m, unmatched_all = app.scan_local_episodes(show)
+_m, unmatched_all = scan_local_episodes(show)
 by_season = {}
 for path in unmatched_all:
-    key = app._infer_season_from_path(show, path)
+    key = _infer_season_from_path(show, path)
     by_season.setdefault(key, []).append(path)
 check('season 3 featurette scoped to 3', len(by_season.get(3, [])) == 1, by_season.get(3))
 check(
