@@ -38,17 +38,24 @@ progress is measurable rather than asserted.
 | Lint findings (`ruff check .`) | n/a — no linter | **0** |
 | Formatting (`ruff format --check`) | n/a — no formatter | **53 files conform** |
 | Lines over 100 chars | 80 (of a then-unset limit) | **0** |
-| Style violations (dividers, dead code, missing docstrings) | 0 | 0 |
+| Style violations (dividers, dead code, missing docstrings) | 10 *(scan said 0 — see G0)* | **0** |
 
-The style scan result was worth stating plainly at the outset and still is: the
-Python already followed the commenting and docstring rules closely. This review
-was therefore always mostly about **structure, safety nets and repo hygiene**,
-not a comment-cleaning exercise — and that is where the real defects turned up.
+The opening claim that the Python already followed the commenting rules closely
+was broadly right but rested on a scan that under-counted — see G0. The
+conclusion drawn from it still holds: this review was always mostly about
+**structure, safety nets and repo hygiene**, and that is where the real defects
+turned up.
 
-**Defects found by this review so far:** an arbitrary-file-read over the
-direct-stream route (I4), a leaked file descriptor on every failed playback start
-(E5), and the app returning 500 from any entry point other than `python app.py`
-(C2a). All three were surfaced by tooling or probing, not by reading code.
+**Defects found by this review so far**, none of them found by reading code —
+every one came from running, probing or linting:
+
+- an arbitrary-file-read over the direct-stream route (I4)
+- a maintenance script that overwrote a film with a nested copy of itself, and
+  had been crashing on its first log line for so long nobody noticed (G3)
+- a leaked file descriptor on every failed playback start (E5)
+- the app returning 500 from any entry point other than `python app.py` (C2a)
+- a script that reported "no torrents" when it could not reach qBittorrent, in
+  the act of deleting torrents that appear to have no files (G4)
 
 ---
 
@@ -113,11 +120,14 @@ in some ways and not others.
   argument alignment are not to be hand-tuned — and CI runs
   `ruff format --check` alongside `ruff check`, so consistency is enforced rather
   than remembered. This is what makes A2's line-length rule self-maintaining.
-- [ ] A6. **`copilot-instructions.md` describes a repo that no longer exists.**
-  It lists `imdb_client.py` as the metadata client (it is dead — see B6, and
-  TMDB is the real client) and points at `docs/` (deleted — see C3). It omits
-  `naming.py`, `episode_match.py`, `subtitle_client.py`, `trakt_client.py` and
-  `tmdb_client.py` entirely.
+- [x] A6. **Repo map corrected. Done 2026-07-26.** It had named the dead
+  `imdb_client.py` as the metadata client, pointed at a deleted `docs/`, omitted
+  five modules, and knew nothing of `medialibrary/`. It now lists the seven
+  `medialibrary` modules and states the two rules that hold across them — never
+  import `app`, take dependencies as getters via `configure()`; and moved names
+  are re-imported into `app.py`, which preserves callers but *not*
+  monkeypatching. Every path named was checked to exist, which is how the
+  dangling `imdb_client.py` reference surfaced.
 - [ ] A7. **No commit or branch conventions**, despite `main` being the only
   branch and history being two commits.
 
