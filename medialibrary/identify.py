@@ -467,3 +467,10 @@ def _resolve_episode_file(show_path: str, relative: str) -> str | None:
     if os.path.splitext(target)[1].lower() not in VIDEO_EXTENSIONS:
         return None
     return target
+
+
+def _is_local_media_missing(media_path: str | None) -> bool:
+    path = (media_path or '').strip()
+    if not path:
+        return True
+    return _best_local_video_path(path) is None

@@ -1,5 +1,4 @@
 import ipaddress
-import json
 import os
 import re
 import secrets
@@ -22,7 +21,6 @@ from medialibrary.config import (
     DB_PATH,
     FFPROBE_EXE,
     POSTER_DIR,
-    TRUSTED_RELEASE_GROUPS,
 )
 from medialibrary.qb_search import (
     QBSearch,
@@ -33,6 +31,7 @@ from medialibrary.quality import compare_quality, detect_quality, detect_quality
 from medialibrary.storage import Storage
 from medialibrary.tmdb_client import TmdbClient
 from medialibrary.trakt_client import TraktClient, TraktRequestError
+from medialibrary.web.discover import bp as discover_bp
 from medialibrary.web.tv import bp as tv_bp
 from medialibrary.web.video import bp as video_bp
 
@@ -51,9 +50,6 @@ __version__ = '0.1.0'
 # names.
 POSTERS_DIR = POSTER_DIR
 
-# Poster choices are only accepted from TMDB's own image host, so a crafted
-# request cannot make the server fetch an arbitrary URL.
-TMDB_IMAGE_PREFIX = 'https://image.tmdb.org/t/p/'
 
 DEFAULT_SERVER_PORT = 5100
 LOOPBACK_HOST = '127.0.0.1'
@@ -72,11 +68,6 @@ QBT_NOVA_PATH = os.environ.get(
 QBT_WEBUI_URL = os.environ.get('QBT_WEBUI_URL', '').strip().rstrip('/')
 QBT_WEBUI_USERNAME = os.environ.get('QBT_WEBUI_USERNAME', '').strip()
 QBT_WEBUI_PASSWORD = os.environ.get('QBT_WEBUI_PASSWORD', '').strip()
-TRAKT_TOKEN_SETTING = 'trakt_oauth_token'
-TRAKT_PROFILE_SETTING = 'trakt_oauth_profile'
-TRAKT_DEVICE_SETTING = 'trakt_oauth_device'
-TRAKT_SECRET_SERVICE = 'MediaLibrary'
-TRAKT_SECRET_ACCOUNT = 'trakt_client_secret'
 TMDB_SECRET_SERVICE = 'MediaLibrary'
 TMDB_SECRET_ACCOUNT = 'tmdb_api_key'
 AUTH_SECRET_SERVICE = 'MediaLibrary'
@@ -85,37 +76,6 @@ AUTH_SECRET_ACCOUNT = 'session_secret_key'
 SESSION_LIFETIME_DAYS = 30
 AUTH_MAX_ATTEMPTS = 5
 AUTH_LOCKOUT = timedelta(minutes=5)
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _parse_iso_datetime(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace('Z', '+00:00'))
-    except Exception:
-        return None
-
-
-def _load_json_setting(key: str) -> dict | None:
-    raw = store.get_setting(key)
-    if not raw:
-        return None
-    try:
-        data = json.loads(raw)
-    except Exception:
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def _save_json_setting(key: str, value: dict | None) -> None:
-    if not value:
-        store.delete_setting(key)
-        return
-    store.set_setting(key, json.dumps(value))
 
 
 def _tmdb_api_key() -> str:
@@ -185,128 +145,6 @@ def _refresh_tmdb_client() -> None:
     global tmdb
     api_key = _tmdb_api_key()
     tmdb = TmdbClient(api_key=api_key) if api_key else None
-
-
-def _trakt_client_id() -> str:
-    return (store.get_setting('trakt_client_id') or '').strip()
-
-
-def _trakt_client_secret() -> str:
-    try:
-        stored_secret = keyring.get_password(TRAKT_SECRET_SERVICE, TRAKT_SECRET_ACCOUNT)
-    except Exception:
-        stored_secret = ''
-    return (stored_secret or '').strip()
-
-
-def _set_trakt_client_secret(secret: str) -> None:
-    secret = (secret or '').strip()
-    if not secret:
-        return
-    keyring.set_password(TRAKT_SECRET_SERVICE, TRAKT_SECRET_ACCOUNT, secret)
-
-
-def _trakt_username() -> str:
-    return (store.get_setting('trakt_username') or '').strip()
-
-
-def _serialize_trakt_token(token: dict) -> dict:
-    created_at = token.get('created_at')
-    expires_in = int(token.get('expires_in') or 0)
-    if created_at is not None:
-        issued_at = datetime.fromtimestamp(int(created_at), tz=timezone.utc)
-    else:
-        issued_at = _utc_now()
-    expires_at = issued_at + timedelta(seconds=expires_in)
-    payload = dict(token)
-    payload['expires_at'] = expires_at.isoformat()
-    return payload
-
-
-def _trakt_device_flow() -> dict | None:
-    flow = _load_json_setting(TRAKT_DEVICE_SETTING)
-    if not flow:
-        return None
-    expires_at = _parse_iso_datetime(flow.get('expires_at'))
-    if expires_at and expires_at <= _utc_now():
-        _save_json_setting(TRAKT_DEVICE_SETTING, None)
-        return None
-    return flow
-
-
-def _clear_trakt_auth() -> None:
-    _save_json_setting(TRAKT_TOKEN_SETTING, None)
-    _save_json_setting(TRAKT_PROFILE_SETTING, None)
-    _save_json_setting(TRAKT_DEVICE_SETTING, None)
-
-
-def _refresh_trakt_token_if_needed() -> dict | None:
-    token = _load_json_setting(TRAKT_TOKEN_SETTING)
-    if not token:
-        return None
-    expires_at = _parse_iso_datetime(token.get('expires_at'))
-    if expires_at and expires_at > (_utc_now() + timedelta(seconds=60)):
-        return token
-    client_id = _trakt_client_id()
-    client_secret = _trakt_client_secret()
-    if not client_id or not client_secret or not token.get('refresh_token'):
-        _clear_trakt_auth()
-        return None
-    try:
-        trakt = TraktClient(client_id=client_id, client_secret=client_secret)
-        refreshed = _serialize_trakt_token(trakt.exchange_refresh_token(token['refresh_token']))
-        _save_json_setting(TRAKT_TOKEN_SETTING, refreshed)
-        return refreshed
-    except Exception:
-        _clear_trakt_auth()
-        return None
-
-
-def _connected_trakt_profile() -> dict | None:
-    profile = _load_json_setting(TRAKT_PROFILE_SETTING)
-    return profile or None
-
-
-def _trakt_client() -> TraktClient | None:
-    client_id = _trakt_client_id()
-    token = _refresh_trakt_token_if_needed()
-    if not client_id or not token or not token.get('access_token'):
-        return None
-    return TraktClient(
-        client_id=client_id,
-        client_secret=_trakt_client_secret(),
-        access_token=token['access_token'],
-    )
-
-
-def _trakt_display_username() -> str:
-    profile = _connected_trakt_profile() or {}
-    return profile.get('slug') or profile.get('username') or _trakt_username()
-
-
-def _trakt_context() -> dict:
-    client_id = _trakt_client_id()
-    client_secret = _trakt_client_secret()
-    username = _trakt_username()
-    profile = _connected_trakt_profile() or {}
-    return {
-        'oauth_available': bool(client_id and client_secret),
-        'connected': bool(_refresh_trakt_token_if_needed()),
-        'configured': bool(client_id and client_secret),
-        'username': _trakt_display_username(),
-        'profile': profile,
-        'device_flow': _trakt_device_flow(),
-        'client_id': client_id,
-        'saved_username': username,
-        'secret_configured': bool(client_secret),
-    }
-
-
-def _is_local_media_missing(media_path: str | None) -> bool:
-    path = (media_path or '').strip()
-    if not path:
-        return True
-    return _best_local_video_path(path) is None
 
 
 def _public_access_enabled() -> bool:
@@ -383,43 +221,6 @@ def _upgrade_available(item) -> bool:
     except (KeyError, IndexError):
         current = None
     return compare_quality(current, best_found) > 0
-
-
-def cache_poster(key: str, remote_url: str, force_replace: bool = False) -> str:
-    """Download a poster image and save it under static/posters/.
-
-    Returns the local Flask static URL on success, or the original remote URL on failure.
-    Skips download if a local copy already exists.
-    """
-    if not remote_url or not key:
-        return remote_url or ''
-    os.makedirs(POSTERS_DIR, exist_ok=True)
-    ext = os.path.splitext(remote_url.split('?')[0])[-1] or '.jpg'
-    filename = f'{key}{ext}'
-    local_path = os.path.join(POSTERS_DIR, filename)
-    if os.path.exists(local_path) and not force_replace:
-        return f'/static/posters/{filename}'
-
-    if force_replace:
-        key_prefix = f'{key}.'
-        try:
-            for existing in os.listdir(POSTERS_DIR):
-                if existing.startswith(key_prefix):
-                    try:
-                        os.remove(os.path.join(POSTERS_DIR, existing))
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-    try:
-        req = urllib.request.Request(remote_url, headers={'User-Agent': 'MediaLibrary/1.0'})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = resp.read()
-        with open(local_path, 'wb') as fh:
-            fh.write(data)
-        return f'/static/posters/{filename}'
-    except Exception:
-        return remote_url
 
 
 def scan_folder(folder_path: str) -> list[str]:
@@ -618,6 +419,7 @@ from medialibrary.downloads import (  # noqa: F401
 from medialibrary.identify import (
     VIDEO_EXTENSIONS,
     _best_local_video_path,
+    _is_local_media_missing,
     _normalized_title_tokens,
     _pack_films_in,
     _resolve_episode_file,  # noqa: F401
@@ -653,6 +455,13 @@ from medialibrary.playback import (  # noqa: F401
     _stream_file_chunk,
     _transcode_jobs,
 )
+
+# Moved to medialibrary.posters; imported back so existing callers keep working.
+from medialibrary.posters import (
+    TMDB_IMAGE_PREFIX,
+    _cache_meta_poster,
+    cache_poster,
+)
 from medialibrary.qbt import (  # noqa: F401
     QBT_DONE_STATES,
     QbtUnavailableError,
@@ -669,6 +478,14 @@ from medialibrary.qbt import (  # noqa: F401
     _qbt_webui_url,
     _qbt_webui_username,
     _torrent_is_complete,
+)
+
+# Moved to medialibrary.settings_util; imported back so existing callers keep working.
+from medialibrary.settings_util import (  # noqa: F401
+    _load_json_setting,
+    _parse_iso_datetime,
+    _save_json_setting,
+    _utc_now,
 )
 
 # Moved to medialibrary.subtitles; imported by name so every existing
@@ -688,6 +505,34 @@ from medialibrary.subtitles import (  # noqa: F401
     _subtitle_cache,
     scan_subtitles,
 )
+
+# Moved to medialibrary.torrents; imported back so existing callers keep working.
+from medialibrary.torrents import (
+    _torrent_candidates_for,
+)
+
+# Moved to medialibrary.trakt_auth; imported back so existing callers keep working.
+from medialibrary.trakt_auth import (  # noqa: F401
+    TRAKT_DEVICE_SETTING,
+    TRAKT_PROFILE_SETTING,
+    TRAKT_SECRET_ACCOUNT,
+    TRAKT_SECRET_SERVICE,
+    TRAKT_TOKEN_SETTING,
+    _clear_trakt_auth,
+    _connected_trakt_profile,
+    _refresh_trakt_token_if_needed,
+    _serialize_trakt_token,
+    _set_trakt_client_secret,
+    _trakt_client,
+    _trakt_client_id,
+    _trakt_client_secret,
+    _trakt_context,
+    _trakt_device_flow,
+    _trakt_display_username,
+    _trakt_username,
+)
+
+# Moved to medialibrary.identify_extra; imported back so existing callers keep working.
 
 app = Flask(__name__)
 store = Storage(DB_PATH)
@@ -746,6 +591,7 @@ qb = QBSearch(nova_path=QBT_NOVA_PATH)
 # what the blueprint reads them through.
 app.register_blueprint(video_bp)
 app.register_blueprint(tv_bp)
+app.register_blueprint(discover_bp)
 
 # Clean up old HLS cache on startup
 _cleanup_hls_cache()
@@ -848,74 +694,6 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('login'))
-
-
-def _cache_meta_poster(cache_key: str, meta: dict, force_replace: bool = False) -> str | None:
-    remote_url = meta.get('poster_url') or ''
-    return cache_poster(cache_key, remote_url, force_replace=force_replace) or meta.get(
-        'poster_url'
-    )
-
-
-def _torrent_candidates_for(meta: dict, limit: int = 25) -> list[dict]:
-    title = (meta.get('title') or '').strip()
-    year = meta.get('year')
-    if not title:
-        return []
-    query = f'{title} {year}' if year else title
-    # SearchEngineError is deliberately not caught here: an unreachable search
-    # engine must not look like a title with no available releases.
-    qb.set_mirror_urls(configured_mirror_urls())
-    rows = qb._run_search(query)
-
-    candidates = []
-    for row in rows:
-        quality = detect_quality(row.get('name') or '')
-        name = row.get('name') or ''
-        lowered_name = name.lower()
-        trusted = any(group in lowered_name for group in TRUSTED_RELEASE_GROUPS)
-        candidates.append(
-            {
-                'name': name,
-                'size': row.get('size') or '',
-                'seeds': row.get('seeds') or '0',
-                'leech': row.get('leech') or '0',
-                'desc_link': row.get('desc_link') or '',
-                'link': row.get('link') or '',
-                'pub_date': row.get('pub_date') or '',
-                'quality': quality,
-                'trusted': trusted,
-            }
-        )
-
-    def _seed_count(item: dict) -> int:
-        try:
-            return int(item.get('seeds') or 0)
-        except Exception:
-            return 0
-
-    preferred_quality = (store.get_setting('preferred_quality') or '2160p').lower()
-    rank_map = {'480p': 1, '720p': 2, '1080p': 3, '1440p': 4, '2160p': 5, '4k': 5}
-
-    def _quality_rank(item: dict) -> int:
-        return rank_map.get((item.get('quality') or '').lower(), 0)
-
-    def _meets_preferred(item: dict) -> int:
-        return 1 if compare_quality(preferred_quality, item.get('quality')) >= 0 else 0
-
-    def _trusted_rank(item: dict) -> int:
-        return 1 if item.get('trusted') else 0
-
-    candidates.sort(
-        key=lambda i: (
-            _meets_preferred(i),
-            _quality_rank(i),
-            _trusted_rank(i),
-            _seed_count(i),
-        ),
-        reverse=True,
-    )
-    return candidates[:limit]
 
 
 def _is_local_or_private_host(hostname: str | None) -> bool:
@@ -1224,125 +1002,6 @@ def search_imdb():
     return jsonify({'query': query, 'results': payload})
 
 
-@app.route('/api/discover')
-def discover_data():
-    trakt = _trakt_context()
-    return jsonify(
-        {
-            'watchlist': _discover_watchlist(),
-            'collections': _discover_incomplete_collections(),
-            'trending': tmdb.trending() if tmdb else [],
-            'trakt_configured': trakt['configured'],
-            'trakt_connected': trakt['connected'],
-            'tmdb_configured': bool(tmdb),
-        }
-    )
-
-
-@app.route('/api/discover/hero')
-def discover_hero_data():
-    if not tmdb:
-        return jsonify({'ok': False, 'error': 'tmdb_not_configured'}), 503
-
-    tmdb_id_raw = request.args.get('tmdb_id', '').strip()
-    media_type = request.args.get('media_type', '').strip().lower()
-    if media_type not in {'movie', 'tv'}:
-        return jsonify({'ok': False, 'error': 'invalid_media_type'}), 400
-    try:
-        tmdb_id = int(tmdb_id_raw)
-    except Exception:
-        return jsonify({'ok': False, 'error': 'invalid_tmdb_id'}), 400
-
-    meta = tmdb.metadata_by_tmdb_id(tmdb_id, media_type)
-    return jsonify(
-        {
-            'ok': True,
-            'item': {
-                'tmdb_id': meta.get('tmdb_id') or tmdb_id,
-                'imdb_id': meta.get('imdb_id'),
-                'title': meta.get('title') or request.args.get('title') or str(tmdb_id),
-                'year': meta.get('year'),
-                'media_type': meta.get('media_type') or media_type,
-                'poster_url': meta.get('poster_url'),
-                'synopsis': meta.get('synopsis'),
-                'actors': meta.get('actors'),
-                'genre_1': meta.get('genre_1'),
-                'genre_2': meta.get('genre_2'),
-                'rating': meta.get('rating'),
-                'current_quality': None,
-                'subtitles': None,
-                'found': 0,
-                'favourite': 0,
-            },
-        }
-    )
-
-
-@app.route('/api/discover/add-and-search', methods=['POST'])
-def discover_add_and_search():
-    if not tmdb:
-        return jsonify({'ok': False, 'error': 'tmdb_not_configured'}), 503
-
-    payload = request.get_json(silent=True) or {}
-    tmdb_id_raw = str(request.form.get('tmdb_id') or payload.get('tmdb_id') or '').strip()
-    media_type = (
-        str(request.form.get('media_type') or payload.get('media_type') or 'movie').strip().lower()
-    )
-    if media_type not in {'movie', 'tv'}:
-        return jsonify({'ok': False, 'error': 'invalid_media_type'}), 400
-
-    try:
-        tmdb_id = int(tmdb_id_raw)
-    except Exception:
-        return jsonify({'ok': False, 'error': 'invalid_tmdb_id'}), 400
-
-    meta = tmdb.metadata_by_tmdb_id(tmdb_id, media_type)
-    if not meta.get('imdb_id'):
-        return jsonify({'ok': False, 'error': 'missing_imdb_id'}), 400
-
-    store.add_media_item(
-        imdb_id=meta['imdb_id'],
-        tmdb_id=meta.get('tmdb_id'),
-        title=meta['title'],
-        year=meta['year'],
-        media_type=meta['media_type'],
-        collection_id=meta.get('collection_id'),
-        collection_name=meta.get('collection_name'),
-        current_quality=None,
-        path=None,
-        poster_url=_cache_meta_poster(meta['imdb_id'], meta),
-        synopsis=meta.get('synopsis'),
-        actors=meta.get('actors'),
-        genre_1=meta.get('genre_1'),
-        genre_2=meta.get('genre_2'),
-        rating=meta.get('rating'),
-        subtitles=None,
-    )
-    row = store.get_media_item_by_imdb_id(meta['imdb_id'])
-    media_id = row['id'] if row else None
-    try:
-        candidates = _torrent_candidates_for(meta)
-    except SearchEngineError as exc:
-        return jsonify(
-            {
-                'ok': False,
-                'error': 'search_unavailable',
-                'message': str(exc),
-                'media_id': media_id,
-            }
-        ), 503
-
-    return jsonify(
-        {
-            'ok': True,
-            'media_id': media_id,
-            'title': meta.get('title') or '',
-            'year': meta.get('year'),
-            'candidates': candidates,
-        }
-    )
-
-
 @app.route('/api/library/retry-download/<int:media_id>')
 def library_retry_download(media_id: int):
     item = _ui_item_payload(media_id)
@@ -1381,77 +1040,6 @@ def library_retry_download(media_id: int):
             'candidates': candidates,
         }
     )
-
-
-@app.route('/api/discover/start-download', methods=['POST'])
-def discover_start_download():
-    payload = request.get_json(silent=True) or {}
-    link = (request.form.get('link') or payload.get('link') or '').strip()
-    desc_link = (request.form.get('desc_link') or payload.get('desc_link') or '').strip()
-    media_id_raw = request.form.get('media_id') or payload.get('media_id')
-    if not link and not desc_link:
-        return jsonify({'ok': False, 'error': 'missing_link'}), 400
-
-    launch = link or desc_link
-    media_item = None
-    try:
-        if media_id_raw not in (None, ''):
-            media_item = store.get_media_item(int(media_id_raw))
-    except Exception:
-        media_item = None
-
-    if medialibrary.qbt._qbt_webui_enabled() and media_item:
-        media_type = media_item['media_type'] or 'movie'
-        target_setting = 'tv_path' if media_type == 'tv' else 'movies_path'
-        library_path = (store.get_setting(target_setting) or '').strip()
-        # Download into staging so a part-finished release is never visible to
-        # the library scanner; it only enters the library once finalised.
-        target_path = _staging_path_for(media_type) or library_path
-        if target_path:
-            # Captured before submitting: an item that already plays is being
-            # upgraded, so finalisation must replace rather than just adopt.
-            existing_path = (media_item['path'] or '').strip()
-            is_upgrade = bool(existing_path) and not _is_local_media_missing(existing_path)
-            try:
-                store.set_download_state(
-                    media_item_id=int(media_item['id']),
-                    status='starting',
-                    source='qb_webui',
-                    message='Submitting to qBittorrent',
-                    mode='upgrade' if is_upgrade else 'fill',
-                    previous_path=existing_path or None,
-                )
-                submitted = medialibrary.qbt._qbt_webui_add_download(launch, target_path)
-                if submitted:
-                    torrent_hash = _extract_btih_hash(launch)
-                    store.set_download_state(
-                        media_item_id=int(media_item['id']),
-                        status='downloading',
-                        source='qb_webui',
-                        message=f'Destination: {target_path}',
-                        torrent_hash=torrent_hash,
-                    )
-                    return jsonify(
-                        {
-                            'ok': True,
-                            'mode': 'qbittorrent',
-                            'save_path': target_path,
-                            'section': 'tv' if media_type == 'tv' else 'movies',
-                            'torrent_hash': torrent_hash,
-                        }
-                    )
-            except Exception:
-                pass
-
-    # Fallback: frontend opens the URL and lets OS/client handle destination.
-    if media_item:
-        store.set_download_state(
-            media_item_id=int(media_item['id']),
-            status='handed_off',
-            source='external_client',
-            message='Sent to torrent client',
-        )
-    return jsonify({'ok': True, 'mode': 'fallback', 'launch_url': launch, 'section': 'movies'})
 
 
 @app.route('/api/library/download-progress/<int:media_id>')
@@ -1541,100 +1129,6 @@ def library_mark_downloaded(media_id: int):
 
     payload = _ui_item_payload(media_id) or {'id': media_id}
     return jsonify({'ok': True, 'item': payload})
-
-
-@app.route('/api/discover/ignore-title', methods=['POST'])
-def discover_ignore_title():
-    payload = request.get_json(silent=True) or {}
-    tmdb_id_raw = request.form.get('tmdb_id') or payload.get('tmdb_id')
-    collection_id_raw = request.form.get('collection_id') or payload.get('collection_id')
-    title = (request.form.get('title') or payload.get('title') or '').strip() or None
-    collection_name = (
-        request.form.get('collection_name') or payload.get('collection_name') or ''
-    ).strip() or None
-    try:
-        tmdb_id = int(tmdb_id_raw)
-    except Exception:
-        return jsonify({'ok': False, 'error': 'invalid_tmdb_id'}), 400
-
-    collection_id = None
-    try:
-        if collection_id_raw not in (None, ''):
-            collection_id = int(collection_id_raw)
-    except Exception:
-        collection_id = None
-
-    store.ignore_discover_title(
-        tmdb_id=tmdb_id,
-        collection_id=collection_id,
-        title=title,
-        collection_name=collection_name,
-    )
-    return jsonify({'ok': True, 'tmdb_id': tmdb_id, 'collection_id': collection_id})
-
-
-@app.route('/api/discover/ignore-collection', methods=['POST'])
-def discover_ignore_collection():
-    payload = request.get_json(silent=True) or {}
-    collection_id_raw = request.form.get('collection_id') or payload.get('collection_id')
-    collection_name = (
-        request.form.get('collection_name') or payload.get('collection_name') or ''
-    ).strip() or None
-    try:
-        collection_id = int(collection_id_raw)
-    except Exception:
-        return jsonify({'ok': False, 'error': 'invalid_collection_id'}), 400
-
-    store.ignore_discover_collection(collection_id=collection_id, collection_name=collection_name)
-    return jsonify({'ok': True, 'collection_id': collection_id})
-
-
-@app.route('/api/discover/ignored')
-def discover_ignored():
-    return jsonify(
-        {
-            'titles': store.list_discover_ignored_titles(),
-            'collections': store.list_discover_ignored_collections(),
-        }
-    )
-
-
-@app.route('/api/discover/unignore-title', methods=['POST'])
-def discover_unignore_title():
-    payload = request.get_json(silent=True) or {}
-    tmdb_id_raw = request.form.get('tmdb_id') or payload.get('tmdb_id')
-    try:
-        tmdb_id = int(tmdb_id_raw)
-    except Exception:
-        return jsonify({'ok': False, 'error': 'invalid_tmdb_id'}), 400
-
-    store.unignore_discover_title(tmdb_id)
-    return jsonify({'ok': True, 'tmdb_id': tmdb_id})
-
-
-@app.route('/api/discover/unignore-collection', methods=['POST'])
-def discover_unignore_collection():
-    payload = request.get_json(silent=True) or {}
-    collection_id_raw = request.form.get('collection_id') or payload.get('collection_id')
-    try:
-        collection_id = int(collection_id_raw)
-    except Exception:
-        return jsonify({'ok': False, 'error': 'invalid_collection_id'}), 400
-
-    store.unignore_discover_collection(collection_id)
-    return jsonify({'ok': True, 'collection_id': collection_id})
-
-
-@app.route('/api/discover/unignore-all-titles', methods=['POST'])
-def discover_unignore_all_titles():
-    store.unignore_all_discover_titles()
-    return jsonify({'ok': True})
-
-
-@app.route('/api/discover/unignore-all-collections', methods=['POST'])
-def discover_unignore_all_collections():
-    store.unignore_all_discover_collections()
-    return jsonify({'ok': True})
 
 
 @app.route('/add', methods=['POST'])
@@ -2362,61 +1856,6 @@ def library_set_poster(media_id: int):
 
     store.update_poster(media_id, cached)
     return jsonify({'ok': True, 'media_id': media_id, 'poster_url': cached})
-
-
-@app.route('/api/discover/missing-episodes')
-def discover_missing_episodes():
-    if not tmdb:
-        return jsonify({'ok': False, 'error': 'tmdb_not_configured'}), 503
-    shows = _discover_missing_episodes()
-    return jsonify(
-        {
-            'ok': True,
-            'shows': shows,
-            'show_count': len(shows),
-            'episode_count': sum(show['missing_count'] for show in shows),
-        }
-    )
-
-
-@app.route('/api/discover/ignore-tv', methods=['POST'])
-def discover_ignore_tv():
-    payload = request.get_json(silent=True) or {}
-    try:
-        tmdb_id = int(request.form.get('tmdb_id') or payload.get('tmdb_id'))
-    except (TypeError, ValueError):
-        return jsonify({'ok': False, 'error': 'invalid_tmdb_id'}), 400
-
-    raw_season = request.form.get('season') or payload.get('season')
-    if raw_season in (None, '', 'all'):
-        season_number = Storage.IGNORE_WHOLE_SHOW
-    else:
-        try:
-            season_number = int(raw_season)
-        except (TypeError, ValueError):
-            return jsonify({'ok': False, 'error': 'invalid_season'}), 400
-
-    title = (request.form.get('title') or payload.get('title') or '').strip() or None
-    store.ignore_tv_season(tmdb_id, season_number, title)
-    return jsonify({'ok': True, 'tmdb_id': tmdb_id, 'season': season_number})
-
-
-@app.route('/api/discover/unignore-tv', methods=['POST'])
-def discover_unignore_tv():
-    payload = request.get_json(silent=True) or {}
-    try:
-        tmdb_id = int(request.form.get('tmdb_id') or payload.get('tmdb_id'))
-    except (TypeError, ValueError):
-        return jsonify({'ok': False, 'error': 'invalid_tmdb_id'}), 400
-    raw_season = request.form.get('season') or payload.get('season')
-    season_number = None
-    if raw_season not in (None, '', 'all'):
-        try:
-            season_number = int(raw_season)
-        except (TypeError, ValueError):
-            return jsonify({'ok': False, 'error': 'invalid_season'}), 400
-    store.unignore_tv(tmdb_id, season_number)
-    return jsonify({'ok': True})
 
 
 # Per-media lock guards segment-endpoint restarts so concurrent hls.js requests cooperate.

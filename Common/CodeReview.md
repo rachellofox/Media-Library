@@ -30,8 +30,8 @@ progress is measurable rather than asserted.
 | Measure | At review start | Now |
 | --- | --- | --- |
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
-| `app.py` | 5,318 lines, 61 routes, 205 functions | **2,486 lines**, 43 routes |
-| Modules in `medialibrary/` | 0 | 21 — the whole codebase bar `app.py` |
+| `app.py` | 5,318 lines, 61 routes, 205 functions | **1,986 lines**, 29 routes |
+| Modules in `medialibrary/` | 0 | 27 — the whole codebase bar `app.py` |
 | Python files at the repo root | 9 | **1** (`app.py`) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
 | Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
@@ -422,9 +422,19 @@ worked one at a time:
   success twice before I looked at what Python actually received. And re-running
   it with a different argument list overwrote the output file, losing a function
   the first run had moved; it was restored from the call sites.
-  Remaining groups, by size: core (12 routes, needs 19 helpers — hardest),
-  discover (14/297), settings (8/279), library (7/215), auth (2/42). The
-  error-shape consistency review this item originally called for is still to do.
+  **Discover followed (2026-07-27):** `medialibrary/web/discover.py`, 14 routes
+  and 367 lines. `app.py` now 1,986 lines and 29 routes — it has gone from 61
+  routes to 29, and from 5,318 lines to under 2,000.
+  Discover needed four shared clusters lifted out first, each now its own module:
+  `trakt_auth.py` (12 helpers and the 5 setting keys — the account state both
+  `index` and Discover render from), `posters.py` (poster caching and the TMDB
+  host restriction), `torrents.py` (candidate search and ranking), and
+  `settings_util.py` (JSON settings and UTC timestamps, needed by more than one).
+  `_is_local_media_missing` folded into `identify`.
+  Remaining groups: core (12 routes, needs 19 helpers — hardest, and much of what
+  made it hard has now been lifted out from under it), settings (8/279),
+  library (7/215), auth (2/42). The error-shape consistency review this item
+  originally called for is still to do.
 - [ ] E9. Sweep for dead code across the whole module once the above are done.
 
 ---
