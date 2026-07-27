@@ -92,6 +92,11 @@ check(
 
 html = app.app.test_client().get('/?section=movies').get_data(as_text=True)
 
+# The card markup is server-rendered, but the behaviour now lives in a static
+# script rather than inline, so assertions about it read the file.
+with open(os.path.join(REPO_ROOT, 'static', 'js', 'library.js'), encoding='utf-8') as _f:
+    script = _f.read()
+
 
 def card_html(media_id):
     """Just this card's markup — cards are adjacent, so a fixed window would
@@ -118,7 +123,7 @@ check('downloading film shows the download badge', 'card-badge-download' in busy
 check('idle film has no download badge', 'card-badge-download' not in idle_card)
 
 print('\n=== hero gate in the shipped script ===')
-condition = html[html.find('const shouldShowUpgrade') :]
+condition = script[script.find('const shouldShowUpgrade') :]
 condition = condition[: condition.find(';') + 1]
 check(
     'hero excludes downloading items',
@@ -129,7 +134,7 @@ check('hero still excludes missing files', 'item.file_missing' in condition)
 
 print('\n=== client-rendered card badge was already correct ===')
 marker = 'card-badge-upgrade" title="Higher quality available">&#x2191;</div>\' : \'\''
-client = html[html.find(marker) - 260 :]
+client = script[script.find(marker) - 260 :]
 check('client card badge excludes downloading', 'libraryItemDownloading(item)' in client[:400])
 
 print(f'\n{"=" * 60}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')

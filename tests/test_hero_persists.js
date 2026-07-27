@@ -1,8 +1,12 @@
 // The show's hero card must survive opening a season's episode list, while a
 // manual nav click must still reset back to the poster grid.
 const fs = require('fs');
-const html = fs.readFileSync(
-  require('path').join(__dirname, '..', 'templates', 'index.html'), 'utf8');
+// Markup lives in the template, behaviour in the static script; these
+// assertions span both, so both are read.
+const html = [
+  require('path').join(__dirname, '..', 'templates', 'index.html'),
+  require('path').join(__dirname, '..', 'static', 'js', 'library.js'),
+].map((p) => fs.readFileSync(p, 'utf8')).join('\n');
 
 const results = [];
 const check = (name, cond, detail = '') => {

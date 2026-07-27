@@ -1,7 +1,10 @@
 // Exercises the shipped _showDlProgress/_hideDlProgress against a DOM stub.
 const fs = require('fs');
-const path = require('path').join(__dirname, '..', 'templates', 'index.html');
-const html = fs.readFileSync(path, 'utf8');
+// Markup lives in the template, behaviour in the static script.
+const html = [
+  require('path').join(__dirname, '..', 'templates', 'index.html'),
+  require('path').join(__dirname, '..', 'static', 'js', 'library.js'),
+].map((p) => fs.readFileSync(p, 'utf8')).join('\n');
 
 const start = html.indexOf('const DL_RING_CIRCUMFERENCE');
 const end = html.indexOf('function _stopDlPoll', start);

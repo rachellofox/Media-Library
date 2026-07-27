@@ -49,6 +49,12 @@ jobs:
       - name: Formatting
         run: python -m ruff format --check .
 
+      # node parses the shipped browser code. Cheap, and it catches an edit that
+      # would otherwise only fail in someone's browser.
+      - name: Check JavaScript parses
+        run: |
+          for f in static/js/*.js tests/*.js; do node --check "$f"; done
+
       # Everything, rather than a hand-listed set that goes stale the moment a
       # module is added or removed.
       - name: Compile all sources

@@ -1,7 +1,11 @@
 // Exercises the shipped genre-filter and discover-collapse logic against a DOM stub.
 const fs = require('fs');
-const html = fs.readFileSync(
-  require('path').join(__dirname, '..', 'templates', 'index.html'), 'utf8');
+// Markup lives in the template, behaviour in the static script; these
+// assertions span both, so both are read.
+const html = [
+  require('path').join(__dirname, '..', 'templates', 'index.html'),
+  require('path').join(__dirname, '..', 'static', 'js', 'library.js'),
+].map((p) => fs.readFileSync(p, 'utf8')).join('\n');
 
 function slice(startMarker, endMarker) {
   const s = html.indexOf(startMarker);

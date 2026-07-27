@@ -1,11 +1,16 @@
-// Runs the REAL bulk-progress code extracted from index.html against a minimal
+// Runs the REAL bulk-progress code from static/js/library.js against a minimal
 // DOM stub, so the behaviour is verified rather than eyeballed.
 const fs = require('fs');
-const path = require('path').join(__dirname, '..', 'templates', 'index.html');
-const html = fs.readFileSync(path, 'utf8');
+// Markup lives in the template, behaviour in the static script.
+const html = [
+  require('path').join(__dirname, '..', 'templates', 'index.html'),
+  require('path').join(__dirname, '..', 'static', 'js', 'library.js'),
+].map((p) => fs.readFileSync(p, 'utf8')).join('\n');
 
 const start = html.indexOf('// ── Bulk action progress');
-const end = html.indexOf('</script>', start);
+// The block runs to the end of the script file now that the JavaScript
+// lives outside the template; there is no </script> after it.
+const end = html.length;
 if (start < 0 || end < 0) { console.error('FAIL: could not locate the bulk-progress block'); process.exit(1); }
 
 // escHtml lives earlier in the same script; pull the real one in rather than

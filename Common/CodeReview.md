@@ -32,7 +32,8 @@ progress is measurable rather than asserted.
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
 | `app.py` | 5,318 lines, 61 routes, 205 functions | **3,522 lines**, 61 routes, 118 functions |
 | Modules split out of `app.py` | 0 | 8 (`medialibrary/`, 2,397 lines) |
-| Templates | 3 (5,362 lines, 3,304 inline JS) | unchanged — Section F not started |
+| Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
+| Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
 | Tests in repo | **0** | 20 files, ~438 assertions |
 | CI workflows | **0** | 1 (lint, compile, test, startup) |
 | Lint findings (`ruff check .`) | n/a — no linter | **0** |
@@ -399,15 +400,39 @@ worked one at a time:
 **Check for:** dead JS, duplicated logic, and whether the JS should move to
 `static/`.
 
-- [ ] F1. **`index.html` is 4,055 lines with 2,619 lines of inline `<script>`.**
-  It cannot be linted, tested, or cached by the browser separately. This is the
-  front-end equivalent of E1 and the largest single maintainability problem after
-  `app.py`.
-- [ ] F2. **`player.html` holds a further 685 lines of inline JS**, some of which
-  duplicates `index.html` (playback URL building, subtitle handling).
-- [ ] F3. No JS linting or formatting standard exists at all — there is no
-  instructions file covering `**/*.js` or `**/*.html`.
-- [ ] F4. Review for genuinely dead JS — functions no longer called by any handler.
+- [x] F1. **`index.html` JavaScript extracted. Done 2026-07-27.** 2,584 lines
+  moved to `static/js/library.js`; the template drops 4,055 → 1,472 lines.
+  The Jinja turned out to be confined to the first 34 lines — a bootstrap
+  supplying `ITEMS`, `PREFERRED_QUALITY`, `TRAKT_STATE` and the section id lists.
+  That stays inline, because it cannot live in a static file; everything after it
+  moved verbatim. The static file is a classic script loaded after the bootstrap,
+  so the bootstrap's top-level `const`s are in scope for it and its function
+  declarations remain reachable from the inline `onclick` handlers.
+  Verified beyond the tests: the rendered page carries exactly two script tags,
+  the bootstrap is still populated, `function openHero` is *not* in the page, and
+  `GET /static/js/library.js` returns 200 and 102 KB of `text/javascript`.
+- [x] F2. **`player.html` JavaScript extracted. Done 2026-07-27.** 665 lines to
+  `static/js/player.js`; the template drops 1,212 → 548 lines. Its bootstrap is
+  three values — `mediaId`, `episodeParam`, `knownDurationSeconds`. Player page
+  verified rendering and serving the file.
+  The duplication with `library.js` noted here (playback URL building, subtitle
+  handling) is still present — extraction did not address it, and it is now much
+  easier to see. Left open as F5.
+- [x] F3. **Front-end standard written. Done 2026-07-27.**
+  `.github/instructions/javascript-style.instructions.md`: where code lives and
+  why logic must not go back into a template, the escaping rule (`escHtml` for
+  text, `escAttr` for attributes, attributes always double-quoted), and the same
+  comment discipline as Python. CI now runs `node --check` over every shipped and
+  test script — cheap, and it catches an edit that would otherwise only fail in
+  someone's browser. Four decorative dividers in the extracted JavaScript were
+  cleaned, the rule now applying to it.
+  Not adopted: a JS linter. `eslint` would be a real dependency and a real config
+  decision; the parse gate is the cheap 80%. Worth revisiting on its own.
+- [ ] F4. Review for genuinely dead JS — functions no longer called by any
+  handler. Now tractable: the code is in two files a tool can read.
+- [ ] F5. **`library.js` and `player.js` duplicate playback URL building and
+  subtitle handling.** Noted when F2 was written and unchanged by the extraction;
+  a shared module is the obvious answer.
 
 ---
 
@@ -560,7 +585,8 @@ path specifically, since the app can be exposed to the network.
   `debug_enabled = not RUNNING_PUBLIC`, so enabling public access disables the
   Werkzeug debugger — which would otherwise expose an interactive console
   executing arbitrary code. A warning is logged on every public bind.
-- [ ] I7. **Front-end XSS not fully audited.** The escaping helpers are correct —
+- [ ] I7. **Front-end XSS not fully audited — now unblocked by F1/F2.** The JS is
+  in two files a linter can read, which is the condition this item was waiting on. The escaping helpers are correct —
   `escHtml` covers `& < >`, `escAttr` adds `"`, and every interpolated attribute
   in the templates is double-quoted, so `escAttr` is sufficient for them. Of 71
   interpolations in markup-building lines, 47 are escaped and the other 24 are

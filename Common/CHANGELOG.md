@@ -4,6 +4,9 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.2 - 2026-07-25
 
+- The pages now load their JavaScript from a cached file instead of carrying it
+  inline, so a second visit does not re-download it. No change to how anything
+  behaves.
 - Fixed a security flaw that let a request read video files from anywhere on the
   machine. The direct-stream playback address blocked "../" but not a full path,
   so any .mp4, .m3u8 or .m4s outside the library could be fetched through it.

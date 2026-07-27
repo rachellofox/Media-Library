@@ -1,8 +1,11 @@
 // Switching the hero from a downloading title to any other must clear the
 // progress ring and cancel the pending poll, not leave the old percentage frozen.
 const fs = require('fs');
-const path = require('path').join(__dirname, '..', 'templates', 'index.html');
-const html = fs.readFileSync(path, 'utf8');
+// Markup lives in the template, behaviour in the static script.
+const html = [
+  require('path').join(__dirname, '..', 'templates', 'index.html'),
+  require('path').join(__dirname, '..', 'static', 'js', 'library.js'),
+].map((p) => fs.readFileSync(p, 'utf8')).join('\n');
 
 const results = [];
 const check = (name, cond, detail = '') => {
