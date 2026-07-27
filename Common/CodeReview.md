@@ -30,8 +30,8 @@ progress is measurable rather than asserted.
 | Measure | At review start | Now |
 | --- | --- | --- |
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
-| `app.py` | 5,318 lines, 61 routes, 205 functions | **1,986 lines**, 29 routes |
-| Modules in `medialibrary/` | 0 | 27 — the whole codebase bar `app.py` |
+| `app.py` | 5,318 lines, 61 routes, 205 functions | **1,482 lines**, 21 routes |
+| Modules in `medialibrary/` | 0 | 33 — the whole codebase bar `app.py` |
 | Python files at the repo root | 9 | **1** (`app.py`) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
 | Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
@@ -431,10 +431,21 @@ worked one at a time:
   host restriction), `torrents.py` (candidate search and ranking), and
   `settings_util.py` (JSON settings and UTC timestamps, needed by more than one).
   `_is_local_media_missing` folded into `identify`.
-  Remaining groups: core (12 routes, needs 19 helpers — hardest, and much of what
-  made it hard has now been lifted out from under it), settings (8/279),
-  library (7/215), auth (2/42). The error-shape consistency review this item
-  originally called for is still to do.
+  **Library and auth followed (2026-07-27):** `web/library.py` (7 routes) and
+  `web/auth.py` (2). `app.py` is now **1,482 lines with 21 routes**, down from
+  5,318 and 61. Four more shared modules came out on the way: `items.py` (the UI
+  payload and the derived upgrade flag), `auth.py` (credentials, sessions,
+  lockout), `network.py` (public access and the bind address, deliberately
+  separate from sign-in because one is about the socket and the other about the
+  person), and the Trakt/poster/torrent modules from the previous step.
+  **The endpoint rename finally bit.** `url_for('login')` became invalid the
+  moment login moved to a blueprint, and the app returned 500 on every request.
+  The video move had been safe only because nothing named those endpoints — this
+  time three places did, including `AUTH_EXEMPT_ENDPOINTS`, where a stale
+  `'login'` would have silently required sign-in *on the sign-in page*. Found by
+  starting the app, not by the tests, which all passed.
+  Remaining: settings (8 routes) and core (12). The error-shape consistency
+  review this item originally called for is still to do.
 - [ ] E9. Sweep for dead code across the whole module once the above are done.
 
 ---

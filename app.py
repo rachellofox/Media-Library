@@ -1,20 +1,17 @@
-import ipaddress
 import os
 import re
-import secrets
-import socket
 import threading
 import urllib.parse
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 import keyring
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash, generate_password_hash
+from flask import Flask, jsonify, redirect, render_template, request, url_for
+from werkzeug.security import generate_password_hash
 
 from medialibrary import runtime
 from medialibrary.config import (
@@ -22,16 +19,19 @@ from medialibrary.config import (
     FFPROBE_EXE,
     POSTER_DIR,
 )
+from medialibrary.network import DEFAULT_SERVER_PORT
 from medialibrary.qb_search import (
     QBSearch,
     SearchEngineError,
     configured_mirror_urls,
 )
-from medialibrary.quality import compare_quality, detect_quality, detect_quality_from_file
+from medialibrary.quality import detect_quality, detect_quality_from_file
 from medialibrary.storage import Storage
 from medialibrary.tmdb_client import TmdbClient
 from medialibrary.trakt_client import TraktClient, TraktRequestError
+from medialibrary.web.auth import bp as auth_bp
 from medialibrary.web.discover import bp as discover_bp
+from medialibrary.web.library import bp as library_bp
 from medialibrary.web.tv import bp as tv_bp
 from medialibrary.web.video import bp as video_bp
 
@@ -51,10 +51,6 @@ __version__ = '0.1.0'
 POSTERS_DIR = POSTER_DIR
 
 
-DEFAULT_SERVER_PORT = 5100
-LOOPBACK_HOST = '127.0.0.1'
-ALL_INTERFACES_HOST = '0.0.0.0'
-
 # What the server actually bound at startup. Host and port are only read when
 # app.run() is called, so the UI compares these against the saved settings to
 # tell the user a restart is needed.
@@ -70,12 +66,6 @@ QBT_WEBUI_USERNAME = os.environ.get('QBT_WEBUI_USERNAME', '').strip()
 QBT_WEBUI_PASSWORD = os.environ.get('QBT_WEBUI_PASSWORD', '').strip()
 TMDB_SECRET_SERVICE = 'MediaLibrary'
 TMDB_SECRET_ACCOUNT = 'tmdb_api_key'
-AUTH_SECRET_SERVICE = 'MediaLibrary'
-AUTH_SECRET_ACCOUNT = 'session_secret_key'
-
-SESSION_LIFETIME_DAYS = 30
-AUTH_MAX_ATTEMPTS = 5
-AUTH_LOCKOUT = timedelta(minutes=5)
 
 
 def _tmdb_api_key() -> str:
@@ -93,134 +83,10 @@ def _set_tmdb_api_key(api_key: str) -> None:
     keyring.set_password(TMDB_SECRET_SERVICE, TMDB_SECRET_ACCOUNT, api_key)
 
 
-def _session_secret_key() -> str:
-    """Signing key for session cookies, stable across restarts.
-
-    Kept in the OS keyring like the other secrets. A regenerated key would
-    silently sign everyone out, so it is created once and reused.
-    """
-    try:
-        stored = keyring.get_password(AUTH_SECRET_SERVICE, AUTH_SECRET_ACCOUNT)
-    except Exception:
-        stored = None
-    if stored:
-        return stored
-
-    generated = secrets.token_hex(32)
-    try:
-        keyring.set_password(AUTH_SECRET_SERVICE, AUTH_SECRET_ACCOUNT, generated)
-    except Exception:
-        # Without a keyring the key lives only for this process, so sessions
-        # end on restart rather than failing outright.
-        pass
-    return generated
-
-
-def _auth_username() -> str:
-    return (store.get_setting('auth_username') or '').strip()
-
-
-def _auth_password_hash() -> str:
-    return (store.get_setting('auth_password_hash') or '').strip()
-
-
-def _auth_configured() -> bool:
-    return bool(_auth_username() and _auth_password_hash())
-
-
-def _auth_required() -> bool:
-    """Whether the current request must carry a signed-in session.
-
-    Only enforced once the server is exposed to the network; a loopback-only
-    server is already limited to whoever is sitting at this machine.
-    """
-    return _public_access_enabled() and _auth_configured()
-
-
-def _is_signed_in() -> bool:
-    return session.get('auth_user') == _auth_username() and _auth_configured()
-
-
 def _refresh_tmdb_client() -> None:
     global tmdb
     api_key = _tmdb_api_key()
     tmdb = TmdbClient(api_key=api_key) if api_key else None
-
-
-def _public_access_enabled() -> bool:
-    return (store.get_setting('public_access') or '0').strip() == '1'
-
-
-def _server_port() -> int:
-    raw = (store.get_setting('server_port') or '').strip()
-    try:
-        port = int(raw)
-    except ValueError:
-        return DEFAULT_SERVER_PORT
-    return port if 1024 <= port <= 65535 else DEFAULT_SERVER_PORT
-
-
-def _lan_ip_addresses() -> list[str]:
-    """Private IPv4 addresses this machine holds, most likely LAN first.
-
-    Every address is offered rather than one "best" guess: probing the outbound
-    route returns the VPN tunnel address while a VPN is connected, and no device
-    on the local network can reach that. Ordering is a heuristic only — home
-    routers overwhelmingly hand out 192.168.x.x, while VPN clients tend to sit
-    in 10.x.x.x — so the list is shown in full and the user picks.
-    """
-    try:
-        candidates = {
-            info[4][0] for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
-        }
-    except OSError:
-        return []
-
-    def rank(address: str) -> tuple[int, str]:
-        if address.startswith('192.168.'):
-            return 0, address
-        if address.startswith('172.'):
-            return 1, address
-        return 2, address
-
-    usable = []
-    for raw in candidates:
-        try:
-            address = ipaddress.ip_address(raw)
-        except ValueError:
-            continue
-        if address.is_private and not address.is_loopback and not address.is_link_local:
-            usable.append(str(address))
-    return sorted(usable, key=rank)
-
-
-def _upgrade_available(item) -> bool:
-    """Whether a genuinely better release is on offer for this item.
-
-    `quality_checks.found` is a boolean frozen at the moment the search ran, so
-    on its own it keeps advertising an upgrade long after the file has been
-    upgraded — it will even offer a 1080p release for a file that is now 2160p.
-    Re-comparing the recorded result against the current quality makes the
-    badge self-correcting no matter how stale the stored check is.
-    """
-    try:
-        if int(item['found'] or 0) != 1:
-            return False
-    except (KeyError, IndexError, TypeError, ValueError):
-        return False
-
-    try:
-        best_found = item['best_found_quality']
-    except (KeyError, IndexError):
-        return False
-    if not best_found:
-        return False
-
-    try:
-        current = item['current_quality']
-    except (KeyError, IndexError):
-        current = None
-    return compare_quality(current, best_found) > 0
 
 
 def scan_folder(folder_path: str) -> list[str]:
@@ -388,6 +254,26 @@ import medialibrary.discover
 import medialibrary.downloads
 import medialibrary.qbt
 
+# Moved to medialibrary.auth; imported back so existing callers keep working.
+from medialibrary.auth import (  # noqa: F401
+    AUTH_LOCKOUT,
+    AUTH_MAX_ATTEMPTS,
+    AUTH_SECRET_ACCOUNT,
+    AUTH_SECRET_SERVICE,
+    SESSION_LIFETIME_DAYS,
+    _auth_configured,
+    _auth_password_hash,
+    _auth_required,
+    _auth_username,
+    _client_address,
+    _failed_logins,
+    _is_signed_in,
+    _login_locked_until,
+    _record_failed_login,
+    _safe_next_target,
+    _session_secret_key,
+)
+
 # Moved to medialibrary.discover; imported by name so every existing
 # caller, including app.X in the scripts and tests, keeps working.
 from medialibrary.discover import (  # noqa: F401
@@ -427,6 +313,24 @@ from medialibrary.identify import (
     choose_search_result,
     normalize_media_name,
 )
+
+# Moved to medialibrary.identify_extra; imported back so existing callers keep working.
+# Moved to medialibrary.items; imported back so existing callers keep working.
+from medialibrary.items import (
+    _ui_item_payload,
+    _upgrade_available,
+)
+
+# Moved to medialibrary.network; imported back so existing callers keep working.
+from medialibrary.network import (
+    ALL_INTERFACES_HOST,
+    DEFAULT_SERVER_PORT,
+    LOOPBACK_HOST,
+    _is_local_or_private_host,
+    _lan_ip_addresses,
+    _public_access_enabled,
+    _server_port,
+)
 from medialibrary.playback import (  # noqa: F401
     _DIRECT_PLAY_AUDIO_CODECS,
     _DIRECT_PLAY_VIDEO_CODECS,
@@ -458,7 +362,6 @@ from medialibrary.playback import (  # noqa: F401
 
 # Moved to medialibrary.posters; imported back so existing callers keep working.
 from medialibrary.posters import (
-    TMDB_IMAGE_PREFIX,
     _cache_meta_poster,
     cache_poster,
 )
@@ -507,10 +410,6 @@ from medialibrary.subtitles import (  # noqa: F401
 )
 
 # Moved to medialibrary.torrents; imported back so existing callers keep working.
-from medialibrary.torrents import (
-    _torrent_candidates_for,
-)
-
 # Moved to medialibrary.trakt_auth; imported back so existing callers keep working.
 from medialibrary.trakt_auth import (  # noqa: F401
     TRAKT_DEVICE_SETTING,
@@ -531,8 +430,6 @@ from medialibrary.trakt_auth import (  # noqa: F401
     _trakt_display_username,
     _trakt_username,
 )
-
-# Moved to medialibrary.identify_extra; imported back so existing callers keep working.
 
 app = Flask(__name__)
 store = Storage(DB_PATH)
@@ -592,33 +489,15 @@ qb = QBSearch(nova_path=QBT_NOVA_PATH)
 app.register_blueprint(video_bp)
 app.register_blueprint(tv_bp)
 app.register_blueprint(discover_bp)
+app.register_blueprint(library_bp)
+app.register_blueprint(auth_bp)
 
 # Clean up old HLS cache on startup
 _cleanup_hls_cache()
 
 
-AUTH_EXEMPT_ENDPOINTS = {'login', 'static'}
-
-# Failed sign-ins per client address. In-memory is enough: a restart clearing
-# the counters costs an attacker more time than it saves them.
-_failed_logins: dict[str, tuple[int, datetime]] = {}
-
-
-def _client_address() -> str:
-    return request.remote_addr or 'unknown'
-
-
-def _login_locked_until(address: str) -> datetime | None:
-    attempts, last_failure = _failed_logins.get(address, (0, None))
-    if attempts < AUTH_MAX_ATTEMPTS or last_failure is None:
-        return None
-    unlock_at = last_failure + AUTH_LOCKOUT
-    return unlock_at if unlock_at > datetime.now(timezone.utc) else None
-
-
-def _record_failed_login(address: str) -> None:
-    attempts, _ = _failed_logins.get(address, (0, None))
-    _failed_logins[address] = (attempts + 1, datetime.now(timezone.utc))
+# Blueprint endpoints are qualified, so this is 'auth.login' not 'login'.
+AUTH_EXEMPT_ENDPOINTS = {'auth.login', 'static'}
 
 
 def _wants_json_response() -> bool:
@@ -629,14 +508,6 @@ def _wants_json_response() -> bool:
     )
 
 
-def _safe_next_target(raw: str | None) -> str:
-    """Only allow same-site relative paths, so ?next= cannot bounce elsewhere."""
-    target = (raw or '').strip()
-    if not target.startswith('/') or target.startswith('//'):
-        return url_for('index')
-    return target
-
-
 @app.before_request
 def _require_login():
     if not _auth_required() or request.endpoint in AUTH_EXEMPT_ENDPOINTS:
@@ -645,68 +516,7 @@ def _require_login():
         return None
     if _wants_json_response():
         return jsonify({'ok': False, 'error': 'auth_required'}), 401
-    return redirect(url_for('login', next=request.full_path.rstrip('?')))
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if not _auth_configured():
-        return redirect(url_for('index'))
-    if _is_signed_in():
-        return redirect(_safe_next_target(request.args.get('next')))
-
-    address = _client_address()
-    locked_until = _login_locked_until(address)
-    if locked_until:
-        wait_seconds = int((locked_until - datetime.now(timezone.utc)).total_seconds())
-        return render_template(
-            'login.html',
-            error=f'Too many attempts. Try again in {wait_seconds // 60 + 1} minute(s).',
-            next_target=request.args.get('next', ''),
-        ), 429
-
-    if request.method == 'POST':
-        username = (request.form.get('username') or '').strip()
-        password = request.form.get('password') or ''
-        username_ok = secrets.compare_digest(username, _auth_username())
-        password_ok = check_password_hash(_auth_password_hash(), password)
-
-        if username_ok and password_ok:
-            _failed_logins.pop(address, None)
-            # Start a clean session so nothing from the signed-out state carries over.
-            session.clear()
-            session['auth_user'] = _auth_username()
-            session.permanent = bool(request.form.get('stay_signed_in'))
-            return redirect(_safe_next_target(request.form.get('next')))
-
-        _record_failed_login(address)
-        app.logger.warning('Failed sign-in for %r from %s', username, address)
-        return render_template(
-            'login.html',
-            error='Incorrect username or password.',
-            next_target=request.form.get('next', ''),
-        ), 401
-
-    return render_template('login.html', error=None, next_target=request.args.get('next', ''))
-
-
-@app.route('/logout', methods=['POST'])
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
-
-def _is_local_or_private_host(hostname: str | None) -> bool:
-    host = (hostname or '').strip().lower()
-    if not host:
-        return False
-    if host in {'localhost'}:
-        return True
-    try:
-        addr = ipaddress.ip_address(host)
-        return addr.is_loopback or addr.is_private
-    except ValueError:
-        return host.endswith('.local')
+    return redirect(url_for('auth.login', next=request.full_path.rstrip('?')))
 
 
 def _sanitize_qbt_webui_url(raw: str) -> str | None:
@@ -1002,135 +812,6 @@ def search_imdb():
     return jsonify({'query': query, 'results': payload})
 
 
-@app.route('/api/library/retry-download/<int:media_id>')
-def library_retry_download(media_id: int):
-    item = _ui_item_payload(media_id)
-    if not item:
-        return jsonify({'ok': False, 'error': 'not_found'}), 404
-
-    status = (item['download_status'] or '').strip().lower()
-    has_upgrade = bool(item.get('upgrade_available'))
-    if (
-        status not in {'starting', 'handed_off', 'downloading'}
-        and not item.get('file_missing')
-        and not has_upgrade
-    ):
-        return jsonify({'ok': False, 'error': 'not_missing_or_active'}), 409
-
-    meta = {
-        'title': item['title'] or item['imdb_id'] or '',
-        'year': item['year'],
-    }
-    try:
-        candidates = _torrent_candidates_for(meta)
-    except SearchEngineError as exc:
-        return jsonify(
-            {
-                'ok': False,
-                'error': 'search_unavailable',
-                'message': str(exc),
-                'media_id': int(item['id']),
-            }
-        ), 503
-    return jsonify(
-        {
-            'ok': True,
-            'media_id': int(item['id']),
-            'title': item['title'] or item['imdb_id'] or 'Title',
-            'candidates': candidates,
-        }
-    )
-
-
-@app.route('/api/library/download-progress/<int:media_id>')
-def library_download_progress(media_id: int):
-    item = _ui_item_payload(media_id)
-    if not item:
-        return jsonify({'ok': False, 'error': 'not_found'}), 404
-
-    status = (item.get('download_status') or '').strip().lower()
-    if status not in {'starting', 'handed_off', 'downloading'}:
-        return jsonify({'ok': False, 'error': 'download_not_active'}), 409
-
-    torrent_hash = (item.get('download_torrent_hash') or '').strip().upper()
-    source = (item.get('download_source') or '').strip()
-
-    # Always use qB status as source of truth when WebUI is available.
-    if medialibrary.qbt._qbt_webui_enabled():
-        try:
-            if source == 'qb_webui' and re.fullmatch(r'[0-9A-F]{40}', torrent_hash):
-                torrent = medialibrary.qbt._qbt_webui_torrent_info(torrent_hash)
-            else:
-                torrent = medialibrary.qbt._qbt_match_torrent_for_item(item)
-        except Exception:
-            torrent = None
-        if torrent:
-            progress_raw = torrent.get('progress')
-            try:
-                progress = float(progress_raw)
-            except Exception:
-                progress = 0.0
-            qbt_state = (torrent.get('state') or '').lower()
-            done_states = {
-                'uploading',
-                'stalledup',
-                'seeding',
-                'pausedup',
-                'forcedup',
-                'checkingup',
-            }
-            return jsonify(
-                {
-                    'ok': True,
-                    'source': 'qbittorrent',
-                    'state': qbt_state,
-                    'progress': progress,
-                    'progress_percent': round(progress * 100, 2),
-                    'eta': torrent.get('eta'),
-                    'name': torrent.get('name') or '',
-                    'dlspeed': torrent.get('dlspeed'),
-                    'is_complete': qbt_state in done_states,
-                }
-            )
-        if source == 'qb_webui' and torrent_hash:
-            return jsonify(
-                {
-                    'ok': True,
-                    'source': 'qbittorrent',
-                    'state': 'queued',
-                    'progress': 0.0,
-                    'progress_percent': 0.0,
-                    'is_complete': False,
-                }
-            )
-
-    return jsonify(
-        {
-            'ok': True,
-            'source': source or 'external',
-            'state': status,
-            'progress': None,
-            'progress_percent': None,
-            'is_complete': False,
-        }
-    )
-
-
-@app.route('/api/library/mark-downloaded/<int:media_id>', methods=['POST'])
-def library_mark_downloaded(media_id: int):
-    item = store.get_media_item(media_id)
-    if not item:
-        return jsonify({'ok': False, 'error': 'not_found'}), 404
-
-    store.clear_download_state(media_id)
-
-    # Run a targeted folder scan so quality/subtitles are picked up immediately.
-    _refresh_local_media_signals(media_id, item['path'])
-
-    payload = _ui_item_payload(media_id) or {'id': media_id}
-    return jsonify({'ok': True, 'item': payload})
-
-
 @app.route('/add', methods=['POST'])
 def add():
     tmdb_id = request.form['tmdb_id']
@@ -1210,30 +891,6 @@ def check_quality(media_id: int):
         return jsonify({'ok': True, 'item': payload, 'outcome': outcome})
 
     return redirect(url_for('index'))
-
-
-@app.route('/api/quality/<int:media_id>/scan', methods=['POST'])
-def scan_quality_for_item(media_id: int):
-    """Scan a single library item's video file to detect and store its local quality."""
-    item = store.get_media_item(media_id)
-    if not item:
-        return jsonify({'ok': False, 'error': 'not_found'}), 404
-
-    path = item['path']
-    if not path:
-        return jsonify({'ok': False, 'error': 'no_path'}), 400
-
-    target = _find_video_file(path)
-
-    if not target:
-        return jsonify({'ok': False, 'error': 'no_video_file'}), 400
-
-    quality = detect_quality_from_file(target, ffprobe_exe=FFPROBE_EXE)
-    if quality:
-        store.update_quality(media_id, quality)
-
-    payload = _ui_item_payload(media_id)
-    return jsonify({'ok': True, 'item': payload})
 
 
 def _fetch_best_metadata(item) -> dict:
@@ -1323,23 +980,6 @@ def _fetch_best_metadata(item) -> dict:
         return meta
 
     return tmdb.metadata_by_tmdb_id(match['tmdb_id'], match['media_type'])
-
-
-def _ui_item_payload(media_id: int) -> dict | None:
-    for row in store.list_media_items():
-        if int(row['id']) != int(media_id):
-            continue
-        payload = dict(row)
-        path = payload.get('path') or ''
-        status = (payload.get('download_status') or '').strip().lower()
-        payload['file_missing'] = _is_local_media_missing(path) and status not in {
-            'starting',
-            'handed_off',
-            'downloading',
-        }
-        payload['upgrade_available'] = _upgrade_available(row)
-        return payload
-    return None
 
 
 @app.route('/refresh/<int:media_id>', methods=['POST'])
@@ -1482,39 +1122,6 @@ def scan_subtitles_route():
         if result != item['subtitles']:
             updated += 1
     return redirect(url_for('index', status=f'subtitles_scanned_{updated}'))
-
-
-@app.route('/api/library/fetch-subtitles/<int:media_id>', methods=['POST'])
-def fetch_subtitles_api(media_id: int):
-    """Fetch and save English subtitles for a library item via subliminal."""
-    item_row = store.get_media_item(media_id)
-    item = dict(item_row) if item_row else None
-    if not item:
-        return jsonify({'ok': False, 'error': 'not_found'}), 404
-    if not item.get('path') or item.get('file_missing'):
-        return jsonify({'ok': False, 'error': 'no_file'}), 409
-
-    video_path = _best_local_video_path(item['path'])
-    if not video_path:
-        return jsonify({'ok': False, 'error': 'no_video_file'}), 409
-
-    try:
-        from medialibrary.subtitle_client import fetch_subtitles
-
-        found = fetch_subtitles(
-            video_path,
-            title=item.get('title'),
-            year=item.get('year'),
-        )
-    except Exception as exc:
-        return jsonify({'ok': False, 'error': str(exc)}), 500
-
-    if not found:
-        return jsonify({'ok': False, 'error': 'not_found'}), 404
-
-    store.update_subtitles(media_id, scan_subtitles(item['path']))
-    payload = _ui_item_payload(media_id) or {}
-    return jsonify({'ok': True, 'item': payload})
 
 
 @app.route('/check-all', methods=['POST'])
@@ -1806,56 +1413,6 @@ def save_settings():
         imported = import_from_configured_folders()
         return redirect(url_for('index', section='settings', status=f'settings_saved_{imported}'))
     return redirect(url_for('index', section='settings', status='settings_saved'))
-
-
-@app.route('/api/library/<int:media_id>/posters')
-def library_poster_options(media_id: int):
-    """Alternative artwork TMDB holds for a title."""
-    item = store.get_media_item(media_id)
-    if not item:
-        return jsonify({'ok': False, 'error': 'not_found'}), 404
-    if not tmdb:
-        return jsonify({'ok': False, 'error': 'tmdb_not_configured'}), 503
-    if not item['tmdb_id']:
-        return jsonify({'ok': False, 'error': 'no_tmdb_id'}), 409
-
-    posters = tmdb.poster_options(item['tmdb_id'], item['media_type'] or 'movie')
-    wanted = (request.args.get('language') or '').strip().lower()
-    if wanted and wanted != 'all':
-        target = None if wanted == 'none' else wanted
-        posters = [p for p in posters if (p['language'] or None) == target]
-
-    return jsonify(
-        {
-            'ok': True,
-            'media_id': media_id,
-            'current_poster_url': item['poster_url'],
-            'posters': posters[:60],
-        }
-    )
-
-
-@app.route('/api/library/<int:media_id>/poster', methods=['POST'])
-def library_set_poster(media_id: int):
-    """Adopt a chosen TMDB poster as this title's artwork."""
-    item = store.get_media_item(media_id)
-    if not item:
-        return jsonify({'ok': False, 'error': 'not_found'}), 404
-
-    payload = request.get_json(silent=True) or {}
-    poster_url = (request.form.get('poster_url') or payload.get('poster_url') or '').strip()
-    if not poster_url.startswith(TMDB_IMAGE_PREFIX):
-        # Only TMDB's own image host is accepted, so this cannot be pointed at
-        # an arbitrary URL for the server to fetch.
-        return jsonify({'ok': False, 'error': 'invalid_poster_url'}), 400
-
-    cache_key = item['imdb_id'] or str(media_id)
-    cached = cache_poster(cache_key, poster_url, force_replace=True)
-    if not cached:
-        return jsonify({'ok': False, 'error': 'poster_download_failed'}), 502
-
-    store.update_poster(media_id, cached)
-    return jsonify({'ok': True, 'media_id': media_id, 'poster_url': cached})
 
 
 # Per-media lock guards segment-endpoint restarts so concurrent hls.js requests cooperate.

@@ -9,6 +9,7 @@ sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
+import medialibrary.posters
 from medialibrary.storage import Storage
 
 PASS, FAIL = [], []
@@ -72,7 +73,7 @@ def fake_cache_poster(key, url, force_replace=False):
     return f'/static/posters/{key}.jpg'
 
 
-app.cache_poster = fake_cache_poster
+medialibrary.posters.cache_poster = fake_cache_poster
 
 app.store.add_media_item(
     imdb_id='tt111',
@@ -155,7 +156,7 @@ check('cached under the imdb key', downloaded[-1][0] == 'tt111', downloaded[-1])
 check('forces a replace so the cached file is overwritten', downloaded[-1][2] is True)
 
 print('\n=== 4. A failed download does not change the record ===')
-app.cache_poster = lambda key, url, force_replace=False: ''
+medialibrary.posters.cache_poster = lambda key, url, force_replace=False: ''
 prior = app.store.get_media_item(mid)['poster_url']
 r = c.post(
     f'/api/library/{mid}/poster', json={'poster_url': 'https://image.tmdb.org/t/p/w500/c.jpg'}
