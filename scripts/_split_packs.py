@@ -27,6 +27,7 @@ except AttributeError:
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app
+from medialibrary.identify import _feature_videos_in
 from medialibrary.naming import canonical_paths
 
 APPLY = '--apply' in sys.argv
@@ -164,7 +165,7 @@ for pack, members in by_pack.items():
                     pass
 
     # Retire the shell only once no film is left behind in it.
-    if os.path.isdir(pack) and not app._feature_videos_in(pack):
+    if os.path.isdir(pack) and not _feature_videos_in(pack):
         leftovers = [f for _r, _d, fs in os.walk(pack) for f in fs]
         if app._retire_path(pack):
             print(f'  recycled emptied pack folder ({len(leftovers)} leftover file(s)): {pack}')

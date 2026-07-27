@@ -30,8 +30,8 @@ progress is measurable rather than asserted.
 | Measure | At review start | Now |
 | --- | --- | --- |
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
-| `app.py` | 5,318 lines, 61 routes, 205 functions | **3,522 lines**, 61 routes, 118 functions |
-| Modules in `medialibrary/` | 0 | 16 — the whole codebase bar `app.py` |
+| `app.py` | 5,318 lines, 61 routes, 205 functions | **2,746 lines**, 48 routes |
+| Modules in `medialibrary/` | 0 | 18 — the whole codebase bar `app.py` |
 | Python files at the repo root | 9 | **1** (`app.py`) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
 | Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
@@ -401,7 +401,20 @@ worked one at a time:
   section is still to review.
 - [ ] E6. TV and episode logic (`scan_local_episodes`, missing-episode discovery).
 - [ ] E7. Discover and TMDB caching.
-- [ ] E8. Route layer — consistency of error shapes and status codes across 61 routes.
+- [~] E8. Route layer. **The video group is now a blueprint (2026-07-27):**
+  `medialibrary/web/video.py`, 13 routes and 823 lines — the largest of the seven
+  groups and the one needing least from `app.py`. `app.py` drops 3,522 → 2,746.
+  `medialibrary/runtime.py` is how a route module reaches the store, TMDB client
+  and search client without importing the application: getters registered once at
+  startup, for the same reason as everywhere else — `tmdb` is rebuilt when the API
+  key changes and the tests replace the store.
+  Endpoint names change under a blueprint (`watch_video` → `video.watch_video`).
+  Checked before moving: every `url_for` in the codebase names `index` or `login`,
+  and the front end builds video URLs as literal paths, so nothing broke.
+  Remaining groups, by size: core (12 routes, 388 lines, needs 19 helpers —
+  hardest), discover (14/297), settings (8/279), tv (5/230), library (7/215),
+  auth (2/42). The error-shape consistency review this item originally called for
+  is still to do.
 - [ ] E9. Sweep for dead code across the whole module once the above are done.
 
 ---

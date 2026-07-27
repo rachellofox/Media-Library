@@ -35,6 +35,7 @@ from medialibrary.episode_match import (
     names_other_show,
     normalise_episode_title,
 )
+from medialibrary.identify import _SEASON_DIR_EXACT, _SPECIALS_DIR, _episodes_covered
 from medialibrary.naming import canonical_episode_name, canonical_season_folder
 
 APPLY = '--apply' in sys.argv
@@ -292,7 +293,7 @@ def _below_season_folder(path: str) -> str:
     """
     parts = os.path.normpath(path).split(os.sep)
     for index in range(len(parts) - 2, -1, -1):
-        if app._SEASON_DIR_EXACT.match(parts[index]) or app._SPECIALS_DIR.match(parts[index]):
+        if _SEASON_DIR_EXACT.match(parts[index]) or _SPECIALS_DIR.match(parts[index]):
             return os.path.join(*parts[index + 1 :])
     return os.path.basename(path)
 
@@ -332,7 +333,7 @@ for item in app.store.list_media_items():
     intruders = [
         p
         for p in unmarked
-        if app._episodes_covered(os.path.basename(p))
+        if _episodes_covered(os.path.basename(p))
         and names_other_show(os.path.basename(p), show_title)
     ]
     unmarked = [p for p in unmarked if p not in set(intruders)]
@@ -421,7 +422,7 @@ for item in app.store.list_media_items():
             extension = os.path.splitext(name)[1].lower()
             if extension not in SUBTITLE_EXTENSIONS:
                 continue
-            covered = app._episodes_covered(name)
+            covered = _episodes_covered(name)
             if not covered:
                 continue
             season, numbers = covered

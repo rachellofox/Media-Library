@@ -9,6 +9,7 @@ sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
+from medialibrary.web.video import _request_video_file
 
 PASS, FAIL = [], []
 
@@ -103,8 +104,8 @@ item = {'path': show}
 with app.app.test_request_context('/video/1'):
     check(
         'no episode falls back to the largest file',
-        same(app._request_video_file(item), big),
-        app._request_video_file(item),
+        same(_request_video_file(item), big),
+        _request_video_file(item),
     )
     check('cache key is the bare media id', app._playback_cache_key(1) == '1')
 
@@ -112,7 +113,7 @@ rel = 'Season 02/Show S02E10.mkv'
 with app.app.test_request_context(f'/video/1?episode={rel}'):
     check(
         'explicit episode is played',
-        os.path.basename(app._request_video_file(item) or '') == 'Show S02E10.mkv',
+        os.path.basename(_request_video_file(item) or '') == 'Show S02E10.mkv',
     )
     key = app._playback_cache_key(1)
     check('cache key differs per episode', key != '1' and key.startswith('1-'), key)
@@ -125,7 +126,7 @@ with app.app.test_request_context(f'/video/1?episode={rel}'):
 with app.app.test_request_context('/video/1?episode=..\\secret.mkv'):
     check(
         'an unresolvable episode fails rather than playing something else',
-        app._request_video_file(item) is None,
+        _request_video_file(item) is None,
     )
 
 print('\n=== 6. Cache keys are stable and distinct ===')

@@ -448,3 +448,22 @@ def _featurette_label(filename: str) -> str:
     )
     stem = re.sub(r'\s+', ' ', stem).strip(' -–_')
     return stem or os.path.basename(filename)
+
+
+def _resolve_episode_file(show_path: str, relative: str) -> str | None:
+    """Absolute path for an episode inside a show folder.
+
+    Returns None if the resolved path escapes the show folder, so a crafted
+    ?episode= cannot be used to read arbitrary files from disk.
+    """
+    if not show_path or not relative:
+        return None
+    base = os.path.realpath(show_path)
+    target = os.path.realpath(os.path.join(base, relative))
+    if target != base and not target.startswith(base + os.sep):
+        return None
+    if not os.path.isfile(target):
+        return None
+    if os.path.splitext(target)[1].lower() not in VIDEO_EXTENSIONS:
+        return None
+    return target
