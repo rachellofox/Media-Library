@@ -35,7 +35,7 @@ progress is measurable rather than asserted.
 | Python files at the repo root | 9 | **1** (`app.py`) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
 | Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
-| Tests in repo | **0** | 21 files, ~442 assertions |
+| Tests in repo | **0** | 22 files, ~456 assertions |
 | CI workflows | **0** | 1 (lint, compile, test, startup) |
 | Lint findings (`ruff check .`) | n/a — no linter | **0** |
 | Formatting (`ruff format --check`) | n/a — no formatter | **53 files conform** |
@@ -598,16 +598,24 @@ path specifically, since the app can be exposed to the network.
   `debug_enabled = not RUNNING_PUBLIC`, so enabling public access disables the
   Werkzeug debugger — which would otherwise expose an interactive console
   executing arbitrary code. A warning is logged on every public bind.
-- [ ] I7. **Front-end XSS not fully audited — now unblocked by F1/F2.** The JS is
-  in two files a linter can read, which is the condition this item was waiting on. The escaping helpers are correct —
-  `escHtml` covers `& < >`, `escAttr` adds `"`, and every interpolated attribute
-  in the templates is double-quoted, so `escAttr` is sufficient for them. Of 71
-  interpolations in markup-building lines, 47 are escaped and the other 24 are
-  booleans, numbers, or fragments assembled elsewhere.
-  Those 24 were spot-checked, not traced to their sources. A full audit of 2,619
-  lines of inline JavaScript is not something to do by grep, and becomes
-  straightforward once Section F extracts it into files a linter can read. Worth
-  doing then rather than claiming it is done now.
+- [x] I7. **Front-end XSS audited. Done 2026-07-27, unblocked by F1/F2.** With
+  the JavaScript in files rather than inline, every interpolation into markup
+  could be traced instead of spot-checked. **No XSS found.**
+  Of 88 interpolations on markup-building lines: 49 go through `escHtml`/
+  `escAttr` directly, 6 are numeric, and the rest resolve to one of three safe
+  shapes — nested ternaries whose arms are themselves escaped template literals,
+  variables holding markup already built with the helpers (`rows`, `poster`), or
+  a value that is a hardcoded literal at every call site (`kind`, always
+  `'title'` or `'collection'`). Each was followed to its source.
+  Sinks are clean too: no `document.write`, `outerHTML`, `eval`, `new Function`,
+  `srcdoc` or `javascript:` URL, and the single `insertAdjacentHTML` takes a
+  hardcoded string.
+  The load-bearing detail is that **`escAttr` does not escape the single quote**,
+  so it is sufficient only while every interpolated attribute is double-quoted.
+  That held everywhere, and is now asserted rather than assumed.
+  `tests/test_escaping.js` (14 assertions) runs the shipped helpers against real
+  attack strings and enforces the invariants the audit rested on, so this stays a
+  property of the code rather than a fact about one afternoon.
 - [ ] I8. **No security headers.** No CSP, `X-Content-Type-Options`, or
   `Referrer-Policy`. The instructions ask for these "when applicable"; on a LAN
   app the main value is a CSP limiting what injected markup could do, which pairs
