@@ -25,7 +25,7 @@ with open(PLAN, encoding='utf-8') as handle:
     source = handle.read()
 start = source.index('DURATION_TOLERANCE = 0.5')
 end = source.index("SUBTITLE_EXTENSIONS = {'.srt'")
-from episode_match import normalise_episode_title
+from medialibrary.episode_match import normalise_episode_title
 
 namespace = {
     'app': app,

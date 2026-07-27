@@ -18,7 +18,7 @@ import re
 import unicodedata
 from datetime import datetime
 
-from episode_match import names_other_show
+from medialibrary.episode_match import names_other_show
 
 VIDEO_EXTENSIONS = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv'}
 

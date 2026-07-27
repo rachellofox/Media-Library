@@ -14,7 +14,7 @@ sys.path.insert(0, REPO_ROOT)
 
 import app
 import medialibrary.downloads
-from storage import Storage
+from medialibrary.storage import Storage
 
 PASS, FAIL = [], []
 

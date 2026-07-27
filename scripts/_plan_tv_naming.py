@@ -27,14 +27,15 @@ except AttributeError:
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app
-from episode_match import (
+from medialibrary.config import DISCOVER_COLLECTION_CACHE_HOURS
+from medialibrary.episode_match import (
     is_extras_path,
     match_episode_files,
     match_episode_title,
     names_other_show,
     normalise_episode_title,
 )
-from naming import canonical_episode_name, canonical_season_folder
+from medialibrary.naming import canonical_episode_name, canonical_season_folder
 
 APPLY = '--apply' in sys.argv
 ONLY_SHOW = None
@@ -54,9 +55,7 @@ def tmdb_episodes(tmdb_id):
         number = season['season_number']
         if number == 0:
             continue
-        cached = app.store.get_cached_season(
-            int(tmdb_id), number, app.DISCOVER_COLLECTION_CACHE_HOURS
-        )
+        cached = app.store.get_cached_season(int(tmdb_id), number, DISCOVER_COLLECTION_CACHE_HOURS)
         if cached is None:
             cached = app.tmdb.season_episodes(tmdb_id, number)
             if cached:

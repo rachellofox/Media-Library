@@ -21,7 +21,7 @@ from medialibrary.config import (
     DISCOVER_WATCHLIST_CACHE_HOURS,
 )
 from medialibrary.identify import scan_local_episodes
-from storage import Storage
+from medialibrary.storage import Storage
 
 _get_store = None
 _get_tmdb = None

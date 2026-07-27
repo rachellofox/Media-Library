@@ -31,7 +31,7 @@ if not api_key:
     print('Usage:  .\\.venv\\Scripts\\python.exe scripts\\_debug_query.py <tmdb_api_key>')
     sys.exit(0)
 
-from tmdb_client import TmdbClient
+from medialibrary.tmdb_client import TmdbClient
 
 tmdb = TmdbClient(api_key=api_key)
 

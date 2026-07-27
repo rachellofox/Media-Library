@@ -31,10 +31,11 @@ progress is measurable rather than asserted.
 | --- | --- | --- |
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
 | `app.py` | 5,318 lines, 61 routes, 205 functions | **3,522 lines**, 61 routes, 118 functions |
-| Modules split out of `app.py` | 0 | 8 (`medialibrary/`, 2,397 lines) |
+| Modules in `medialibrary/` | 0 | 16 — the whole codebase bar `app.py` |
+| Python files at the repo root | 9 | **1** (`app.py`) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
 | Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
-| Tests in repo | **0** | 20 files, ~438 assertions |
+| Tests in repo | **0** | 21 files, ~442 assertions |
 | CI workflows | **0** | 1 (lint, compile, test, startup) |
 | Lint findings (`ruff check .`) | n/a — no linter | **0** |
 | Formatting (`ruff format --check`) | n/a — no formatter | **53 files conform** |
@@ -241,9 +242,21 @@ tracked but are not, and leftovers.
   muscle memory to fix a naming question a sentence of documentation settles.
 
 
-- [ ] C8. **Root is crowded** — 9 Python modules at top level. A `medialibrary/`
-  package would be conventional, but this is a real refactor with import churn.
-  Raised for a decision, not assumed. *Related to E1.*
+- [x] C8. **Root folded into the package. Done 2026-07-27.** The eight remaining
+  root modules — `storage`, `tmdb_client`, `trakt_client`, `subtitle_client`,
+  `qb_search`, `quality`, `naming`, `episode_match` — moved into `medialibrary/`
+  with `git mv`, and every import rewritten across 21 files. `app.py` is now the
+  only Python file at the repo root, and the package holds all 16 modules.
+  **It surfaced a break that predated it.** `scripts/_plan_tv_naming.py` died on
+  `app.DISCOVER_COLLECTION_CACHE_HOURS`. That constant had moved to
+  `medialibrary.config` during E1b, ruff removed the then-unused import from
+  `app.py`, and nothing noticed — the maintenance scripts act on a real library,
+  so no test runs them. The script now imports the constant from its real home.
+  `tests/test_module_layout.py` closes that gap: a static check that every
+  `app.X` the scripts and tests reach for actually exists, that the root holds
+  only `app.py`, and that **no module in `medialibrary` imports the
+  application** — which is the rule the whole E1 split rests on, now enforced
+  rather than remembered.
 
 ---
 

@@ -10,7 +10,7 @@ sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
 import medialibrary.qbt
-from storage import Storage
+from medialibrary.storage import Storage
 
 PASS, FAIL = [], []
 

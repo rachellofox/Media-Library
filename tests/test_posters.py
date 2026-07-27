@@ -9,7 +9,7 @@ sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
-from storage import Storage
+from medialibrary.storage import Storage
 
 PASS, FAIL = [], []
 

@@ -3,7 +3,7 @@ import re
 import subprocess
 import urllib.request
 
-from quality import compare_quality, detect_quality
+from medialibrary.quality import compare_quality, detect_quality
 
 DEFAULT_MIRROR_URLS = [
     'https://kickasstorrents.bz',

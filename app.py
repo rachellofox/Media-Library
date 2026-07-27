@@ -25,11 +25,11 @@ from medialibrary.config import (  # noqa: F401  BASE_DIR re-exported for script
     HLS_CACHE_DIR,
     POSTER_DIR,
 )
-from qb_search import DEFAULT_MIRROR_URLS, QBSearch, SearchEngineError
-from quality import compare_quality, detect_quality, detect_quality_from_file
-from storage import Storage
-from tmdb_client import TmdbClient
-from trakt_client import TraktClient, TraktRequestError
+from medialibrary.qb_search import DEFAULT_MIRROR_URLS, QBSearch, SearchEngineError
+from medialibrary.quality import compare_quality, detect_quality, detect_quality_from_file
+from medialibrary.storage import Storage
+from medialibrary.tmdb_client import TmdbClient
+from medialibrary.trakt_client import TraktClient, TraktRequestError
 
 try:
     from send2trash import send2trash
@@ -2017,7 +2017,7 @@ def fetch_subtitles_api(media_id: int):
         return jsonify({'ok': False, 'error': 'no_video_file'}), 409
 
     try:
-        from subtitle_client import fetch_subtitles
+        from medialibrary.subtitle_client import fetch_subtitles
 
         found = fetch_subtitles(
             video_path,

@@ -41,10 +41,10 @@ from medialibrary.identify import (
     _videos_in,
     scan_local_episodes,
 )
+from medialibrary.naming import canonical_paths, canonical_stem
 from medialibrary.qbt import QbtUnavailableError
+from medialibrary.quality import compare_quality, detect_quality, detect_quality_from_file
 from medialibrary.subtitles import scan_subtitles
-from naming import canonical_paths, canonical_stem
-from quality import compare_quality, detect_quality, detect_quality_from_file
 
 try:
     from send2trash import send2trash
