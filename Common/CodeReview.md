@@ -233,10 +233,13 @@ tracked but are not, and leftovers.
   whatever editor is open.
 - [ ] C6. **No `CONTRIBUTING.md`, issue or PR templates.** Lower priority for a
   personal repo; list them so the decision is deliberate rather than accidental.
-- [ ] C7. **`scripts/` naming.** Every script is `_`-prefixed, which in Python
-  signals "private". They are in fact operator tools. Propose either dropping the
-  prefix or documenting what it means — and adding `scripts/README.md`, since
-  there are now 10 of them with no index.
+- [x] C7. **Answered by `scripts/README.md`. Done 2026-07-27.** The leading
+  underscore stays, and the README says what it means — internal to the repo, not
+  "do not run" — alongside an index of all ten and which six change files. No
+  rename, because renaming ten scripts would break every invocation you have in
+  muscle memory to fix a naming question a sentence of documentation settles.
+
+
 - [ ] C8. **Root is crowded** — 9 Python modules at top level. A `medialibrary/`
   package would be conventional, but this is a real refactor with import churn.
   Raised for a decision, not assumed. *Related to E1.*
