@@ -11,6 +11,7 @@ sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
 import medialibrary.downloads
+from medialibrary.identify import VIDEO_EXTENSIONS
 from medialibrary.storage import Storage
 
 PASS, FAIL = [], []
@@ -91,7 +92,7 @@ def videos_under(path):
         os.path.join(r, f)
         for r, _d, fs in os.walk(path)
         for f in fs
-        if os.path.splitext(f)[1].lower() in app.VIDEO_EXTENSIONS
+        if os.path.splitext(f)[1].lower() in VIDEO_EXTENSIONS
     ]
 
 

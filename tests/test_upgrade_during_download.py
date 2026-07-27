@@ -12,6 +12,7 @@ sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
+from medialibrary.items import _upgrade_available
 from medialibrary.storage import Storage
 
 PASS, FAIL = [], []
@@ -82,12 +83,12 @@ print('\n=== the data both cards are rendered from ===')
 for label, media_id in (('idle', idle_id), ('downloading', busy_id)):
     row = rows[media_id]
     print(
-        f'  {label:12} upgrade_available={app._upgrade_available(row)} '
+        f'  {label:12} upgrade_available={_upgrade_available(row)} '
         f'status={row["download_status"]!r}'
     )
 check(
     'both items genuinely have an upgrade available',
-    app._upgrade_available(rows[idle_id]) and app._upgrade_available(rows[busy_id]),
+    _upgrade_available(rows[idle_id]) and _upgrade_available(rows[busy_id]),
 )
 
 html = app.app.test_client().get('/?section=movies').get_data(as_text=True)

@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app
 from medialibrary import tmdb_state
-from medialibrary.config import DISCOVER_COLLECTION_CACHE_HOURS
+from medialibrary.config import DISCOVER_COLLECTION_CACHE_HOURS, FFPROBE_EXE
 from medialibrary.episode_match import (
     is_extras_path,
     match_episode_files,
@@ -39,6 +39,7 @@ from medialibrary.episode_match import (
 from medialibrary.identify import (
     _SEASON_DIR_EXACT,
     _SPECIALS_DIR,
+    VIDEO_EXTENSIONS,
     _episodes_covered,
     _infer_season_from_path,
     scan_local_episodes,
@@ -97,7 +98,7 @@ def _probe(path: str) -> tuple[float, str]:
     """
     try:
         probe = subprocess.run(
-            [app.FFPROBE_EXE, '-v', 'quiet', '-print_format', 'json', '-show_format', path],
+            [FFPROBE_EXE, '-v', 'quiet', '-print_format', 'json', '-show_format', path],
             capture_output=True,
             text=True,
             timeout=30,
@@ -489,7 +490,7 @@ for item in app.store.list_media_items():
     for root, _dirs, files in os.walk(show_path):
         for name in files:
             extension = os.path.splitext(name)[1].lower()
-            if extension in app.VIDEO_EXTENSIONS or extension in SUBTITLE_EXTENSIONS:
+            if extension in VIDEO_EXTENSIONS or extension in SUBTITLE_EXTENSIONS:
                 continue  # handled above
             path = os.path.join(root, name)
             season = _infer_season_from_path(show_path, path)

@@ -37,7 +37,7 @@ bp = Blueprint('auth', __name__)
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if not _auth_configured():
-        return redirect(url_for('index'))
+        return redirect(url_for('core.index'))
     if _is_signed_in():
         return redirect(_safe_next_target(request.args.get('next')))
 

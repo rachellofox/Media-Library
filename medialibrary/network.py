@@ -75,3 +75,16 @@ def _is_local_or_private_host(hostname: str | None) -> bool:
         return addr.is_loopback or addr.is_private
     except ValueError:
         return host.endswith('.local')
+
+
+# What the server actually bound at startup. Host and port are only read when
+# app.run() is called, so the UI compares these against the saved settings to
+# tell you a restart is needed.
+RUNNING_PORT = DEFAULT_SERVER_PORT
+RUNNING_PUBLIC = False
+
+
+def set_running(port: int, public: bool) -> None:
+    """Record what was bound, so the settings page can spot a pending restart."""
+    global RUNNING_PORT, RUNNING_PUBLIC
+    RUNNING_PORT, RUNNING_PUBLIC = port, public

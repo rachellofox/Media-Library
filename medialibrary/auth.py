@@ -103,5 +103,5 @@ def _safe_next_target(raw: str | None) -> str:
     """Only allow same-site relative paths, so ?next= cannot bounce elsewhere."""
     target = (raw or '').strip()
     if not target.startswith('/') or target.startswith('//'):
-        return url_for('index')
+        return url_for('core.index')
     return target

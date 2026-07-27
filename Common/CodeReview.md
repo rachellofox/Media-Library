@@ -30,8 +30,8 @@ progress is measurable rather than asserted.
 | Measure | At review start | Now |
 | --- | --- | --- |
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
-| `app.py` | 5,318 lines, 61 routes, 205 functions | **929 lines**, 13 routes |
-| Modules in `medialibrary/` | 0 | 36, incl. 6 route blueprints |
+| `app.py` | 5,318 lines, 61 routes, 205 functions | **364 lines**, 0 routes |
+| Modules in `medialibrary/` | 0 | 39, incl. 7 route blueprints |
 | Python files at the repo root | 9 | **1** (`app.py`) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
 | Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
@@ -458,8 +458,20 @@ worked one at a time:
   assigning to a private. `test_ordering.py` needed the same: it execs a slice of
   `_plan_tv_naming.py` and had been stubbing `app`, so its stub moved with the
   code it stands in for.
-  Remaining: core (13 routes — `/`, `/add`, the scan and sync actions). The
-  error-shape consistency review this item originally called for is still to do.
+  **Core followed, and E8 is done (2026-07-27):** `web/core.py`, the last 12
+  routes. **`app.py` is 364 lines and holds no routes at all** — it is now
+  application setup, the `configure()` calls that wire the modules together, the
+  sign-in gate, and `__main__`. From 5,318 lines and 61 routes.
+  `maintenance.py` (the library-wide sweeps) came out with it, and the bind state
+  `RUNNING_PORT`/`RUNNING_PUBLIC` moved into `network.py`, which already owned
+  public access.
+  `url_for('index')` had 29 references and all of them broke the moment `index`
+  became `core.index` — the same failure as `login`, at 29× the scale. Caught by
+  starting the app.
+  The error-shape consistency review this item originally called for is now
+  tractable in a way it was not before: each group's error handling sits in one
+  file rather than interleaved through 5,000 lines. Left as F6/E9 rather than
+  claimed.
 - [ ] E9. Sweep for dead code across the whole module once the above are done.
 
 ---

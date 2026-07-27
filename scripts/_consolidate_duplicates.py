@@ -28,6 +28,7 @@ except AttributeError:
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app
+from medialibrary.config import FFPROBE_EXE
 from medialibrary.naming import canonical_paths
 from medialibrary.quality import QUALITY_ORDER, detect_quality_from_file
 
@@ -54,7 +55,7 @@ def videos_in(folder):
 
 def rank(path):
     """Sort key: quality first, then file size."""
-    quality = detect_quality_from_file(path, ffprobe_exe=app.FFPROBE_EXE)
+    quality = detect_quality_from_file(path, ffprobe_exe=FFPROBE_EXE)
     try:
         size = os.path.getsize(path)
     except OSError:

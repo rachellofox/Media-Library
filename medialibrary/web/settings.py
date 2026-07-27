@@ -85,16 +85,20 @@ def save_settings():
             if not 1024 <= port <= 65535:
                 # Everything is validated before anything is written, so a
                 # rejected form never leaves half the settings applied.
-                return redirect(url_for('index', section='settings', status='port_invalid'))
+                return redirect(url_for('core.index', section='settings', status='port_invalid'))
 
         username = (auth_username_raw or '').strip()
         password = auth_password_raw or ''
         new_password_hash = None
         if password or auth_password_confirm:
             if password != (auth_password_confirm or ''):
-                return redirect(url_for('index', section='settings', status='password_mismatch'))
+                return redirect(
+                    url_for('core.index', section='settings', status='password_mismatch')
+                )
             if len(password) < 8:
-                return redirect(url_for('index', section='settings', status='password_too_short'))
+                return redirect(
+                    url_for('core.index', section='settings', status='password_too_short')
+                )
             new_password_hash = generate_password_hash(password)
 
         will_have_username = username or _auth_username()
@@ -102,7 +106,9 @@ def save_settings():
         if wants_public and not (will_have_username and will_have_hash):
             # Refusing here is the whole point of the feature: exposing the
             # library to the network with no credentials set has no safe path.
-            return redirect(url_for('index', section='settings', status='auth_required_for_public'))
+            return redirect(
+                url_for('core.index', section='settings', status='auth_required_for_public')
+            )
 
         if username:
             runtime.store().set_setting('auth_username', username)
@@ -111,7 +117,7 @@ def save_settings():
         runtime.store().set_setting('public_access', '1' if wants_public else '0')
         if port is not None:
             runtime.store().set_setting('server_port', str(port))
-        return redirect(url_for('index', section='settings', status='public_access_saved'))
+        return redirect(url_for('core.index', section='settings', status='public_access_saved'))
     if mirror_urls_raw is not None:
         mirror_urls = [
             line.strip().rstrip('/') for line in mirror_urls_raw.splitlines() if line.strip()
@@ -121,7 +127,7 @@ def save_settings():
     if qbt_webui_url_raw is not None:
         sanitized_url = _sanitize_qbt_webui_url(qbt_webui_url_raw)
         if sanitized_url is None:
-            return redirect(url_for('index', section='settings', status='qbt_url_invalid'))
+            return redirect(url_for('core.index', section='settings', status='qbt_url_invalid'))
         runtime.store().set_setting('qbt_webui_url', sanitized_url)
     if tmdb_api_key_raw is not None and tmdb_api_key_raw.strip():
         _set_tmdb_api_key(tmdb_api_key_raw)
@@ -149,8 +155,10 @@ def save_settings():
     new_tv = (runtime.store().get_setting('tv_path') or '').strip()
     if new_movies != prev_movies or new_tv != prev_tv:
         imported = import_from_configured_folders()
-        return redirect(url_for('index', section='settings', status=f'settings_saved_{imported}'))
-    return redirect(url_for('index', section='settings', status='settings_saved'))
+        return redirect(
+            url_for('core.index', section='settings', status=f'settings_saved_{imported}')
+        )
+    return redirect(url_for('core.index', section='settings', status='settings_saved'))
 
 
 @bp.route('/api/settings/qbt-test')

@@ -14,6 +14,7 @@ sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
 import medialibrary.downloads
+from medialibrary.identify import _is_local_media_missing
 from medialibrary.storage import Storage
 
 tmp = tempfile.mkdtemp()
@@ -80,7 +81,7 @@ dl_folder = os.path.join(staging, 'Some.Show.S02E05.2160p.WEB-DL')
 dl_file = make(os.path.join(dl_folder, 'Some.Show.S02E05.2160p.WEB-DL.mkv'), 6)
 
 existing_path = show
-is_upgrade = bool(existing_path) and not app._is_local_media_missing(existing_path)
+is_upgrade = bool(existing_path) and not _is_local_media_missing(existing_path)
 print(f'submit-time classification: mode={"upgrade" if is_upgrade else "fill"}')
 
 app.store.set_download_state(
