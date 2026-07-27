@@ -30,8 +30,8 @@ progress is measurable rather than asserted.
 | Measure | At review start | Now |
 | --- | --- | --- |
 | Python files | 20 (9,359 lines) | 38 (11,607 lines) |
-| `app.py` | 5,318 lines, 61 routes, 205 functions | **1,482 lines**, 21 routes |
-| Modules in `medialibrary/` | 0 | 33 — the whole codebase bar `app.py` |
+| `app.py` | 5,318 lines, 61 routes, 205 functions | **929 lines**, 13 routes |
+| Modules in `medialibrary/` | 0 | 36, incl. 6 route blueprints |
 | Python files at the repo root | 9 | **1** (`app.py`) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
 | Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
@@ -444,8 +444,22 @@ worked one at a time:
   time three places did, including `AUTH_EXEMPT_ENDPOINTS`, where a stale
   `'login'` would have silently required sign-in *on the sign-in page*. Found by
   starting the app, not by the tests, which all passed.
-  Remaining: settings (8 routes) and core (12). The error-shape consistency
-  review this item originally called for is still to do.
+  **Settings followed (2026-07-27):** `web/settings.py`, 8 routes. `app.py` is
+  now **929 lines with 13 routes**, from 5,318 and 61.
+  Settings could not move until the TMDB client stopped being an `app.py` global:
+  `_refresh_tmdb_client` rebinds it, and a blueprint cannot rebind a name in a
+  module it must not import. `medialibrary/tmdb_state.py` now owns the client and
+  `client()` is the only way to reach it — holding the instance is exactly how a
+  stale client survives a key change and quietly returns nothing.
+  `importer.py` came out at the same time (the folder scan and import), and
+  `_sanitize_qbt_webui_url` joined `qbt`.
+  That change removed `app.tmdb`, which the scripts read and two tests *stubbed*.
+  `tmdb_state.set_client()` is the seam for the latter, rather than tests
+  assigning to a private. `test_ordering.py` needed the same: it execs a slice of
+  `_plan_tv_naming.py` and had been stubbing `app`, so its stub moved with the
+  code it stands in for.
+  Remaining: core (13 routes — `/`, `/add`, the scan and sync actions). The
+  error-shape consistency review this item originally called for is still to do.
 - [ ] E9. Sweep for dead code across the whole module once the above are done.
 
 ---

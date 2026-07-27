@@ -1,19 +1,14 @@
 import os
-import re
 import threading
-import urllib.parse
-import urllib.request
 from datetime import timedelta
 
-import keyring
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from flask import Flask, jsonify, redirect, render_template, request, url_for
-from werkzeug.security import generate_password_hash
 
-from medialibrary import runtime
+from medialibrary import runtime, tmdb_state
 from medialibrary.config import (
     DB_PATH,
     FFPROBE_EXE,
@@ -25,13 +20,13 @@ from medialibrary.qb_search import (
     SearchEngineError,
     configured_mirror_urls,
 )
-from medialibrary.quality import detect_quality, detect_quality_from_file
+from medialibrary.quality import detect_quality_from_file
 from medialibrary.storage import Storage
-from medialibrary.tmdb_client import TmdbClient
-from medialibrary.trakt_client import TraktClient, TraktRequestError
+from medialibrary.trakt_client import TraktRequestError
 from medialibrary.web.auth import bp as auth_bp
 from medialibrary.web.discover import bp as discover_bp
 from medialibrary.web.library import bp as library_bp
+from medialibrary.web.settings import bp as settings_bp
 from medialibrary.web.tv import bp as tv_bp
 from medialibrary.web.video import bp as video_bp
 
@@ -64,29 +59,6 @@ QBT_NOVA_PATH = os.environ.get(
 QBT_WEBUI_URL = os.environ.get('QBT_WEBUI_URL', '').strip().rstrip('/')
 QBT_WEBUI_USERNAME = os.environ.get('QBT_WEBUI_USERNAME', '').strip()
 QBT_WEBUI_PASSWORD = os.environ.get('QBT_WEBUI_PASSWORD', '').strip()
-TMDB_SECRET_SERVICE = 'MediaLibrary'
-TMDB_SECRET_ACCOUNT = 'tmdb_api_key'
-
-
-def _tmdb_api_key() -> str:
-    try:
-        stored_key = keyring.get_password(TMDB_SECRET_SERVICE, TMDB_SECRET_ACCOUNT)
-    except Exception:
-        stored_key = ''
-    return (stored_key or '').strip()
-
-
-def _set_tmdb_api_key(api_key: str) -> None:
-    api_key = (api_key or '').strip()
-    if not api_key:
-        return
-    keyring.set_password(TMDB_SECRET_SERVICE, TMDB_SECRET_ACCOUNT, api_key)
-
-
-def _refresh_tmdb_client() -> None:
-    global tmdb
-    api_key = _tmdb_api_key()
-    tmdb = TmdbClient(api_key=api_key) if api_key else None
 
 
 def scan_folder(folder_path: str) -> list[str]:
@@ -105,140 +77,6 @@ def scan_folder(folder_path: str) -> list[str]:
     except PermissionError:
         return []
     return sorted(entries)
-
-
-def scan_media_entries(folder_path: str, media_type: str) -> list[dict[str, str]]:
-    """Return importable media entries from a configured library folder."""
-    if not folder_path or not os.path.isdir(folder_path):
-        return []
-
-    # Guards against a staging folder configured inside the library root: a
-    # part-finished download must never be imported as a library title.
-    staging = (store.get_setting('downloads_path') or '').strip()
-    staging_norm = os.path.normcase(os.path.normpath(staging)) if staging else ''
-
-    entries: list[dict[str, str]] = []
-    try:
-        for entry in os.scandir(folder_path):
-            if entry.name.startswith('.'):
-                continue
-            if entry.is_dir():
-                if staging_norm and os.path.normcase(os.path.normpath(entry.path)) == staging_norm:
-                    continue
-                if _best_local_video_path(entry.path) is None:
-                    continue
-                # A movie folder holding several year-stamped films is a
-                # collection pack. Treating it as one title would import
-                # whichever film matched first and leave the rest invisible,
-                # so emit one entry per film.
-                films = _pack_films_in(entry.path) if media_type == 'movie' else []
-                if len(films) > 1:
-                    for video in films:
-                        entries.append({'name': os.path.basename(video), 'path': video})
-                    continue
-                entries.append({'name': entry.name, 'path': entry.path})
-                continue
-            if entry.is_file() and media_type in ('movie', 'tv'):
-                _, ext = os.path.splitext(entry.name)
-                if ext.lower() in VIDEO_EXTENSIONS:
-                    entries.append({'name': entry.name, 'path': entry.path})
-    except PermissionError:
-        return []
-
-    return sorted(entries, key=lambda item: item['name'].lower())
-
-
-def import_media_from_paths(folder_path: str, media_type: str) -> int:
-    """Import missing items from a configured media folder into the local library."""
-    existing_items = store.list_media_items()
-    existing_paths = {
-        os.path.normcase(os.path.normpath(item['path'])) for item in existing_items if item['path']
-    }
-    existing_by_imdb = {item['imdb_id']: item for item in existing_items}
-    imported = 0
-
-    for entry in scan_media_entries(folder_path, media_type):
-        normalized_path = os.path.normcase(os.path.normpath(entry['path']))
-        if normalized_path in existing_paths:
-            continue
-
-        title, year = normalize_media_name(entry['name'], media_type)
-        if not title:
-            continue
-
-        query = title  # year in folder name can confuse TMDB ranking; search by title alone
-        match = choose_search_result(
-            tmdb.search(query, max_results=10) if tmdb else [], title, media_type, year
-        )
-        if not match:
-            continue
-
-        meta = tmdb.metadata_by_tmdb_id(match['tmdb_id'], match['media_type']) if tmdb else {}
-        if not meta.get('imdb_id'):
-            continue
-
-        # Don't let a duplicate/alternate folder (e.g. a second copy or a stale
-        # decoy) hijack the path of an item that already resolves to a playable
-        # local file. Only adopt the newly-found path if the existing one is
-        # missing/broken, so a moved or renamed file can still self-heal.
-        existing_item = existing_by_imdb.get(meta['imdb_id'])
-        if existing_item and not _is_local_media_missing(existing_item['path']):
-            existing_paths.add(normalized_path)
-            continue
-
-        poster_url = cache_poster(
-            meta.get('imdb_id') or entry['name'], meta.get('poster_url') or ''
-        ) or meta.get('poster_url')
-
-        # Resolve the actual video file for quality detection; entry path may be a
-        # folder (e.g. TV show)
-        quality_target = entry['path']
-        if os.path.isdir(quality_target):
-            for _root, _dirs, _files in os.walk(quality_target):
-                for fname in _files:
-                    if os.path.splitext(fname)[1].lower() in VIDEO_EXTENSIONS:
-                        quality_target = os.path.join(_root, fname)
-                        break
-                else:
-                    continue
-                break
-
-        store.add_media_item(
-            imdb_id=meta['imdb_id'],
-            tmdb_id=meta.get('tmdb_id'),
-            title=meta['title'],
-            year=meta['year'],
-            media_type=meta['media_type'],
-            collection_id=meta.get('collection_id'),
-            collection_name=meta.get('collection_name'),
-            current_quality=(
-                detect_quality_from_file(quality_target, ffprobe_exe=FFPROBE_EXE)
-                or detect_quality(entry['name'])
-            ),
-            path=entry['path'],
-            poster_url=poster_url,
-            synopsis=meta.get('synopsis'),
-            actors=meta.get('actors'),
-            genre_1=meta.get('genre_1'),
-            genre_2=meta.get('genre_2'),
-            rating=meta.get('rating'),
-            subtitles=scan_subtitles(entry['path']),
-        )
-        existing_paths.add(normalized_path)
-        imported += 1
-
-    return imported
-
-
-def import_from_configured_folders() -> int:
-    movies_path = store.get_setting('movies_path') or ''
-    tv_path = store.get_setting('tv_path') or ''
-    imported = 0
-    if movies_path:
-        imported += import_media_from_paths(movies_path, 'movie')
-    if tv_path:
-        imported += import_media_from_paths(tv_path, 'tv')
-    return imported
 
 
 # Playback lives in medialibrary.playback. The names are imported rather than
@@ -304,14 +142,16 @@ from medialibrary.downloads import (  # noqa: F401
 )
 from medialibrary.identify import (
     VIDEO_EXTENSIONS,
-    _best_local_video_path,
     _is_local_media_missing,
-    _normalized_title_tokens,
-    _pack_films_in,
     _resolve_episode_file,  # noqa: F401
-    _titles_likely_match,
-    choose_search_result,
-    normalize_media_name,
+)
+
+# Moved to medialibrary.importer; imported back so existing callers keep working.
+from medialibrary.importer import (  # noqa: F401
+    _fetch_best_metadata,
+    import_from_configured_folders,
+    import_media_from_paths,
+    scan_media_entries,
 )
 
 # Moved to medialibrary.identify_extra; imported back so existing callers keep working.
@@ -326,7 +166,6 @@ from medialibrary.network import (
     ALL_INTERFACES_HOST,
     DEFAULT_SERVER_PORT,
     LOOPBACK_HOST,
-    _is_local_or_private_host,
     _lan_ip_addresses,
     _public_access_enabled,
     _server_port,
@@ -409,6 +248,15 @@ from medialibrary.subtitles import (  # noqa: F401
     scan_subtitles,
 )
 
+# Moved to medialibrary.tmdb_state; imported back so existing callers keep working.
+from medialibrary.tmdb_state import (  # noqa: F401
+    TMDB_SECRET_ACCOUNT,
+    TMDB_SECRET_SERVICE,
+    _refresh_tmdb_client,
+    _set_tmdb_api_key,
+    _tmdb_api_key,
+)
+
 # Moved to medialibrary.torrents; imported back so existing callers keep working.
 # Moved to medialibrary.trakt_auth; imported back so existing callers keep working.
 from medialibrary.trakt_auth import (  # noqa: F401
@@ -453,7 +301,7 @@ medialibrary.qbt.configure(lambda key: store.get_setting(key))
 # client itself would leave this module holding a stale one.
 medialibrary.discover.configure(
     get_store=lambda: store,
-    get_tmdb=lambda: tmdb,
+    get_tmdb=tmdb_state.client,
     get_trakt_client=_trakt_client,
 )
 
@@ -469,7 +317,7 @@ medialibrary.downloads.configure(
 # key changes and the tests replace the store.
 runtime.configure(
     store=lambda: store,
-    tmdb=lambda: tmdb,
+    tmdb=tmdb_state.client,
     qb=lambda: qb,
 )
 app.secret_key = _session_secret_key()
@@ -480,7 +328,6 @@ app.config.update(
     # Secure is deliberately not set: this is served over plain HTTP on a LAN,
     # and the flag would stop the cookie being sent at all.
 )
-tmdb = None
 _refresh_tmdb_client()
 qb = QBSearch(nova_path=QBT_NOVA_PATH)
 
@@ -491,6 +338,7 @@ app.register_blueprint(tv_bp)
 app.register_blueprint(discover_bp)
 app.register_blueprint(library_bp)
 app.register_blueprint(auth_bp)
+app.register_blueprint(settings_bp)
 
 # Clean up old HLS cache on startup
 _cleanup_hls_cache()
@@ -519,130 +367,8 @@ def _require_login():
     return redirect(url_for('auth.login', next=request.full_path.rstrip('?')))
 
 
-def _sanitize_qbt_webui_url(raw: str) -> str | None:
-    value = (raw or '').strip()
-    if not value:
-        return ''
-    parsed = urllib.parse.urlparse(value)
-    if parsed.scheme not in {'http', 'https'}:
-        return None
-    if not parsed.hostname or not _is_local_or_private_host(parsed.hostname):
-        return None
-    port = f':{parsed.port}' if parsed.port else ''
-    return f'{parsed.scheme}://{parsed.hostname}{port}'.rstrip('/')
-
-
-@app.route('/api/debug/qbt-status')
-def debug_qbt_status():
-    if not medialibrary.qbt._qbt_webui_enabled():
-        return jsonify({'ok': False, 'error': 'qbt_webui_not_configured'}), 409
-
-    info_hash = (request.args.get('hash') or '').strip().upper()
-    magnet = (request.args.get('magnet') or '').strip()
-
-    if not info_hash and magnet:
-        info_hash = _extract_btih_hash(magnet) or ''
-    if not re.fullmatch(r'[0-9A-F]{40}', info_hash):
-        return jsonify({'ok': False, 'error': 'missing_or_invalid_hash'}), 400
-
-    try:
-        torrent = medialibrary.qbt._qbt_webui_torrent_info(info_hash)
-    except Exception:
-        return jsonify({'ok': False, 'error': 'qbt_query_failed'}), 502
-
-    if not torrent:
-        return jsonify({'ok': True, 'found': False, 'hash': info_hash})
-
-    progress_raw = torrent.get('progress')
-    try:
-        progress = float(progress_raw)
-    except Exception:
-        progress = 0.0
-
-    return jsonify(
-        {
-            'ok': True,
-            'found': True,
-            'hash': info_hash,
-            'name': torrent.get('name') or '',
-            'state': torrent.get('state') or '',
-            'progress': progress,
-            'progress_percent': round(progress * 100, 2),
-            'eta': torrent.get('eta'),
-            'save_path': torrent.get('save_path') or '',
-            'dlspeed': torrent.get('dlspeed'),
-            'upspeed': torrent.get('upspeed'),
-            'num_seeds': torrent.get('num_seeds'),
-            'num_leechs': torrent.get('num_leechs'),
-        }
-    )
-
-
-@app.route('/api/settings/qbt-test')
-def settings_qbt_test():
-    if not medialibrary.qbt._qbt_webui_url():
-        return jsonify({'ok': False, 'error': 'qbt_webui_not_configured'}), 409
-    try:
-        torrents = medialibrary.qbt._qbt_webui_torrents_info()
-    except Exception:
-        return jsonify({'ok': False, 'error': 'qbt_connection_failed'}), 502
-    return jsonify({'ok': True, 'reachable': True, 'torrents_seen': len(torrents)})
-
-
-@app.route('/api/settings/tmdb-test', methods=['POST'])
-def settings_tmdb_test():
-    api_key = (request.form.get('tmdb_api_key') or '').strip() or _tmdb_api_key()
-    if not api_key:
-        return jsonify({'ok': False, 'error': 'tmdb_not_configured'}), 409
-    try:
-        client = TmdbClient(api_key=api_key)
-        payload = client.ping() or {}
-    except Exception:
-        return jsonify({'ok': False, 'error': 'tmdb_connection_failed'}), 502
-    return jsonify(
-        {
-            'ok': True,
-            'reachable': True,
-            'has_images_config': bool((payload.get('images') or {}).get('base_url')),
-        }
-    )
-
-
-@app.route('/api/settings/trakt-test', methods=['POST'])
-def settings_trakt_test():
-    client_id = (request.form.get('trakt_client_id') or '').strip() or _trakt_client_id()
-    client_secret = (
-        request.form.get('trakt_client_secret') or ''
-    ).strip() or _trakt_client_secret()
-    if not client_id or not client_secret:
-        return jsonify({'ok': False, 'error': 'trakt_oauth_not_configured'}), 409
-    try:
-        trakt = TraktClient(client_id=client_id, client_secret=client_secret)
-        flow = trakt.device_code()
-        device_code = (flow or {}).get('device_code', '')
-        if not device_code:
-            raise TraktRequestError('http_error')
-        try:
-            trakt.poll_device_token(device_code)
-        except TraktRequestError as exc:
-            if exc.code not in {'pending', 'slow_down'}:
-                raise
-    except TraktRequestError as exc:
-        error = 'trakt_error_network'
-        if exc.code in {'forbidden', 'unauthorized', 'http_error'}:
-            error = 'trakt_error_forbidden'
-        return jsonify({'ok': False, 'error': error}), 502
-    return jsonify(
-        {
-            'ok': True,
-            'reachable': True,
-            'verification_url': flow.get('verification_url', 'https://trakt.tv/activate'),
-        }
-    )
-
-
 def backfill_genres() -> dict:
-    if not tmdb:
+    if not tmdb_state.client():
         return {'updated': 0, 'skipped': 0, 'error': 'tmdb_not_configured'}
 
     updated = 0
@@ -696,7 +422,7 @@ def _run_genre_backfill_once() -> None:
     way to retry. Because an item is only a candidate when its first genre is
     missing, this settles at zero candidates and stops calling TMDB by itself.
     """
-    if not tmdb:
+    if not tmdb_state.client():
         return
     if not any(not (item['genre_1'] or '').strip() for item in store.list_media_items()):
         return
@@ -800,7 +526,7 @@ def index():
 @app.route('/api/search-imdb')
 def search_imdb():
     query = request.args.get('q', '').strip()
-    results = tmdb.search(query) if (query and tmdb) else []
+    results = tmdb_state.client().search(query) if (query and tmdb_state.client()) else []
     library_tmdb_ids = {
         item['tmdb_id'] for item in store.list_media_items() if item['tmdb_id'] is not None
     }
@@ -819,7 +545,7 @@ def add():
     current_quality = request.form.get('current_quality') or None
     path = request.form.get('path') or None
 
-    meta = tmdb.metadata_by_tmdb_id(tmdb_id, media_type)
+    meta = tmdb_state.client().metadata_by_tmdb_id(tmdb_id, media_type)
     if not meta.get('imdb_id'):
         if request.headers.get('X-Requested-With') == 'fetch':
             return jsonify({'ok': False, 'error': 'missing_imdb_id'}), 400
@@ -893,95 +619,6 @@ def check_quality(media_id: int):
     return redirect(url_for('index'))
 
 
-def _fetch_best_metadata(item) -> dict:
-    """Return TMDB metadata for a library item.
-
-    Strategy:
-    0. If a TMDB id is stored, use it. It identifies the title exactly, so no
-       guessing is needed and a wrong stored imdb_id cannot drag the item onto
-       a different film via the name search below.
-    1. If the stored imdb_id is a valid title ID (starts with 'tt'), try /find.
-    2. If that yields no poster (bad/missing ID), fall back to a text search
-       using the folder/file name from the stored path.
-    """
-    imdb_id = (item['imdb_id'] or '').strip()
-    media_type = item['media_type'] or 'movie'
-
-    # .keys() is required: sqlite3.Row has no __contains__, so `in item` would
-    # test the column values instead of the column names.
-    stored_tmdb_id = item['tmdb_id'] if 'tmdb_id' in item.keys() else None  # noqa: SIM118
-    if stored_tmdb_id:
-        exact = tmdb.metadata_by_tmdb_id(stored_tmdb_id, media_type)
-        if exact.get('poster_url') or exact.get('genre_1'):
-            return exact
-
-    # Derive a preferred local title/year anchor first.
-    fallback_title: str | None = None
-    year: int | None = item['year'] if isinstance(item['year'], int) else None
-    if item['path']:
-        basename = os.path.basename(item['path'].rstrip('/\\'))
-        fallback_title, parsed_year = normalize_media_name(basename, media_type)
-        # Local folder/file naming should win over stale DB year when re-resolving metadata.
-        if parsed_year:
-            year = parsed_year
-    if not fallback_title and item['title'] and not item['title'].startswith('tt'):
-        fallback_title = item['title']
-
-    meta: dict = {}
-    if imdb_id.startswith('tt'):
-        meta = tmdb.metadata_by_imdb_id(imdb_id)
-
-    if meta.get('poster_url'):
-        same_type = (meta.get('media_type') or media_type) == media_type
-        expected_title = fallback_title or item.get('title')
-        title_matches = (
-            _titles_likely_match(expected_title, meta.get('title')) if expected_title else True
-        )
-        year_matches = (
-            year is None or meta.get('year') is None or abs(int(meta.get('year')) - int(year)) <= 1
-        )
-        if same_type and title_matches and year_matches:
-            return meta
-
-    if not fallback_title:
-        return meta
-
-    def _pick_match(query: str):
-        results = tmdb.search(query, max_results=15)
-        return choose_search_result(results, fallback_title, media_type, year)
-
-    def _year_distance(candidate: dict | None) -> int:
-        if year is None or not candidate or not candidate.get('year'):
-            return 999
-        return abs(int(candidate.get('year')) - int(year))
-
-    match = _pick_match(fallback_title)
-
-    # Short titles are often ambiguous on TMDB (e.g. TAR); retry with year.
-    token_count = len(_normalized_title_tokens(fallback_title))
-    if year is not None:
-        precise_results = tmdb.search_precise(fallback_title, media_type, year=year, max_results=15)
-        precise_match = choose_search_result(precise_results, fallback_title, media_type, year)
-        by_year = _pick_match(f'{fallback_title} {year}')
-        if precise_match and (
-            match is None
-            or _year_distance(precise_match) < _year_distance(match)
-            or (token_count <= 2 and _year_distance(match) > 1)
-        ):
-            match = precise_match
-        elif by_year and (
-            match is None
-            or _year_distance(by_year) < _year_distance(match)
-            or (token_count <= 2 and _year_distance(match) > 1)
-        ):
-            match = by_year
-
-    if not match:
-        return meta
-
-    return tmdb.metadata_by_tmdb_id(match['tmdb_id'], match['media_type'])
-
-
 @app.route('/refresh/<int:media_id>', methods=['POST'])
 def refresh_metadata(media_id: int):
     item = store.get_media_item(media_id)
@@ -1032,7 +669,7 @@ def toggle_favourite(media_id: int):
 @app.route('/refresh-all', methods=['POST'])
 def refresh_all_metadata():
     """Bulk-refresh metadata and posters for every item in the library via TMDB."""
-    if not tmdb:
+    if not tmdb_state.client():
         return redirect(url_for('index', status='tmdb_not_configured'))
     force_refresh = request.form.get('force') == '1'
     all_items = store.list_media_items()
@@ -1183,7 +820,11 @@ def sync_trakt():
     try:
         for item in trakt.collection_movies() + trakt.collection_shows():
             try:
-                meta = tmdb.metadata_by_imdb_id(item['imdb_id']) if tmdb else {}
+                meta = (
+                    tmdb_state.client().metadata_by_imdb_id(item['imdb_id'])
+                    if tmdb_state.client()
+                    else {}
+                )
                 store.add_media_item(
                     imdb_id=item['imdb_id'],
                     tmdb_id=meta.get('tmdb_id'),
@@ -1219,200 +860,6 @@ def sync_trakt():
         return redirect(url_for('index', section='settings', status='trakt_error'))
 
     return redirect(url_for('index', section='settings', status=f'trakt_synced_{synced}'))
-
-
-@app.route('/api/trakt/connect/start', methods=['POST'])
-def trakt_connect_start():
-    client_id = _trakt_client_id()
-    client_secret = _trakt_client_secret()
-    if not client_id or not client_secret:
-        return jsonify({'ok': False, 'error': 'trakt_oauth_not_configured'}), 400
-    try:
-        trakt = TraktClient(client_id=client_id, client_secret=client_secret)
-        flow = trakt.device_code()
-        expires_at = _utc_now() + timedelta(seconds=int(flow.get('expires_in') or 0))
-        payload = {
-            'device_code': flow.get('device_code', ''),
-            'user_code': flow.get('user_code', ''),
-            'verification_url': flow.get('verification_url', 'https://trakt.tv/activate'),
-            'interval': int(flow.get('interval') or 5),
-            'expires_at': expires_at.isoformat(),
-        }
-        _save_json_setting(TRAKT_DEVICE_SETTING, payload)
-        return jsonify({'ok': True, 'flow': payload})
-    except TraktRequestError as exc:
-        error = 'trakt_error_forbidden' if exc.code == 'forbidden' else 'trakt_error_network'
-        return jsonify({'ok': False, 'error': error}), 502
-
-
-@app.route('/api/trakt/connect/poll', methods=['POST'])
-def trakt_connect_poll():
-    flow = _trakt_device_flow()
-    if not flow or not flow.get('device_code'):
-        return jsonify({'ok': False, 'error': 'trakt_oauth_missing_flow'}), 400
-    client_id = _trakt_client_id()
-    client_secret = _trakt_client_secret()
-    try:
-        trakt = TraktClient(client_id=client_id, client_secret=client_secret)
-        token = _serialize_trakt_token(trakt.poll_device_token(flow['device_code']))
-        authed = TraktClient(
-            client_id=client_id,
-            client_secret=client_secret,
-            access_token=token.get('access_token', ''),
-        )
-        profile_data = authed.current_user() or {}
-        profile = {
-            'username': profile_data.get('username', ''),
-            'slug': (profile_data.get('ids') or {}).get('slug') or profile_data.get('username', ''),
-            'name': profile_data.get('name', ''),
-        }
-        _save_json_setting(TRAKT_TOKEN_SETTING, token)
-        _save_json_setting(TRAKT_PROFILE_SETTING, profile)
-        _save_json_setting(TRAKT_DEVICE_SETTING, None)
-        return jsonify({'ok': True, 'status': 'connected', 'profile': profile})
-    except TraktRequestError as exc:
-        if exc.code in {'pending', 'slow_down'}:
-            return jsonify(
-                {
-                    'ok': True,
-                    'status': 'pending',
-                    'interval': int(flow.get('interval') or 5)
-                    + (5 if exc.code == 'slow_down' else 0),
-                }
-            )
-        if exc.code in {'expired', 'denied', 'already_used', 'not_found'}:
-            _save_json_setting(TRAKT_DEVICE_SETTING, None)
-            return jsonify({'ok': False, 'error': f'trakt_oauth_{exc.code}'}), 400
-        return jsonify({'ok': False, 'error': f'trakt_{exc.code}'}), 502
-
-
-@app.route('/api/trakt/disconnect', methods=['POST'])
-def trakt_disconnect():
-    token = _load_json_setting(TRAKT_TOKEN_SETTING) or {}
-    access_token = token.get('access_token', '')
-    client_id = _trakt_client_id()
-    client_secret = _trakt_client_secret()
-    if access_token and client_id and client_secret:
-        try:
-            TraktClient(client_id=client_id, client_secret=client_secret).revoke_token(access_token)
-        except Exception:
-            pass
-    _clear_trakt_auth()
-    return jsonify({'ok': True})
-
-
-@app.route('/settings', methods=['POST'])
-def save_settings():
-    prev_movies = (store.get_setting('movies_path') or '').strip()
-    prev_tv = (store.get_setting('tv_path') or '').strip()
-    prev_trakt_client_id = _trakt_client_id()
-    prev_trakt_secret = _trakt_client_secret()
-
-    movies_path = request.form.get('movies_path')
-    tv_path = request.form.get('tv_path')
-    downloads_path = request.form.get('downloads_path')
-    preferred_quality = request.form.get('preferred_quality')
-    public_access_submitted = request.form.get('public_access_submitted')
-    server_port_raw = request.form.get('server_port')
-    auth_username_raw = request.form.get('auth_username')
-    auth_password_raw = request.form.get('auth_password')
-    auth_password_confirm = request.form.get('auth_password_confirm')
-    mirror_urls_raw = request.form.get('mirror_urls')
-    qbt_webui_url_raw = request.form.get('qbt_webui_url')
-    tmdb_api_key_raw = request.form.get('tmdb_api_key')
-    trakt_client_id_raw = request.form.get('trakt_client_id')
-    trakt_username_raw = request.form.get('trakt_username')
-    trakt_client_secret_raw = request.form.get('trakt_client_secret')
-
-    if movies_path is not None:
-        store.set_setting('movies_path', movies_path.strip())
-    if tv_path is not None:
-        store.set_setting('tv_path', tv_path.strip())
-    if downloads_path is not None:
-        store.set_setting('downloads_path', downloads_path.strip())
-    if preferred_quality is not None:
-        store.set_setting('preferred_quality', preferred_quality.strip() or '2160p')
-
-    # An unticked checkbox submits nothing, so a companion hidden field marks
-    # that this particular form was the one posted.
-    if public_access_submitted:
-        wants_public = bool(request.form.get('public_access'))
-
-        port = None
-        if server_port_raw is not None:
-            try:
-                port = int(server_port_raw.strip())
-            except ValueError:
-                port = -1
-            if not 1024 <= port <= 65535:
-                # Everything is validated before anything is written, so a
-                # rejected form never leaves half the settings applied.
-                return redirect(url_for('index', section='settings', status='port_invalid'))
-
-        username = (auth_username_raw or '').strip()
-        password = auth_password_raw or ''
-        new_password_hash = None
-        if password or auth_password_confirm:
-            if password != (auth_password_confirm or ''):
-                return redirect(url_for('index', section='settings', status='password_mismatch'))
-            if len(password) < 8:
-                return redirect(url_for('index', section='settings', status='password_too_short'))
-            new_password_hash = generate_password_hash(password)
-
-        will_have_username = username or _auth_username()
-        will_have_hash = new_password_hash or _auth_password_hash()
-        if wants_public and not (will_have_username and will_have_hash):
-            # Refusing here is the whole point of the feature: exposing the
-            # library to the network with no credentials set has no safe path.
-            return redirect(url_for('index', section='settings', status='auth_required_for_public'))
-
-        if username:
-            store.set_setting('auth_username', username)
-        if new_password_hash:
-            store.set_setting('auth_password_hash', new_password_hash)
-        store.set_setting('public_access', '1' if wants_public else '0')
-        if port is not None:
-            store.set_setting('server_port', str(port))
-        return redirect(url_for('index', section='settings', status='public_access_saved'))
-    if mirror_urls_raw is not None:
-        mirror_urls = [
-            line.strip().rstrip('/') for line in mirror_urls_raw.splitlines() if line.strip()
-        ]
-        store.set_setting('mirror_urls', '\n'.join(mirror_urls))
-
-    if qbt_webui_url_raw is not None:
-        sanitized_url = _sanitize_qbt_webui_url(qbt_webui_url_raw)
-        if sanitized_url is None:
-            return redirect(url_for('index', section='settings', status='qbt_url_invalid'))
-        store.set_setting('qbt_webui_url', sanitized_url)
-    if tmdb_api_key_raw is not None and tmdb_api_key_raw.strip():
-        _set_tmdb_api_key(tmdb_api_key_raw)
-        _refresh_tmdb_client()
-    if trakt_client_id_raw is not None:
-        store.set_setting('trakt_client_id', trakt_client_id_raw.strip())
-    if trakt_username_raw is not None:
-        store.set_setting('trakt_username', trakt_username_raw.strip())
-    if trakt_client_secret_raw is not None and trakt_client_secret_raw.strip():
-        _set_trakt_client_secret(trakt_client_secret_raw)
-
-    changed_client_id = (
-        trakt_client_id_raw is not None and trakt_client_id_raw.strip() != prev_trakt_client_id
-    )
-    changed_client_secret = (
-        trakt_client_secret_raw is not None
-        and trakt_client_secret_raw.strip()
-        and trakt_client_secret_raw.strip() != prev_trakt_secret
-    )
-    if changed_client_id or changed_client_secret:
-        _clear_trakt_auth()
-
-    qb.set_mirror_urls(configured_mirror_urls())
-    new_movies = (store.get_setting('movies_path') or '').strip()
-    new_tv = (store.get_setting('tv_path') or '').strip()
-    if new_movies != prev_movies or new_tv != prev_tv:
-        imported = import_from_configured_folders()
-        return redirect(url_for('index', section='settings', status=f'settings_saved_{imported}'))
-    return redirect(url_for('index', section='settings', status='settings_saved'))
 
 
 # Per-media lock guards segment-endpoint restarts so concurrent hls.js requests cooperate.

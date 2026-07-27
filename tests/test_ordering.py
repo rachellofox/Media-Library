@@ -85,18 +85,13 @@ class FakeTmdb:
         return self.orderings
 
 
-namespace['app'] = type(
-    'A',
-    (),
-    {
-        'tmdb': FakeTmdb(
-            [
-                {'id': 'x', 'name': 'Intended Order', 'kind': 'Absolute', 'episodes': DVD},
-                {'id': 'y', 'name': 'DVD Order', 'kind': 'DVD', 'episodes': DVD},
-            ]
-        )
-    },
-)()
+_pair_stub = FakeTmdb(
+    [
+        {'id': 'x', 'name': 'Intended Order', 'kind': 'Absolute', 'episodes': DVD},
+        {'id': 'y', 'name': 'DVD Order', 'kind': 'DVD', 'episodes': DVD},
+    ]
+)
+namespace['tmdb_state'] = type('S', (), {'client': staticmethod(lambda: _pair_stub)})()
 
 notes, left = [], []
 chosen, untitled = resolve('Firefly', 1437, PLANNED, BROADCAST, notes, left)
@@ -125,11 +120,8 @@ titles, _c, _a, disagree = score(flat_planned, flat_dvd, flat_probes)
 check('the DVD ordering matches both', (titles, disagree) == (2, 0), (titles, disagree))
 
 namespace['_probe'] = lambda path: flat_probes.get(path, (0.0, ''))
-namespace['app'] = type(
-    'A',
-    (),
-    {'tmdb': FakeTmdb([{'id': 'y', 'name': 'DVD Order', 'kind': 'DVD', 'episodes': flat_dvd}])},
-)()
+_flat_stub = FakeTmdb([{'id': 'y', 'name': 'DVD Order', 'kind': 'DVD', 'episodes': flat_dvd}])
+namespace['tmdb_state'] = type('S', (), {'client': staticmethod(lambda: _flat_stub)})()
 notes, left = [], []
 chosen, untitled = resolve('Batman', 2098, flat_planned, flat_default, notes, left)
 check('the ordering the files vouch for is adopted', chosen is flat_dvd)
@@ -165,7 +157,8 @@ check('nothing is swapped in', chosen is BROADCAST)
 check('and nothing is reported', notes == [] and left == [], (notes, left))
 
 print('\n=== 5. Where nothing fits, titles are withheld rather than guessed ===')
-namespace['app'] = type('A', (), {'tmdb': FakeTmdb([])})()
+_empty_stub = FakeTmdb([])
+namespace['tmdb_state'] = type('S', (), {'client': staticmethod(lambda: _empty_stub)})()
 namespace['_probe'] = lambda path: (21.6, '')
 notes, left = [], []
 chosen, untitled = resolve(

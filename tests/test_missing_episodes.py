@@ -11,6 +11,7 @@ sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
+from medialibrary import tmdb_state
 from medialibrary.storage import Storage
 
 PASS, FAIL = [], []
@@ -88,7 +89,7 @@ class StubTmdb:
         return [dict(e) for e in self.EPISODES.get((int(tv_id), int(season_number)), [])]
 
 
-app.tmdb = StubTmdb()
+tmdb_state.set_client(StubTmdb())
 
 
 def make(path):

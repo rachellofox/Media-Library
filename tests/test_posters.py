@@ -10,6 +10,7 @@ sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import app
 import medialibrary.posters
+from medialibrary import tmdb_state
 from medialibrary.storage import Storage
 
 PASS, FAIL = [], []
@@ -63,7 +64,7 @@ class StubTmdb:
         return [dict(p) for p in POSTERS]
 
 
-app.tmdb = StubTmdb()
+tmdb_state.set_client(StubTmdb())
 
 downloaded = []
 

@@ -27,6 +27,7 @@ from medialibrary.config import (
     QBT_WEBUI_URL,
     QBT_WEBUI_USERNAME,
 )
+from medialibrary.network import _is_local_or_private_host
 
 
 class QbtUnavailableError(RuntimeError):
@@ -297,3 +298,16 @@ def _qbt_webui_add_download(download_url: str, save_path: str) -> bool:
 
     # qBittorrent may return an empty body for successful submissions.
     return not add_body.lower().startswith('fails')
+
+
+def _sanitize_qbt_webui_url(raw: str) -> str | None:
+    value = (raw or '').strip()
+    if not value:
+        return ''
+    parsed = urllib.parse.urlparse(value)
+    if parsed.scheme not in {'http', 'https'}:
+        return None
+    if not parsed.hostname or not _is_local_or_private_host(parsed.hostname):
+        return None
+    port = f':{parsed.port}' if parsed.port else ''
+    return f'{parsed.scheme}://{parsed.hostname}{port}'.rstrip('/')

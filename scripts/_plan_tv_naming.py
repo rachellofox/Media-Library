@@ -27,6 +27,7 @@ except AttributeError:
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app
+from medialibrary import tmdb_state
 from medialibrary.config import DISCOVER_COLLECTION_CACHE_HOURS
 from medialibrary.episode_match import (
     is_extras_path,
@@ -54,7 +55,7 @@ if '--show' in sys.argv:
 
 def tmdb_episodes(tmdb_id):
     """Every episode of a show, specials excluded, from the database cache."""
-    if not tmdb_id or not app.tmdb:
+    if not tmdb_id or not tmdb_state.client():
         return []
     episodes = []
     overview = app._cached_tv_status(int(tmdb_id))
@@ -64,7 +65,7 @@ def tmdb_episodes(tmdb_id):
             continue
         cached = app.store.get_cached_season(int(tmdb_id), number, DISCOVER_COLLECTION_CACHE_HOURS)
         if cached is None:
-            cached = app.tmdb.season_episodes(tmdb_id, number)
+            cached = tmdb_state.client().season_episodes(tmdb_id, number)
             if cached:
                 app.store.set_cached_season(int(tmdb_id), number, cached)
         episodes.extend(cached or [])
@@ -197,7 +198,7 @@ def _resolve_ordering(show_title, tmdb_id, planned, episodes, notes, left_alone)
         return episodes, set()
 
     candidates = []
-    for ordering in app.tmdb.episode_orderings(tmdb_id) if tmdb_id else []:
+    for ordering in tmdb_state.client().episode_orderings(tmdb_id) if tmdb_id else []:
         titles, covered, agree, disagree = _score_ordering(planned, ordering['episodes'], probes)
         # Nothing may contradict it, and it has to account for more of the files
         # than the default managed on at least one signal.
