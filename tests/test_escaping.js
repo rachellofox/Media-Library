@@ -67,6 +67,26 @@ check('insertAdjacentHTML is never given an interpolated string', dynamicInsert.
 const jsUrl = (library + player).match(/["'`]javascript:/g) || [];
 check('no javascript: URLs', jsUrl.length === 0, jsUrl);
 
+
+console.log('\n=== watch URLs encode the episode filename ===');
+// End at the closing brace on its own line: the body contains ${...}, so the
+// first '}' after the return sits inside a template literal, not at the end.
+const wuStart = library.indexOf('function watchUrl(');
+const wuEnd = library.indexOf('\n}', wuStart) + 2;
+eval(library.slice(wuStart, wuEnd));
+
+check('a plain film has no query', watchUrl(7, null) === '/video/7', watchUrl(7, null));
+check(
+  'an episode is encoded',
+  watchUrl(7, 'Season 01/Show & Co - S01E01.mkv').includes('%26'),
+  watchUrl(7, 'Season 01/Show & Co - S01E01.mkv'),
+);
+check(
+  'a hash cannot truncate the URL',
+  !watchUrl(7, 'a#b.mkv').includes('#'),
+  watchUrl(7, 'a#b.mkv'),
+);
+
 const failed = results.filter(([, ok]) => !ok);
 console.log(`\n${'='.repeat(60)}\nPASSED ${results.length - failed.length}   FAILED ${failed.length}`);
 failed.forEach(([name]) => console.log('  -', name));

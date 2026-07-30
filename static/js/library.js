@@ -87,6 +87,15 @@ function normalizeTitle(value) {
   return raw;
 }
 
+// The player page selects which file to play with ?episode=. Episode names are
+// real filenames and routinely contain & # and spaces, so the encoding is not
+// optional — building this URL by hand is how one of them silently truncates.
+function watchUrl(mediaId, episodeFile) {
+  const base = `/video/${mediaId}`;
+  return episodeFile ? `${base}?episode=${encodeURIComponent(episodeFile)}` : base;
+}
+
+
 function libraryItemTitle(item) {
   if (item.title && !String(item.title).startsWith('tt')) return item.title;
   if (item.path) {
@@ -310,7 +319,7 @@ async function showSeasonEpisodes(mediaId, seasonNumber) {
       episode.air_date || '',
       episode.runtime ? `${episode.runtime} min` : '',
     ].filter(Boolean).join(' · ');
-    const href = `/video/${mediaId}?episode=${encodeURIComponent(episode.file)}`;
+    const href = watchUrl(mediaId, episode.file);
     // A plain div stands in when TMDB has no still, so rows stay aligned.
     const thumb = episode.still_url
       ? `<img class="tv-episode-thumb" src="${escAttr(episode.still_url)}" alt="" loading="lazy">`
@@ -384,7 +393,7 @@ async function renderFeaturettes(mediaId, listEl, season) {
   if (!files.length) return false;
 
   const rows = files.map(file => {
-    const href = `/video/${mediaId}?episode=${encodeURIComponent(file.file)}`;
+    const href = watchUrl(mediaId, file.file);
     return `
       <div class="tv-featurette-row">
         <div class="tv-featurette-name" title="${escAttr(file.name)}">${escHtml(file.label || file.name)}</div>
@@ -1894,7 +1903,7 @@ document.getElementById('hero-retry-download-btn').addEventListener('click', () 
 document.getElementById('hero-watch-btn').addEventListener('click', () => {
   const item = HERO_STATE.item;
   if (item && item.id) {
-    window.location.href = '/video/' + item.id;
+    window.location.href = watchUrl(item.id, null);
   }
 });
 

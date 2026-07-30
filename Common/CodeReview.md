@@ -513,9 +513,24 @@ worked one at a time:
   decision; the parse gate is the cheap 80%. Worth revisiting on its own.
 - [ ] F4. Review for genuinely dead JS — functions no longer called by any
   handler. Now tractable: the code is in two files a tool can read.
-- [ ] F5. **`library.js` and `player.js` duplicate playback URL building and
-  subtitle handling.** Noted when F2 was written and unchanged by the extraction;
-  a shared module is the obvious answer.
+- [x] F5. **The duplication I recorded here does not exist. Corrected
+  2026-07-27.** Measured before extracting anything, and the premise was wrong:
+  the two files share **0 function names** and **0 runs of three or more
+  identical lines**.
+  Both specifics were wrong too. "Subtitle handling" appears 28 times in
+  `library.js` and once in `player.js`, but the library's are badges and filters
+  (`missingSubtitles`) while the player's is track selection — different
+  concerns that share a word. "Playback URL building" is the library making
+  *page* links (`/video/<id>?episode=`) and the player making *API* calls
+  (`/api/video/<id>/hls/...`) — different things that look alike in a note.
+  I wrote this item from reading the templates rather than comparing them, which
+  is the same mistake as the `media.db` finding: a claim from a resemblance
+  rather than from the evidence. No shared module was needed and none was added.
+  One genuine repetition did turn up, *within* `library.js`: the watch link was
+  built by hand in three places. Now `watchUrl(mediaId, episodeFile)`, which
+  matters because episode names are real filenames and routinely contain `&` and
+  `#` — forgetting `encodeURIComponent` truncates the URL silently. Three
+  assertions in `tests/test_escaping.js` cover it.
 
 ---
 
