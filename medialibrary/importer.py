@@ -117,18 +117,12 @@ def import_media_from_paths(folder_path: str, media_type: str) -> int:
             meta.get('imdb_id') or entry['name'], meta.get('poster_url') or ''
         ) or meta.get('poster_url')
 
-        # Resolve the actual video file for quality detection; entry path may be a
-        # folder (e.g. TV show)
-        quality_target = entry['path']
-        if os.path.isdir(quality_target):
-            for _root, _dirs, _files in os.walk(quality_target):
-                for fname in _files:
-                    if os.path.splitext(fname)[1].lower() in VIDEO_EXTENSIONS:
-                        quality_target = os.path.join(_root, fname)
-                        break
-                else:
-                    continue
-                break
+        # Quality comes from the largest video, not the first one found. Walk
+        # order is roughly alphabetical, so a folder shipping "AAA-sample.mkv"
+        # beside the feature had the whole title recorded at the sample's
+        # quality — which then advertises an upgrade and can start a download to
+        # replace a file that was fine. Everywhere else already uses this.
+        quality_target = _best_local_video_path(entry['path']) or entry['path']
 
         runtime.store().add_media_item(
             imdb_id=meta['imdb_id'],

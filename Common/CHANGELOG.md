@@ -7,6 +7,10 @@ All notable user-facing changes to this project are documented here.
 - The pages now load their JavaScript from a cached file instead of carrying it
   inline, so a second visit does not re-download it. No change to how anything
   behaves.
+- A title's quality is now read from its main video rather than whichever file
+  came first alphabetically. A folder shipping a small "sample" file alongside
+  the feature could record the whole title at the sample's quality, which then
+  offered an upgrade and could start a download to replace a file that was fine.
 - A download whose filename is plainly a different show is no longer filed as an
   episode of the show you started it from. It is flagged for review and left
   where it is, with the filename in the message. Filing renames the file, so the

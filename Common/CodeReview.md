@@ -426,7 +426,19 @@ worked one at a time:
   also grows one entry per client address and is never pruned — bounded by the
   devices on a home network, so not worth code to fix.
 
-- [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
+- [x] E3. **Library scan and import reviewed. Done 2026-07-27. One small fix.**
+  Quality was detected from the *first* video found by `os.walk`, not the
+  largest. Walk order is roughly alphabetical, so a release folder shipping
+  `AAA-sample.mkv` beside the feature had the whole title recorded at the
+  sample's quality — which then advertises an upgrade and can start a download to
+  replace a file that was perfectly good. Demonstrated in a sandbox, then fixed
+  by using `_best_local_video_path`, which every other part of the codebase
+  already uses for exactly this. This was the odd one out, not a missing idea.
+  The rest is sound, and the two guards bought by earlier bugs are both really
+  there: a folder with no video is not importable, and a scan cannot repoint an
+  item that already resolves to a playable file — which is what stopped three
+  films reappearing as "missing" forever.
+
 - [x] E4. **Downloads and finalisation reviewed. Done 2026-07-27. One real gap.**
   **The cross-show guard was not applied when filing a download.**
   `scan_local_episodes` refuses a file whose name belongs to another show, but
@@ -466,8 +478,44 @@ worked one at a time:
   cleanup silently left the directory behind. `_start_hls_transcode` had the
   matching close all along; the two paths had simply drifted. The rest of this
   section is still to review.
-- [ ] E6. TV and episode logic (`scan_local_episodes`, missing-episode discovery).
-- [ ] E7. Discover and TMDB caching.
+- [x] E6. **TV and episode logic reviewed. Done 2026-07-27. Nothing to fix.**
+  Exercised the two functions that decide what a file is, against the cases that
+  have actually caused trouble. `_episodes_covered` reads `S04E01-E02` as two
+  episodes, refuses the absurd `S01E01-E30`, and — the interesting ones — is not
+  fooled by `S01E05.720p-E3ATV`, where a release group looks like a continuation,
+  nor by `S01E01 - Episode 2 of 6`, where the title does. `_infer_season_from_path`
+  reads `Season 01`, `S03`, `Specials` and a season buried in
+  `Harley Quinn (2019) Season 3 S03 (1080p)`, refuses the whole-series ranges
+  `Season 1-9` and `S01-S09`, and gives a nested `Season 02/Featurettes` its
+  parent's season.
+  **Known limitation:** the `1x05` naming style is not recognised at all. It does
+  not appear in this library — all 1,732 episodes are canonical — so it is a gap
+  rather than a bug, and worth knowing before importing a differently-named
+  collection.
+
+- [x] E7. **Discover and TMDB caching reviewed. Done 2026-07-27.** The caching
+  itself is right, and gets the important part right: **a failed lookup is never
+  cached**, only a result with content, so an outage cannot poison the cache for
+  24 hours.
+  But the hazard this project keeps meeting is present again, and confirmed by
+  breaking the HTTP layer inside the real client: on an outage
+  `season_episodes` returns `[]` and `tv_status` returns a dict with no seasons —
+  **indistinguishable from a show that genuinely has none**. Discover's missing
+  episodes block then reports nothing missing, which reads as "your library is
+  complete" when the truth is "I could not ask".
+  This is the same shape as the search engine reporting no releases when its
+  mirrors were unreachable, and the prune script reporting no torrents when
+  qBittorrent was down — both already fixed. In practice the 24-hour status cache
+  hides it most of the time; on a cold cache it does not.
+  Not fixed here, deliberately: the fix belongs in `tmdb_client`, where swallowing
+  the exception must become raising or returning `None`, and that changes the
+  contract for every caller. Doing it properly is its own pass — see E7a.
+- [ ] E7a. **Make a TMDB failure distinguishable from an empty result.**
+  `season_episodes` and `tv_status` swallow every exception and return an empty
+  value. They should raise, or return `None`, and let each caller decide — the
+  Discover block can then say it could not check rather than implying nothing is
+  missing. Touches the client and its callers, which is why it is its own item.
+
 - [~] E8. Route layer. **The video group is now a blueprint (2026-07-27):**
   `medialibrary/web/video.py`, 13 routes and 823 lines — the largest of the seven
   groups and the one needing least from `app.py`. `app.py` drops 3,522 → 2,746.
