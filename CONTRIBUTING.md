@@ -79,10 +79,24 @@ following whatever the file currently looks like.
 | --- | --- |
 | Why *this line* is written this way | A comment on the line |
 | Why *this change* was made, what was rejected | The commit message |
-| Open product work | `Common/Roadmap.md` — one table row, open items only |
+| Something broken | `Common/Roadmap.md` → **Bugs** table |
+| Something not built yet | `Common/Roadmap.md` → **Features** table |
 | Open repo-health work | `Common/CodeReview.md` |
 | What a user would notice | `Common/CHANGELOG.md` |
 | Session narrative, dead ends, handoff | `Common/DevLog.md` (not tracked) |
+
+**Bugs and features are tracked separately.** A bug is something that does not
+do what it already promises; a feature is something the app does not do yet.
+When an item is arguably both, file it as a bug — "is this broken?" is the
+question that decides how soon it gets looked at.
+
+IDs run as a single `ML-n` sequence across both tables and an item keeps its ID
+for life, because they are cited in commit messages and an item that turns out
+to be the other kind should move table without changing identity.
+
+Both land in the same CHANGELOG, which is written for a user and so groups by
+what changed for them, not by which table the work came from. A fixed bug reads
+"Fixed …"; a shipped feature just says what it now does.
 
 **A shipped item is deleted from the Roadmap, not marked done** — the CHANGELOG
 is the record of what shipped. Never delete a Roadmap row until the CHANGELOG

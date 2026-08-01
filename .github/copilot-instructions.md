@@ -51,7 +51,7 @@ Two rules hold across `medialibrary/`:
 
 - `README.md`: onboarding and quick start
 - `Common/Runbook.md`: operational runbook
-- `Common/Roadmap.md`: approved/open work
+- `Common/Roadmap.md`: open work, split into Bugs and Features
 - `Common/CHANGELOG.md`: shipped changes
 - `Common/CodeReview.md`: the standing repo review, worked section by section
 

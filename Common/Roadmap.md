@@ -6,7 +6,15 @@ Single source of truth for approved and open work.
 
 - **Open work only.** An item that has shipped is deleted from here, not marked
   done. The record of what shipped is `CHANGELOG.md`.
-- **One row per item**, in the table below: ID, Title, Source, Priority, Status.
+- **Bugs and features are listed separately**, in the two tables below. A bug is
+  something that does not do what it already promises; a feature is something
+  the app does not do yet. If an item is arguably both, file it as a bug — the
+  question "is this broken?" is the one that decides how soon it gets looked at.
+- **One row per item**: ID, Title, Source, Priority, Status.
+- **IDs are one sequence across both tables**, and an item keeps its ID for
+  life. They are cited in commit messages, so renumbering them would break the
+  history; and an item that turns out to be the other kind moves table without
+  changing identity.
 - **Nothing is removed until the CHANGELOG covers it.** The Roadmap says what is
   coming; the CHANGELOG says what arrived. An item deleted without a CHANGELOG
   line disappears from the record entirely.
@@ -26,21 +34,32 @@ Priorities: **P1** wanted next · **P2** wanted · **P3** would be nice.
 - Blocked — waiting on a decision or something external
 - Done — shipped; the row is deleted and a CHANGELOG line takes its place
 
-## Open work
+## Bugs
+
+Something that does not do what it already promises.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| ML-10 | Fix subtitles in the player | User need | P1 | Proposed |
-| ML-11 | Transcoding playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
+| ML-10 | Subtitles do not work in the player | User need | P1 | Proposed |
+| ML-11 | Transcoded playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
+| ML-17 | Trakt watching list not loading | User need | P1 | Proposed |
+| ML-19 | Upgrade check on a TV show reports "complete" without opening the torrent pane, which is what it does for a film | User need | P2 | Proposed |
+| ML-18 | "Back to TV Shows" scrolls out of reach — it can only be pressed from the top of the page | User need | P3 | Blocked |
+
+## Features
+
+Something the app does not do yet.
+
+| ID | Title | Source | Priority | Status |
+| -- | ----- | ------ | -------- | ------ |
 | ML-8 | Per-episode playback progress — resume, watched marks, next-episode progression | Second pass of the TV work | P2 | Approved |
 | ML-9 | Carry the detected episode ordering into the app, so the episode list matches the filenames | Follow-on from episode ordering | P2 | Approved |
 | ML-16 | Surface duplicate episode copies instead of silently discarding them | Review finding | P2 | Approved |
 | ML-12 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | ML-13 | Move the favourites icon | User need | P3 | Proposed |
 | ML-15 | Title Batman's Season 04 from embedded metadata, or match it against The New Batman Adventures | Review finding | P3 | Proposed |
-| ML-17 | Trakt watching list not loading | User need | P1 | Proposed |
 
-Priority for ML-17 was assumed, not given — adjust if it is not urgent.
+Priorities for ML-17 and ML-19 were assumed, not given — adjust if wrong.
 
 ## Detail
 
@@ -126,6 +145,13 @@ it settled the Batman ordering and what ML-15 rests on — and never a quality
 one. Worth remembering that it can describe a sibling rather than itself.
 
 Nothing has been deleted.
+
+### ML-18 — "Back to TV Shows" scrolls away
+
+Blocked on a decision, not on work. Either pin it so it stays put while the page
+scrolls, or move it into the bottom-left of the hero pane where it is always on
+screen at the top and is not needed further down. Pinning is the smaller change
+and helps most on a long season list; moving it keeps the chrome quieter.
 
 ### ML-15 — Batman Season 04
 
