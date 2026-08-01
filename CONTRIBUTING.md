@@ -90,9 +90,36 @@ do what it already promises; a feature is something the app does not do yet.
 When an item is arguably both, file it as a bug — "is this broken?" is the
 question that decides how soon it gets looked at.
 
-IDs run as a single `ML-n` sequence across both tables and an item keeps its ID
-for life, because they are cited in commit messages and an item that turns out
-to be the other kind should move table without changing identity.
+### Item IDs
+
+`F-DDMM.NN` for a feature, `B-DDMM.NN` for a bug: the kind, the day it was
+raised, and a counter within that day. `F-0108.01` is the first feature raised
+on 1 August. The counter restarts daily, so it only has to be unique within its
+own date — no need to scan the whole file for the next free number.
+
+An item keeps its ID for life, date included. The date says when it was raised,
+not when it was last touched, so an ID that has been sitting around a while
+looks like it. One that turns out to be the other kind keeps its number and
+swaps its letter — `B-0108.04` becomes `F-0108.04`.
+
+Quote the ID in the commit that closes it.
+
+These replaced a plain `ML-n` sequence on 1 August 2026, which carried no
+information and had to be tracked by hand. Commits before that date cite the old
+ids; this is what they map to:
+
+| Old | New | | Old | New |
+| --- | --- | - | --- | --- |
+| ML-8 | F-0108.01 | | ML-10 | B-0108.01 |
+| ML-9 | F-0108.02 | | ML-11 | B-0108.02 |
+| ML-16 | F-0108.03 | | ML-17 | B-0108.03 |
+| ML-12 | F-0108.04 | | ML-19 | B-0108.04 |
+| ML-13 | F-0108.05 | | ML-18 | B-0108.05 |
+| ML-15 | F-0108.06 | | | |
+
+Everything above carries 1 August because that is when the scheme started, not
+because it was all raised that day. ML-14 is absent because it never appears
+anywhere in this repo's history — a gap in the old numbering, not a lost item.
 
 Both land in the same CHANGELOG, which is written for a user and so groups by
 what changed for them, not by which table the work came from. A fixed bug reads

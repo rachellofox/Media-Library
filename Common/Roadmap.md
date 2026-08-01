@@ -11,10 +11,14 @@ Single source of truth for approved and open work.
   the app does not do yet. If an item is arguably both, file it as a bug — the
   question "is this broken?" is the one that decides how soon it gets looked at.
 - **One row per item**: ID, Title, Source, Priority, Status.
-- **IDs are one sequence across both tables**, and an item keeps its ID for
-  life. They are cited in commit messages, so renumbering them would break the
-  history; and an item that turns out to be the other kind moves table without
-  changing identity.
+- **IDs are `F-DDMM.NN` for features and `B-DDMM.NN` for bugs** — the kind, the
+  day it was raised, and a counter within that day. `F-0108.01` is the first
+  feature raised on 1 August. The counter restarts each day, so it only has to
+  be unique within its own date.
+- **An item keeps its ID for life**, including the date, which records when it
+  was raised rather than when it was last touched. One that turns out to be the
+  other kind keeps its number and swaps its letter, so `B-0108.04` becomes
+  `F-0108.04` and the history still leads to it.
 - **Nothing is removed until the CHANGELOG covers it.** The Roadmap says what is
   coming; the CHANGELOG says what arrived. An item deleted without a CHANGELOG
   line disappears from the record entirely.
@@ -40,11 +44,11 @@ Something that does not do what it already promises.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| ML-10 | Subtitles do not work in the player | User need | P1 | Proposed |
-| ML-11 | Transcoded playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
-| ML-17 | Trakt watching list not loading | User need | P1 | Proposed |
-| ML-19 | Upgrade check on a TV show reports "complete" without opening the torrent pane, which is what it does for a film | User need | P2 | Proposed |
-| ML-18 | "Back to TV Shows" scrolls out of reach — it can only be pressed from the top of the page | User need | P3 | Blocked |
+| B-0108.01 | Subtitles do not work in the player | User need | P1 | Proposed |
+| B-0108.02 | Transcoded playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
+| B-0108.03 | Trakt watching list not loading | User need | P1 | Proposed |
+| B-0108.04 | Upgrade check on a TV show reports "complete" without opening the torrent pane, which is what it does for a film | User need | P2 | Proposed |
+| B-0108.05 | "Back to TV Shows" scrolls out of reach — it can only be pressed from the top of the page | User need | P3 | Blocked |
 
 ## Features
 
@@ -52,27 +56,30 @@ Something the app does not do yet.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| ML-8 | Per-episode playback progress — resume, watched marks, next-episode progression | Second pass of the TV work | P2 | Approved |
-| ML-9 | Carry the detected episode ordering into the app, so the episode list matches the filenames | Follow-on from episode ordering | P2 | Approved |
-| ML-16 | Surface duplicate episode copies instead of silently discarding them | Review finding | P2 | Approved |
-| ML-12 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
-| ML-13 | Move the favourites icon | User need | P3 | Proposed |
-| ML-15 | Title Batman's Season 04 from embedded metadata, or match it against The New Batman Adventures | Review finding | P3 | Proposed |
+| F-0108.01 | Per-episode playback progress — resume, watched marks, next-episode progression | Second pass of the TV work | P2 | Approved |
+| F-0108.02 | Carry the detected episode ordering into the app, so the episode list matches the filenames | Follow-on from episode ordering | P2 | Approved |
+| F-0108.03 | Surface duplicate episode copies instead of silently discarding them | Review finding | P2 | Approved |
+| F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
+| F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
+| F-0108.06 | Title Batman's Season 04 from embedded metadata, or match it against The New Batman Adventures | Review finding | P3 | Proposed |
 
-Priorities for ML-17 and ML-19 were assumed, not given — adjust if wrong.
+Priorities for B-0108.03 and B-0108.04 were assumed, not given — adjust if wrong.
+
+Every item above carries today's date because that is when this scheme started,
+not because they were all raised today. Dates are meaningful from here on.
 
 ## Detail
 
 Only where a row needs more than its title. Anything much longer than a paragraph
 is a sign it should be worked on rather than described.
 
-### ML-8 — per-episode playback progress
+### F-0108.01 — per-episode playback progress
 
 `playback_positions` is keyed by media item, so a show remembers one position
 across every episode. It needs an episode key, and then resume, watched marks and
 next-episode progression follow from it.
 
-### ML-9 — carry the detected episode ordering into the app
+### F-0108.02 — carry the detected episode ordering into the app
 
 The rename tool works out which ordering a show's files use, but the episode list
 still asks TMDB for the default — so Firefly's browser shows broadcast-order
@@ -85,7 +92,7 @@ default. Worth an override in the show's Settings card for the cases detection
 cannot call — two orderings with the same episode count and interchangeable
 runtimes.
 
-### ML-16 — duplicate episode copies
+### F-0108.03 — duplicate episode copies
 
 The library holds 78 episodes twice — X-Men (76) and Avatar (2), about 9.7 GB.
 `scan_local_episodes` keeps the largest of each pair and drops the other without
@@ -141,19 +148,19 @@ description of the file it is simply wrong: each X-Men `.mp4` claims `1080p AI
 Upscale PROPER` while being 638x480. It is naming the release the file was
 downloaded from, and that release is the upscale *set*, of which this file is
 the source. So the title stays an identity signal — what a file is, which is how
-it settled the Batman ordering and what ML-15 rests on — and never a quality
+it settled the Batman ordering and what F-0108.06 rests on — and never a quality
 one. Worth remembering that it can describe a sibling rather than itself.
 
 Nothing has been deleted.
 
-### ML-18 — "Back to TV Shows" scrolls away
+### B-0108.05 — "Back to TV Shows" scrolls away
 
 Blocked on a decision, not on work. Either pin it so it stays put while the page
 scrolls, or move it into the bottom-left of the hero pane where it is always on
 screen at the top and is not needed further down. Pinning is the smaller change
 and helps most on a long season list; moving it keeps the chrome quieter.
 
-### ML-15 — Batman Season 04
+### F-0108.06 — Batman Season 04
 
 Season 04 on disk is *The New Batman Adventures*, a different series, which is why
 no Batman ordering covers it and its 24 files carry numbers without titles. Their
