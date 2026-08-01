@@ -76,6 +76,16 @@ show. Giving both copies the same canonical name made a pairing visible that had
 been on disk, unnoticed, for two years — which is the argument for reporting
 duplicates rather than the argument against it.
 
+Every pair was then checked by picture rather than by name, because Explorer
+picks its thumbnail from a different position for `.mkv` than for `.mp4` and the
+pairs look like different scenes in a folder listing. Comparing a frame at the
+same fraction of running time settled 74; the remaining four needed a 30-second
+window slid against the other copy to find the offset, since a fixed timestamp
+lands either side of a cut, and Avatar's `.mkv` copies carry 30s and 77s more
+intro than their `.mp4`. All 78 are the same episode twice. Any report built
+here should list the facts and let a person decide — a filename is not evidence
+that two files hold the same thing, and neither is a thumbnail.
+
 **The work is to report duplicates, not to choose between them better.** A
 duplicate is a housekeeping decision that wants a person: which copy to keep is
 a judgement about codecs, subtitles and disc space, and deleting the wrong one
