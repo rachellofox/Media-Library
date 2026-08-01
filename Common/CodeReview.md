@@ -401,7 +401,31 @@ worked one at a time:
   **Lesson worth carrying:** re-exporting a name keeps callers working but does
   *not* keep monkeypatching working. Anything a test stubs has to be reached
   through its module.
-- [ ] E2. Auth and session handling — review for correctness and security.
+- [x] E2. **Auth and session handling reviewed. Done 2026-07-27. One real flaw.**
+  `_safe_next_target` refused `//host` and absolute URLs but let `/\host`
+  through. Browsers that read a backslash as a slash turn that into `//host` — a
+  protocol-relative URL — so a crafted `/login?next=/\evil.example` handed the
+  visitor to another site *after* they signed in. `%5C` was the same hole spelled
+  differently. Now checked on the decoded form, with backslashes refused.
+  **The existing test asserted the vulnerable behaviour.** It was named
+  `backslash trick rejected` and required `/\evil.example` to come back
+  *unchanged*. It passed, and reading the output would have convinced anyone the
+  case was handled. A test whose name and assertion disagree is worse than no
+  test, because it buys false confidence — worth remembering when reading a green
+  suite.
+  The rest holds up: passwords hashed with Werkzeug, username compared with
+  `secrets.compare_digest`, one error message for both wrong-user and
+  wrong-password so accounts cannot be enumerated, `session.clear()` before
+  sign-in so a fixated session cannot survive, sign-in invalidated when the
+  username changes, and the lockout checked before the password is examined.
+- [-] E2a. **The lockout counter never decays, and that is deliberate.**
+  Reviewed 2026-07-27, no change. After five failures the count stays at five, so
+  the next single failure re-locks for another five minutes; only a successful
+  sign-in clears it. Harsh for someone who mistypes, but it errs the safe way and
+  this is a LAN app whose owner can always reach the machine. `_failed_logins`
+  also grows one entry per client address and is never pruned — bounded by the
+  devices on a home network, so not worth code to fix.
+
 - [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
 - [ ] E4. Downloads and qBittorrent integration, including the finalisation path
   that has caused two data-loss bugs already.
