@@ -109,7 +109,10 @@ print('\n=== 8. Open-redirect protection on ?next= ===')
 with app.app.test_request_context():  # _safe_next_target calls url_for
     check('absolute url rejected', app._safe_next_target('https://evil.example/x') == '/')
     check('protocol-relative rejected', app._safe_next_target('//evil.example/x') == '/')
-    check('backslash trick rejected', app._safe_next_target('/\\evil.example') == '/\\evil.example')
+    # This assertion used to require the opposite — that "/\evil.example" was
+    # returned unchanged — while being named as though it were rejected. Anyone
+    # reading the PASS line would have believed the case was handled.
+    check('backslash trick rejected', app._safe_next_target('/\\evil.example') == '/')
     check('relative path allowed', app._safe_next_target('/?section=tv') == '/?section=tv')
     check('empty falls back to index', app._safe_next_target('') == '/')
 
@@ -230,6 +233,31 @@ check(
 app._failed_logins.clear()
 c.post('/login', data={'username': 'newname', 'password': 'longenough1'})
 check('new username signs in', c.get('/?section=settings').status_code == 200)
+
+print('\n=== ?next= cannot bounce the visitor off-site ===')
+from medialibrary.auth import _safe_next_target
+
+with app.app.test_request_context('/'):
+    check('a relative path is kept', _safe_next_target('/movies') == '/movies')
+    check('a query string is kept', _safe_next_target('/ok?a=1') == '/ok?a=1')
+    check('protocol-relative is refused', _safe_next_target('//evil.example/x') == '/')
+    check('an absolute URL is refused', _safe_next_target('https://evil.example') == '/')
+    # A backslash is read as a slash by some browsers, so /\host becomes //host.
+    check(
+        'a backslash is refused',
+        _safe_next_target('/' + chr(92) + 'evil.example') == '/',
+        _safe_next_target('/' + chr(92) + 'evil.example'),
+    )
+    check(
+        'an encoded backslash is refused',
+        _safe_next_target('/%5Cevil.example') == '/',
+        _safe_next_target('/%5Cevil.example'),
+    )
+    check(
+        'encoded slashes are refused',
+        _safe_next_target('/%2F%2Fevil.example') == '/',
+        _safe_next_target('/%2F%2Fevil.example'),
+    )
 
 print(f'\n{"=" * 60}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
 if FAIL:

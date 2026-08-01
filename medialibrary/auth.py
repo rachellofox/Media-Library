@@ -10,6 +10,7 @@ restart clearing the counters costs an attacker more time than it saves them.
 """
 
 import secrets
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 
 import keyring
@@ -100,8 +101,16 @@ def _record_failed_login(address: str) -> None:
 
 
 def _safe_next_target(raw: str | None) -> str:
-    """Only allow same-site relative paths, so ?next= cannot bounce elsewhere."""
+    """Only allow same-site relative paths, so ?next= cannot bounce elsewhere.
+
+    Checked after decoding, and backslashes are refused outright. Browsers that
+    read a backslash as a slash turn "/\\evil.example" into "//evil.example" — a
+    protocol-relative URL, so signing in would hand the visitor to another site.
+    `%5C` is the same character spelled differently, which is why the test runs
+    on the decoded form while the encoded one is what gets returned.
+    """
     target = (raw or '').strip()
-    if not target.startswith('/') or target.startswith('//'):
+    decoded = urllib.parse.unquote(target)
+    if not decoded.startswith('/') or decoded.startswith('//') or '\\' in decoded:
         return url_for('core.index')
     return target

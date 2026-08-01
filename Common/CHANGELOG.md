@@ -7,6 +7,12 @@ All notable user-facing changes to this project are documented here.
 - The pages now load their JavaScript from a cached file instead of carrying it
   inline, so a second visit does not re-download it. No change to how anything
   behaves.
+- Fixed a sign-in redirect that could send you to another website. A crafted
+  link could set the "return to" address to something that looked relative but
+  was not, so signing in would hand you to a site you did not choose. Return
+  addresses are now checked properly. Only reachable by following a crafted link.
+- Pages now carry security headers, including a content policy that stops the
+  app being embedded in another site's page.
 - Fixed a security flaw that let a request read video files from anywhere on the
   machine. The direct-stream playback address blocked "../" but not a full path,
   so any .mp4, .m3u8 or .m4s outside the library could be fetched through it.
