@@ -129,20 +129,6 @@ function getDisplayDuration() {
     return 0;
 }
 
-function getSeekableEnd() {
-    try {
-        if (video.seekable && video.seekable.length > 0) {
-            return video.seekable.end(video.seekable.length - 1);
-        }
-    } catch (_err) {
-        // Ignore seekable lookup issues.
-    }
-    if (Number.isFinite(video.duration) && video.duration > 0) {
-        return video.duration;
-    }
-    return 0;
-}
-
 function updateScrubber() {
     const current = Number.isFinite(video.currentTime) ? Math.max(0, video.currentTime) : 0;
     const total = getDisplayDuration();

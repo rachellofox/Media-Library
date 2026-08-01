@@ -519,8 +519,14 @@ worked one at a time:
   cleaned, the rule now applying to it.
   Not adopted: a JS linter. `eslint` would be a real dependency and a real config
   decision; the parse gate is the cheap 80%. Worth revisiting on its own.
-- [ ] F4. Review for genuinely dead JS — functions no longer called by any
-  handler. Now tractable: the code is in two files a tool can read.
+- [x] F4. **Dead JS reviewed. Done 2026-07-27.** Of 121 declared functions across
+  both files, exactly **one** was unreachable: `getSeekableEnd` in `player.js`,
+  declared once and referenced nowhere — not by the shipped code, not by an
+  inline handler, not by a runtime lookup. Removed, 14 lines.
+  That the answer was one and not dozens is the useful finding: this code was not
+  carrying cruft, it was carrying it in the wrong file. Reachability counted
+  mentions across both scripts *and* the templates, since an inline `onclick` is
+  a real caller and a grep of the JS alone would have condemned working code.
 - [x] F5. **The duplication I recorded here does not exist. Corrected
   2026-07-27.** Measured before extracting anything, and the premise was wrong:
   the two files share **0 function names** and **0 runs of three or more

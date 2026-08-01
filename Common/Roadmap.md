@@ -12,8 +12,6 @@ Single source of truth for approved and open work.
 
 ## Next Features (confirmed next features to implement)
 
--Tidy up the settings page, move settings into relevant sections such as network, preferences, storage - exact
-
 -[DONE] Discover new seasons & episodes. A "New & Missing Episodes" block on Discover
  lists owned shows that are missing episodes which have **already aired**, grouped by show
  then season, with an Airing/Ended badge and the next air date. Clicking an episode searches
@@ -358,6 +356,8 @@ Single source of truth for approved and open work.
 
 ## Notes (ideas not yet planned)
 
+-Tidy up the settings page, move settings into relevant sections such as network, preferences, storage - exact categories still to be confirmed
+-Why are completed tasks not being moved from the roadmap to the changelog?
 -Move favourites icon
 -Search entire repo for dead code and useless files
 -Fix subtitles in player
