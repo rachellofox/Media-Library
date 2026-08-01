@@ -38,6 +38,9 @@ Priorities: **P1** wanted next · **P2** wanted · **P3** would be nice.
 | ML-12 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | ML-13 | Move the favourites icon | User need | P3 | Proposed |
 | ML-15 | Title Batman's Season 04 from embedded metadata, or match it against The New Batman Adventures | Review finding | P3 | Proposed |
+| ML-17 | Trakt watching list not loading | User need | P1 | Proposed |
+
+Priority for ML-17 was assumed, not given — adjust if it is not urgent.
 
 ## Detail
 
@@ -69,6 +72,15 @@ The library holds 78 episodes twice — X-Men (76) and Avatar (2), about 9.7 GB.
 `scan_local_episodes` keeps the largest of each pair and drops the other without
 recording it, so the app knows about every one of those files and tells the user
 about none of them.
+
+**These are not a good copy and a bad copy.** Each X-Men pair is the original
+episode at its native 638x480 beside an AI upscale of it at 1442x1080, and
+Avatar is the same arrangement the other way round in the folder. An upscale is
+invented detail, not recovered detail: it is the one to keep if the show is
+being watched on a large screen and the wrong one to keep if the original
+transfer is what matters. Nothing in a file can decide that, which is the whole
+case for reporting rather than resolving. Largest-wins currently discards the
+originals without saying so.
 
 The renaming work did not cause this, though it is how the duplicates came to
 light: every copy was modified in June 2024, from two separate downloads of each
@@ -105,11 +117,13 @@ happens to win correctly by 2%, and no rule tuned on size would have known why.
 A duplicates list with a "cannot be read" mark makes it obvious.
 
 **The embedded container title cannot help choose.** It is on 76 of the 170
-copies, and on every one it is the copy largest-wins rejects — and it
-misdescribes the file: each X-Men `.mp4` claims `1080p AI Upscale PROPER` while
-being 638x480, beside an untitled 1442x1080 HEVC copy with six subtitle tracks.
-It names the release, not the file, so it stays an identity signal (it settled
-the Batman ordering, and ML-15 rests on it) and not a quality one.
+copies, and on every one it is the copy largest-wins rejects — and read as a
+description of the file it is simply wrong: each X-Men `.mp4` claims `1080p AI
+Upscale PROPER` while being 638x480. It is naming the release the file was
+downloaded from, and that release is the upscale *set*, of which this file is
+the source. So the title stays an identity signal — what a file is, which is how
+it settled the Batman ordering and what ML-15 rests on — and never a quality
+one. Worth remembering that it can describe a sibling rather than itself.
 
 Nothing has been deleted.
 
