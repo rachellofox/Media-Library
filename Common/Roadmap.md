@@ -6,22 +6,27 @@ Single source of truth for approved and open work.
 
 - **Open work only.** An item that has shipped is deleted from here, not marked
   done. The record of what shipped is `CHANGELOG.md`.
-- **Bugs and features are listed separately**, in the two tables below. A bug is
-  something that does not do what it already promises; a feature is something
-  the app does not do yet. If an item is arguably both, file it as a bug — the
-  question "is this broken?" is the one that decides how soon it gets looked at.
+- **Three kinds of work, three tables.** A **bug** is the app not doing what it
+  already promises. A **feature** is something the app does not do yet. A
+  **library** item is the collection on disk being wrong, where no code changes
+  at all. If an item is arguably both a bug and a feature, file it as a bug —
+  the question "is this broken?" is the one that decides how soon it is looked
+  at.
 - **One row per item**: ID, Title, Source, Priority, Status.
-- **IDs are `F-DDMM.NN` for features and `B-DDMM.NN` for bugs** — the kind, the
-  day it was raised, and a counter within that day. `F-0108.01` is the first
-  feature raised on 1 August. The counter restarts each day, so it only has to
-  be unique within its own date.
+- **IDs are `F-DDMM.NN`, `B-DDMM.NN` or `L-DDMM.NN`** — the kind, the day it was
+  raised, and a counter within that day. `F-0108.01` is the first feature raised
+  on 1 August. The counter restarts each day, so it only has to be unique within
+  its own date.
 - **An item keeps its ID for life**, including the date, which records when it
   was raised rather than when it was last touched. One that turns out to be the
   other kind keeps its number and swaps its letter, so `B-0108.04` becomes
   `F-0108.04` and the history still leads to it.
 - **Nothing is removed until the CHANGELOG covers it.** The Roadmap says what is
   coming; the CHANGELOG says what arrived. An item deleted without a CHANGELOG
-  line disappears from the record entirely.
+  line disappears from the record entirely. **Library items are the exception**
+  — nothing about the app changed, so there is nothing to tell a user. They are
+  deleted when the files are right, and the commit that fixed them is the
+  record.
 - **Rationale does not live here.** Why something was built the way it was
   belongs in the commit message, or in a comment on the line it explains. Long
   `[DONE]` write-ups are how this file grew to 383 lines of finished work.
@@ -61,12 +66,22 @@ Something the app does not do yet.
 | F-0108.03 | Surface duplicate episode copies instead of silently discarding them | Review finding | P2 | Approved |
 | F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
-| F-0108.06 | Title Batman's Season 04 from embedded metadata, or match it against The New Batman Adventures | Review finding | P3 | Proposed |
+
+## Library
+
+The collection on disk being wrong. No code changes; the fix is to the files.
+
+| ID | Title | Source | Priority | Status |
+| -- | ----- | ------ | -------- | ------ |
+| L-0108.06 | Batman Season 04 is really *The New Batman Adventures* — 24 files carry numbers with no titles | Review finding | P3 | Proposed |
+| L-0108.07 | Decide which copy to keep for the 78 duplicated episodes — see `duplicate-episodes.txt` | Review finding | P3 | Blocked |
 
 Priorities for B-0108.03 and B-0108.04 were assumed, not given — adjust if wrong.
 
 Every item above carries today's date because that is when this scheme started,
 not because they were all raised today. Dates are meaningful from here on.
+L-0108.06 keeps the number it had as a feature, per the rule that an item
+reclassified swaps its letter and keeps its identity.
 
 ## Detail
 
@@ -148,7 +163,7 @@ description of the file it is simply wrong: each X-Men `.mp4` claims `1080p AI
 Upscale PROPER` while being 638x480. It is naming the release the file was
 downloaded from, and that release is the upscale *set*, of which this file is
 the source. So the title stays an identity signal — what a file is, which is how
-it settled the Batman ordering and what F-0108.06 rests on — and never a quality
+it settled the Batman ordering and what L-0108.06 rests on — and never a quality
 one. Worth remembering that it can describe a sibling rather than itself.
 
 Nothing has been deleted.
@@ -160,7 +175,7 @@ scrolls, or move it into the bottom-left of the hero pane where it is always on
 screen at the top and is not needed further down. Pinning is the smaller change
 and helps most on a long season list; moving it keeps the chrome quieter.
 
-### F-0108.06 — Batman Season 04
+### L-0108.06 — Batman Season 04
 
 Season 04 on disk is *The New Batman Adventures*, a different series, which is why
 no Batman ordering covers it and its 24 files carry numbers without titles. Their

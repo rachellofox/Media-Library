@@ -103,7 +103,7 @@ Use this when validating TMDB access. For key setup, see [README.md § Configure
 ## Related Documents
 
 - [README.md](../README.md) — setup, prerequisites, and configuration
-- [Common/Roadmap.md](Roadmap.md) — open work, split into Bugs and Features
+- [Common/Roadmap.md](Roadmap.md) — open work: Bugs, Features and Library
 - [Common/CHANGELOG.md](CHANGELOG.md) — shipped changes
 - `Common/DevLog.md` — working notes and handoffs (not in version control)
 - [docs/README.md](../docs/README.md) — technical reference index

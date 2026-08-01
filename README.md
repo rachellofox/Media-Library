@@ -125,5 +125,5 @@ Two variables can be set in `.env` or the shell to override Settings for `QBT_NO
 - Security and coding rules: `.github/instructions/`
 - Runbook and operational procedures: [Common/Runbook.md](Common/Runbook.md)
 - UI state and badge semantics: [Common/Runbook.md#ui-state-semantics](Common/Runbook.md#ui-state-semantics)
-- Open bugs and features: [Common/Roadmap.md](Common/Roadmap.md)
+- Open bugs, features and library work: [Common/Roadmap.md](Common/Roadmap.md)
 - Shipped changes: [Common/CHANGELOG.md](Common/CHANGELOG.md)
