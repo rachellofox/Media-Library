@@ -335,7 +335,46 @@ def _require_login():
     return redirect(url_for('auth.login', next=request.full_path.rstrip('?')))
 
 
-# Per-media lock guards segment-endpoint restarts so concurrent hls.js requests cooperate.
+# hls.js is fetched from a CDN with two fallbacks, so the script sources have to
+# be named rather than locked to 'self'.
+_HLS_CDNS = 'https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com'
+
+# 'unsafe-inline' is here because the markup carries inline onclick handlers and
+# style attributes, and the pages start with an inline bootstrap of
+# server-injected values. It costs most of the XSS protection a CSP would give,
+# so escaping remains the real defence — see tests/test_escaping.js. What this
+# policy still buys is worth having: nothing can be framed, no plugins can load,
+# forms cannot post elsewhere, and a <base> tag cannot redirect every relative
+# URL on the page.
+_CONTENT_SECURITY_POLICY = '; '.join(
+    [
+        "default-src 'self'",
+        f"script-src 'self' 'unsafe-inline' {_HLS_CDNS}",
+        "style-src 'self' 'unsafe-inline'",
+        # Posters are cached locally, but the artwork picker shows TMDB's
+        # thumbnails directly.
+        "img-src 'self' data: https://image.tmdb.org",
+        "media-src 'self' blob:",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    ]
+)
+
+
+@app.after_request
+def _security_headers(response):
+    """Headers that cost nothing and close off whole classes of attack."""
+    response.headers.setdefault('Content-Security-Policy', _CONTENT_SECURITY_POLICY)
+    # Stops a browser second-guessing a Content-Type and running a .txt as script.
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    # Referrers leak the library path in a URL; keep them on this origin.
+    response.headers.setdefault('Referrer-Policy', 'same-origin')
+    # frame-ancestors covers this for modern browsers; this is the old spelling.
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    return response
 
 
 if __name__ == '__main__':

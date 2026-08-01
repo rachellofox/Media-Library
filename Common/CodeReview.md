@@ -35,7 +35,7 @@ progress is measurable rather than asserted.
 | Python files at the repo root | 9 | **1** (`app.py`) |
 | Templates | 3 (5,362 lines, 3,304 inline JS) | **2,570 lines, 53 inline JS** (bootstrap only) |
 | Front-end JS in files | 0 | 2 (`static/js/`, 3,247 lines) |
-| Tests in repo | **0** | 22 files, ~456 assertions |
+| Tests in repo | **0** | 23 files, ~471 assertions |
 | CI workflows | **0** | 1 (lint, compile, test, startup) |
 | Lint findings (`ruff check .`) | n/a — no linter | **0** |
 | Formatting (`ruff format --check`) | n/a — no formatter | **53 files conform** |
@@ -130,8 +130,11 @@ in some ways and not others.
   are re-imported into `app.py`, which preserves callers but *not*
   monkeypatching. Every path named was checked to exist, which is how the
   dangling `imdb_client.py` reference surfaced.
-- [ ] A7. **No commit or branch conventions**, despite `main` being the only
-  branch and history being two commits.
+- [x] A7. **Commit and branch conventions written down. Done 2026-07-27**, in
+  `CONTRIBUTING.md`. Describes what the 34 commits on this branch already do
+  rather than inventing something: `type: summary in the imperative`, with the
+  types actually in use, and the point that the body is where the value is — say
+  why, and say what was tried and rejected.
 
 ---
 
@@ -233,8 +236,13 @@ tracked but are not, and leftovers.
   duplicated, so there is still one list.
 - [ ] C5. **No `.editorconfig`**, so indentation and newline handling depend on
   whatever editor is open.
-- [ ] C6. **No `CONTRIBUTING.md`, issue or PR templates.** Lower priority for a
-  personal repo; list them so the decision is deliberate rather than accidental.
+- [x] C6. **`CONTRIBUTING.md` added. Done 2026-07-27.** Setup, the three checks
+  to run before committing, where code goes, and the two rules that are easy to
+  get wrong: **start the app after touching routes or `url_for`**, because the
+  suite is blind to wiring breaks; and **re-exporting a name does not preserve
+  monkeypatching**, which cost five test failures during the refactor.
+  Issue and PR templates deliberately skipped — a personal repo with no issues
+  does not need forms, and empty ones are worse than none.
 - [x] C7. **Answered by `scripts/README.md`. Done 2026-07-27.** The leading
   underscore stays, and the README says what it means — internal to the repo, not
   "do not run" — alongside an index of all ten and which six change files. No
@@ -701,10 +709,29 @@ path specifically, since the app can be exposed to the network.
   `tests/test_escaping.js` (14 assertions) runs the shipped helpers against real
   attack strings and enforces the invariants the audit rested on, so this stays a
   property of the code rather than a fact about one afternoon.
-- [ ] I8. **No security headers.** No CSP, `X-Content-Type-Options`, or
-  `Referrer-Policy`. The instructions ask for these "when applicable"; on a LAN
-  app the main value is a CSP limiting what injected markup could do, which pairs
-  naturally with I7.
+- [x] I8. **Security headers added. Done 2026-07-27.** A CSP plus
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` and
+  `X-Frame-Options: DENY`, set on every response by an `after_request` hook.
+  The policy was written from what the app actually loads, not from a template:
+  `player.js` fetches hls.js from **three** CDNs as a fallback chain, and the
+  artwork picker renders TMDB thumbnails directly, so both are named. Miss one
+  and playback quietly falls back to a worse strategy rather than failing loudly.
+  **`script-src` allows `'unsafe-inline'`, and that is a real limitation.** The
+  markup carries 27 inline handlers and 74 `style=` attributes, and each page
+  opens with an inline bootstrap of server-injected values, so a strict policy
+  would break the app. That costs most of the XSS protection a CSP would give —
+  escaping (I7) remains the actual defence. What the policy still buys is worth
+  having: nothing can frame the app, no plugins load, forms cannot post
+  elsewhere, and a `<base>` tag cannot redirect every relative URL on the page.
+  Removing `'unsafe-inline'` means replacing the inline handlers with
+  `addEventListener` and the style attributes with classes — worth doing, and now
+  possible since the JavaScript is in files. Logged as F7.
+  `tests/test_security_headers.py` (15 assertions) checks both directions: the
+  headers are present, *and* every source the app loads from is permitted.
+- [ ] F7. **Remove `'unsafe-inline'` from the CSP.** Needs the 27 inline
+  handlers moved to `addEventListener` and the 74 `style=` attributes moved to
+  classes. Only worth doing as a deliberate pass; the CSP is already committed,
+  so tightening it later is a one-line change once the markup allows it.
 
 ---
 

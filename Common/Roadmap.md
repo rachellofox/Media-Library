@@ -12,6 +12,8 @@ Single source of truth for approved and open work.
 
 ## Next Features (confirmed next features to implement)
 
+-Tidy up the settings page, move settings into relevant sections such as network, preferences, storage - exact
+
 -[DONE] Discover new seasons & episodes. A "New & Missing Episodes" block on Discover
  lists owned shows that are missing episodes which have **already aired**, grouped by show
  then season, with an Airing/Ended badge and the next air date. Clicking an episode searches
@@ -359,7 +361,7 @@ Single source of truth for approved and open work.
 -Move favourites icon
 -Search entire repo for dead code and useless files
 -Fix subtitles in player
--Ongoing play issues for transcoding, quality isn't great, stream freezes - full diagnosis and troubleshooting required
+-Ongoing play issues for transcoding, quality isn't great, stream freezes, high CPU usage - full diagnosis and troubleshooting required
 -Carry the detected episode ordering into the app. The rename tool now works out which ordering
  a show's files use (see the fixed entry above), but the episode list still asks TMDB for the
  default, so Firefly's browser shows broadcast-order titles and synopses beside DVD-order files

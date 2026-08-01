@@ -1,0 +1,25 @@
+# Editor defaults, so indentation and line endings do not depend on whose
+# editor is open. Deliberately matches what the repo already contains rather
+# than imposing anything new — ruff owns Python layout, this covers the rest.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.py]
+indent_size = 4
+max_line_length = 100
+
+[*.{js,html,css,json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+# Trailing whitespace is a line break in Markdown, so leave it alone.
+trim_trailing_whitespace = false
+
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
