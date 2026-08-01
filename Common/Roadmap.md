@@ -357,7 +357,7 @@ Single source of truth for approved and open work.
 ## Notes (ideas not yet planned)
 
 -Tidy up the settings page, move settings into relevant sections such as network, preferences, storage - exact categories still to be confirmed
--Why are completed tasks not being moved from the roadmap to the changelog?
+-Why are completed tasks not being moved from the roadmap to the changelog? tracked tasks here should use a table with status and priority, completed items should be moved to the changelog. this is all documented somewhere im not sure why you're not following these guidelines.
 -Move favourites icon
 -Search entire repo for dead code and useless files
 -Fix subtitles in player

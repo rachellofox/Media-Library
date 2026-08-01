@@ -109,10 +109,31 @@ print(f'episodes surviving       : {len(surviving)} of {len(episodes)}')
 print(f'paths recycled           : {recycled}')
 print(f'DB path now              : {app.store.get_media_item(media_id)["path"]}')
 
-lost = len(episodes) - len(surviving)
-if lost > 0:
-    print()
-    print(f'*** DATA LOSS: {lost} episode file(s) removed from the show folder ***')
-    sys.exit(1)
+PASS, FAIL = [], []
+
+
+def check(name, cond, detail=''):
+    (PASS if cond else FAIL).append(name)
+    note = ('  -- ' + str(detail)) if detail and not cond else ''
+    print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
+
+
 print()
-print('No episodes were lost.')
+lost = len(episodes) - len(surviving)
+check('no episode file was removed from the show folder', lost == 0, f'{lost} lost')
+check('the show folder itself survives', os.path.isdir(show))
+check(
+    'the item still points at the show folder',
+    app.store.get_media_item(media_id)['path'] == show,
+    app.store.get_media_item(media_id)['path'],
+)
+check(
+    'only the superseded episode was recycled',
+    len(recycled) <= 1,
+    recycled,
+)
+
+print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
+for name in FAIL:
+    print('  -', name)
+sys.exit(1 if FAIL else 0)

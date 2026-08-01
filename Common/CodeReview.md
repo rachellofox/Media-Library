@@ -201,8 +201,11 @@ tracked but are not, and leftovers.
 
 **Check for:** what a well-formed public Python repo is expected to carry.
 
-- [ ] C1. **No `LICENSE`.** Without one the code is "all rights reserved" by
-  default, which matters if the repo is public. Needs a decision on which licence.
+- [x] C1. **Deliberately unlicensed. Your decision, 2026-07-27.** No `LICENSE`
+  file, so the code stays "all rights reserved" by default: readable on GitHub,
+  but nobody has the right to use, modify or redistribute it. Recorded here so it
+  reads as a choice rather than an oversight, and so nobody adds one later
+  assuming it was forgotten. Reversible at any time by adding the file.
 - [x] C2. **CI workflow added. Done 2026-07-26.** `.github/workflows/ci.yml`
   covers exactly what `ci-and-quality-gates.instructions.md` asks for: install
   from `requirements-dev.txt`, lint, compile (the syntax gate), the test suite,
@@ -234,8 +237,12 @@ tracked but are not, and leftovers.
   `requires-python = ">=3.10"` (the code uses `X | None` unions), and all ruff
   configuration. Dependencies are read from `requirements.txt` rather than
   duplicated, so there is still one list.
-- [ ] C5. **No `.editorconfig`**, so indentation and newline handling depend on
-  whatever editor is open.
+- [x] C5. **`.editorconfig` added. Done 2026-07-27.** Written from what the repo
+  already contains, not from habit: 4 for Python, 2 for JS/HTML/YAML, both
+  confirmed against the actual indent distribution. `ruff` still owns Python
+  layout; this covers only what it does not. Markdown keeps trailing whitespace,
+  because there it is a line break.
+
 - [x] C6. **`CONTRIBUTING.md` added. Done 2026-07-27.** Setup, the three checks
   to run before committing, where code goes, and the two rules that are easy to
   get wrong: **start the app after touching routes or `url_for`**, because the
@@ -597,8 +604,16 @@ the destructive ones are safe.
   from an empty result, in a script whose job is to delete torrents that appear
   to have no files. Now reports the failure and exits non-zero without changing
   anything.
-- [ ] G4. `_debug_missing.py` (30 lines) and `_debug_query.py` (58 lines) look
-  like scratch debugging kept by accident. *Deletion candidates, your call.*
+- [-] G4. **Both debug scripts stay. Reviewed 2026-07-27, no change.** I had
+  called them "scratch debugging kept by accident". They are not: both carry a
+  usage docstring, both are read-only, and both still work — `_debug_missing
+  venom` finds the item, `_debug_query` reports titles with no poster. They are
+  indexed in `scripts/README.md` alongside the rest.
+  Deleting a working, documented, read-only diagnostic to save 89 lines is not a
+  win. **This is the third finding of mine that did not survive being checked**
+  (with `media.db` and F5) — each time I had described something from its
+  appearance rather than from running it.
+
 - [x] G5. **`scripts/README.md` added. Done 2026-07-27.** What each script is
   for, which of the ten change files, and the four rules they follow — dry run by
   default, `os.rename` never `shutil.move`, recycle never unlink, refuse rather
@@ -636,8 +651,12 @@ the destructive ones are safe.
   than a copy.
 - [ ] H5. Decide what a "behaviour change needs a test" rule means in practice,
   so `ci-and-quality-gates` becomes enforceable.
-- [ ] H6. `test_tv_upgrade_hazard.py` does not print the standard tally line, so
-  it reports blank in the runner summary despite passing. Minor inconsistency.
+- [x] H6. **Tally added. Done 2026-07-27.** It printed a narrative report and
+  exited non-zero on data loss, but no `PASSED n FAILED n` line, so the runner
+  showed it blank and a reader could not tell it from a silent failure. Now four
+  named assertions: no episode removed, the show folder survives, the item still
+  points at it, and at most one file recycled.
+
 - [ ] H7. No coverage measurement.
 
 ---
@@ -747,9 +766,13 @@ path specifically, since the app can be exposed to the network.
 
 - [ ] J1. `README.md` — verify setup steps still work from a clean clone, given
   B4 means the tracked state is incomplete.
-- [ ] J2. `copilot-instructions.md` repo map is stale *(same as A6)*.
-- [ ] J3. `Common/Workflow.md` is untracked — decide whether it is part of the
-  governance set alongside Roadmap/Runbook/CHANGELOG.
+- [x] J2. **Duplicate of A6, done 2026-07-26.** The repo map was corrected when
+  A6 was worked; this entry only existed because Section J was written before it.
+
+- [x] J3. **Answered: `Common/Workflow.md` is tracked.** It was untracked when
+  the review was written and was committed with everything else in B4, so it is
+  part of the governance set alongside Roadmap, Runbook and CHANGELOG.
+
 - [ ] J4. Check Runbook against current behaviour, particularly the public-access
   and auth sections which are recent.
 - [ ] J5. Confirm CHANGELOG and Roadmap agree on what has shipped.
