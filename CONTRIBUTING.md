@@ -68,6 +68,29 @@ One rule worth knowing before moving code: **re-exporting a name keeps callers
 working but does not keep monkeypatching working.** Anything a test stubs has to
 be reached through its module, not through a re-export.
 
+## Where notes go
+
+This eroded once already — the Roadmap was a table with Priority and Status in the
+first commit, drifted into prose bullets, and grew to 383 lines of finished work.
+The rule is written down here so the next session follows it rather than
+following whatever the file currently looks like.
+
+| Kind of note | Where it goes |
+| --- | --- |
+| Why *this line* is written this way | A comment on the line |
+| Why *this change* was made, what was rejected | The commit message |
+| Open product work | `Common/Roadmap.md` — one table row, open items only |
+| Open repo-health work | `Common/CodeReview.md` |
+| What a user would notice | `Common/CHANGELOG.md` |
+| Session narrative, dead ends, handoff | `Common/DevLog.md` (not tracked) |
+
+**A shipped item is deleted from the Roadmap, not marked done** — the CHANGELOG
+is the record of what shipped. Never delete a Roadmap row until the CHANGELOG
+covers it, or the item vanishes from the record entirely.
+
+`Common/DevLog.md` is deliberately gitignored, so it is not backed up. Nothing
+that matters long-term should live only there.
+
 ## The standards
 
 `.github/instructions/` holds the coding standards, and they win over a tool's

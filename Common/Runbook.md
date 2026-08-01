@@ -521,4 +521,5 @@ Use this when validating TMDB access. For key setup, see [README.md § Configure
 - [README.md](../README.md) — setup, prerequisites, and configuration
 - [Common/Roadmap.md](Roadmap.md) — approved and open work
 - [Common/CHANGELOG.md](CHANGELOG.md) — shipped changes
+- `Common/DevLog.md` — working notes and handoffs (not in version control)
 - [docs/README.md](../docs/README.md) — technical reference index
