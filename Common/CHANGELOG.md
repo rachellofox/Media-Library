@@ -7,6 +7,11 @@ All notable user-facing changes to this project are documented here.
 - The pages now load their JavaScript from a cached file instead of carrying it
   inline, so a second visit does not re-download it. No change to how anything
   behaves.
+- A download whose filename is plainly a different show is no longer filed as an
+  episode of the show you started it from. It is flagged for review and left
+  where it is, with the filename in the message. Filing renames the file, so the
+  evidence of what it really was would have been gone a moment later — which is
+  how a Chernobyl episode once became Parks and Recreation S01E01.
 - Fixed a sign-in redirect that could send you to another website. A crafted
   link could set the "return to" address to something that looked relative but
   was not, so signing in would hand you to a site you did not choose. Return

@@ -427,8 +427,36 @@ worked one at a time:
   devices on a home network, so not worth code to fix.
 
 - [ ] E3. Library scan and import (`scan_media_entries`, `import_media_from_paths`).
-- [ ] E4. Downloads and qBittorrent integration, including the finalisation path
-  that has caused two data-loss bugs already.
+- [x] E4. **Downloads and finalisation reviewed. Done 2026-07-27. One real gap.**
+  **The cross-show guard was not applied when filing a download.**
+  `scan_local_episodes` refuses a file whose name belongs to another show, but
+  filing *renames* the file to this show's convention — so a moment later the
+  evidence is gone and the guard can never fire. Confirmed in a sandbox: a
+  download called `Chernobyl.S01E02.1080p.mkv`, finalised against Parks and
+  Recreation, became `Parks and Recreation - S01E02.mkv`. That is the original
+  Chernobyl incident reached through a different door: the first arrived by being
+  misplaced on disk, this one by being downloaded.
+  Now refused at finalisation, flagged `needs_review` with the filename in the
+  message, and the download left untouched. Refusing is the safe failure here —
+  the file stays put and is recoverable, where mis-filing corrupts the library
+  and destroys the only evidence of what happened.
+  Covered by two new cases in `tests/test_tv_finalize.py`: the foreign file is
+  refused *and* legitimate names still file, including an abbreviated
+  `Parks.and.Recreation.S01E02` and a bare `S01E03.mkv` with no prefix at all —
+  a guard that blocked those would be worse than the bug.
+  The rest of the path holds up, and the guards named in the module docstring are
+  all really there: quality is compared before an upgrade retires anything, the
+  outgoing file is resolved before the replacement is placed, a file covering
+  several episodes is never retired for one of them, a folder with more than one
+  video has nothing retired at all, and `os.rename` is used throughout.
+- [-] E4a. **Two small things, deliberately left.** Reviewed 2026-07-27. A stale
+  `.incoming` file from an interrupted run blocks that episode from ever being
+  filed, because the landing path is treated as occupied — rare, self-inflicted,
+  and visible in the log. And `_refresh_local_media_signals` is wrapped in a bare
+  `except: pass`, so a quality or subtitle refresh can fail silently after the
+  file is safely in place; that ordering is deliberate, since the file landing
+  matters and the metadata refresh does not.
+
 - [~] E5. Playback, HLS and cache handling. **One bug already fixed
   (2026-07-26)**, surfaced by adopting ruff: `_start_direct_stream` opened
   `ffmpeg.log` and, if `Popen` or anything after it raised, returned through an

@@ -219,6 +219,79 @@ check(
     recycled,
 )
 
+print('\n=== 7. A download naming a different show is refused, not renamed ===')
+tmp, lib, staging, recycled = scenario()
+show = os.path.join(lib, 'Parks and Recreation')
+make(os.path.join(show, 'Season 01', 'Parks and Recreation - S01E01 - Pilot.mkv'), 5)
+media_id = add_show(show, title='Parks and Recreation')
+
+# Filing renames the file to this show's convention, so the name that identifies
+# it as another show is destroyed a moment later. The guard has to run here.
+dl = os.path.join(staging, 'Chernobyl.S01E02.1080p')
+dl_file = make(os.path.join(dl, 'Chernobyl.S01E02.1080p.mkv'), 9)
+app.store.set_download_state(
+    media_item_id=media_id,
+    status='downloading',
+    source='qb_webui',
+    message='x',
+    torrent_hash='C' * 40,
+    mode='fill',
+    previous_path=show,
+)
+row = next(r for r in app.store.list_media_items() if r['id'] == media_id)
+app._finalize_completed_download(
+    row, {'state': 'stalledUP', 'progress': 1.0, 'amount_left': 0, 'content_path': dl}
+)
+
+surviving = [f for _r, _d, fs in os.walk(show) for f in fs]
+state = next(r for r in app.store.list_media_items() if r['id'] == media_id)
+check(
+    'the foreign episode was not filed under this show',
+    not any('S01E02' in f for f in surviving),
+    surviving,
+)
+check('nothing was recycled', not recycled, recycled)
+check('the download is left where it was', os.path.isfile(dl_file))
+check(
+    'it is flagged for review', state['download_status'] == 'needs_review', state['download_status']
+)
+check(
+    'and the message names the file, so the cause is obvious',
+    'Chernobyl' in (state['download_message'] or ''),
+    state['download_message'],
+)
+
+print('\n=== 8. A correctly named download still files ===')
+tmp, lib, staging, recycled = scenario()
+show = os.path.join(lib, 'Parks and Recreation')
+make(os.path.join(show, 'Season 01', 'Parks and Recreation - S01E01 - Pilot.mkv'), 5)
+media_id = add_show(show, title='Parks and Recreation')
+
+for name in (
+    'Parks.and.Recreation.S01E02.1080p.mkv',  # abbreviated, dotted
+    'S01E03.mkv',  # no prefix at all
+):
+    dl = os.path.join(staging, os.path.splitext(name)[0])
+    make(os.path.join(dl, name), 9)
+    app.store.set_download_state(
+        media_item_id=media_id,
+        status='downloading',
+        source='qb_webui',
+        message='x',
+        torrent_hash='D' * 40,
+        mode='fill',
+        previous_path=show,
+    )
+    row = next(r for r in app.store.list_media_items() if r['id'] == media_id)
+    app._finalize_completed_download(
+        row, {'state': 'stalledUP', 'progress': 1.0, 'amount_left': 0, 'content_path': dl}
+    )
+
+filed = sorted(f for _r, _d, fs in os.walk(show) for f in fs)
+check('the abbreviated name filed as E02', any('S01E02' in f for f in filed), filed)
+check('the bare SxxExx name filed as E03', any('S01E03' in f for f in filed), filed)
+
+
 print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
 if FAIL:
     for f in FAIL:

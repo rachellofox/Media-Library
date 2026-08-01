@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, timezone
 # from-import would bind them here at import time and ignore the stub.
 from medialibrary import qbt
 from medialibrary.config import FFPROBE_EXE
+from medialibrary.episode_match import names_other_show
 from medialibrary.identify import (
     EPISODE_MARKER,
     _best_local_video_path,
@@ -197,6 +198,25 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
             'Media %s: leaving TV download in place (show folder or SxxExx missing).', media_id
         )
         _store().clear_download_state(media_id)
+        return
+
+    # The scan refuses a file whose name belongs to a different show, but filing
+    # a download *renames* it to this show's convention — so the evidence is gone
+    # a moment later and the guard can never fire. It has to be applied here or
+    # not at all. This is how a Chernobyl episode became Parks and Recreation
+    # S01E01 once already; that arrived by being misplaced on disk, and this is
+    # the same outcome reached by downloading it.
+    if names_other_show(os.path.basename(new_video), row['title'] or ''):
+        _store().set_download_state(
+            media_item_id=media_id,
+            status='needs_review',
+            source=row['download_source'] or 'qb_webui',
+            message=(
+                f'{os.path.basename(new_video)} looks like a different show, so it '
+                f'was not filed under {row["title"]}. The file is untouched.'
+            ),
+        )
+        _log().warning('Media %s: refused %s — its name is not this show.', media_id, new_video)
         return
 
     season, episode = int(marker.group(1)), int(marker.group(2))
