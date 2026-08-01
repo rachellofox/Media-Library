@@ -71,17 +71,14 @@ Something the app does not do yet.
 
 The collection on disk being wrong. No code changes; the fix is to the files.
 
-| ID | Title | Source | Priority | Status |
-| -- | ----- | ------ | -------- | ------ |
-| L-0108.06 | Batman Season 04 is really *The New Batman Adventures* — 24 files carry numbers with no titles | Review finding | P3 | Proposed |
-| L-0108.07 | Decide which copy to keep for the 78 duplicated episodes — see `duplicate-episodes.txt` | Review finding | P3 | Blocked |
+Nothing open. These rows are deleted once the files are right, and the commit
+that corrected them is the record — there is no CHANGELOG line, because nothing
+about the app changed.
 
 Priorities for B-0108.03 and B-0108.04 were assumed, not given — adjust if wrong.
 
 Every item above carries today's date because that is when this scheme started,
 not because they were all raised today. Dates are meaningful from here on.
-L-0108.06 keeps the number it had as a feature, per the rule that an item
-reclassified swaps its letter and keeps its identity.
 
 ## Detail
 
@@ -109,10 +106,13 @@ runtimes.
 
 ### F-0108.03 — duplicate episode copies
 
-The library holds 78 episodes twice — X-Men (76) and Avatar (2), about 9.7 GB.
-`scan_local_episodes` keeps the largest of each pair and drops the other without
-recording it, so the app knows about every one of those files and tells the user
-about none of them.
+`scan_local_episodes` keeps the largest of two files claiming one episode and
+drops the other without recording it, so the app knows about every duplicate it
+holds and tells the user about none of them.
+
+All 78 have since been resolved by hand, which is what this item exists to make
+unnecessary: they were only ever found because a renaming pass happened to make
+them legible, and the app never mentioned them at all.
 
 **These are not a good copy and a bad copy.** Each X-Men pair is the original
 episode at its native 638x480 beside an AI upscale of it at 1442x1080, and
@@ -163,7 +163,8 @@ description of the file it is simply wrong: each X-Men `.mp4` claims `1080p AI
 Upscale PROPER` while being 638x480. It is naming the release the file was
 downloaded from, and that release is the upscale *set*, of which this file is
 the source. So the title stays an identity signal — what a file is, which is how
-it settled the Batman ordering and what L-0108.06 rests on — and never a quality
+it settled the Batman ordering, and how L-0108.01 was resolved — and never a
+quality
 one. Worth remembering that it can describe a sibling rather than itself.
 
 Nothing has been deleted.
@@ -175,10 +176,3 @@ scrolls, or move it into the bottom-left of the hero pane where it is always on
 screen at the top and is not needed further down. Pinning is the smaller change
 and helps most on a long season list; moving it keeps the chrome quieter.
 
-### L-0108.06 — Batman Season 04
-
-Season 04 on disk is *The New Batman Adventures*, a different series, which is why
-no Batman ordering covers it and its 24 files carry numbers without titles. Their
-containers name them correctly ("Holiday Knights", "Mad Love"), so they could be
-titled from the embedded metadata or matched against TNBA's own TMDB entry —
-whichever suits how the show should be grouped.
