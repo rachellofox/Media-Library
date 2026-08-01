@@ -34,7 +34,7 @@ Priorities: **P1** wanted next · **P2** wanted · **P3** would be nice.
 | ML-11 | Transcoding playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
 | ML-8 | Per-episode playback progress — resume, watched marks, next-episode progression | Second pass of the TV work | P2 | Approved |
 | ML-9 | Carry the detected episode ordering into the app, so the episode list matches the filenames | Follow-on from episode ordering | P2 | Approved |
-| ML-16 | Refuse unreadable copies in `_best_local_video_path` — size alone can pick a file that will not play | Review finding | P2 | Approved |
+| ML-16 | Surface duplicate episode copies instead of silently discarding them | Review finding | P2 | Approved |
 | ML-12 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | ML-13 | Move the favourites icon | User need | P3 | Proposed |
 | ML-15 | Title Batman's Season 04 from embedded metadata, or match it against The New Batman Adventures | Review finding | P3 | Proposed |
@@ -63,35 +63,43 @@ default. Worth an override in the show's Settings card for the cases detection
 cannot call — two orderings with the same episode count and interchangeable
 runtimes.
 
-### ML-16 — duplicate episode copies, and what they reveal
+### ML-16 — duplicate episode copies
 
-Rewritten after ffprobing every duplicate in the library — 85 episodes held
-twice, across X-Men (76), Buffy (7) and Avatar (2). The earlier Angel and
-Dollhouse examples are gone; both now hold a single copy.
+The library holds 78 episodes twice — X-Men (76) and Avatar (2), about 9.7 GB.
+`scan_local_episodes` keeps the largest of each pair and drops the other without
+recording it, so the app knows about every one of those files and tells the user
+about none of them.
 
-**Largest-wins is not the defect.** It picked the highest-resolution copy in all
-85 groups. What it lacks is a readability check:
+The renaming work did not cause this, though it is how the duplicates came to
+light: every copy was modified in June 2024, from two separate downloads of each
+show. Giving both copies the same canonical name made a pairing visible that had
+been on disk, unnoticed, for two years — which is the argument for reporting
+duplicates rather than the argument against it.
 
-- Seven Buffy episodes hold an `.mp4` that ffprobe cannot open at all — *moov
-  atom not found*, zero streams, the signature of a download that stopped before
-  the index was written. They are not small: S01E06's broken copy is 1383.6 MB
-  against a working 1411.5 MB. A 2% swing in the other direction and
-  `_best_local_video_path` would hand the player a file that cannot be decoded,
-  and the failure would surface as a transcode that dies rather than as
-  "this file is broken".
+**The work is to report duplicates, not to choose between them better.** A
+duplicate is a housekeeping decision that wants a person: which copy to keep is
+a judgement about codecs, subtitles and disc space, and deleting the wrong one
+is unrecoverable. `scan_local_episodes` already has the shape for this — files
+it cannot match are returned as `unmatched` and surfaced through
+`/api/tv/<id>/unmatched` and the season payload's `unmatched_count`. Duplicates
+should travel the same route: returned beside `matched`, counted, listed with
+size, resolution, codec and subtitle count so the choice can be made on sight,
+and left entirely alone on disk. Largest-wins stays as the display default,
+because the episode list still has to show something.
 
-So the fix is to drop candidates with no decodable video stream before ranking,
-not to replace size with a cleverer score. Probing every file on every call is
-too slow, so probe lazily: rank by size as now, and step to the next candidate
-when the chosen one has no video stream.
+One case argues for reporting rather than a cleverer heuristic. Seven Buffy
+episodes hold an `.mp4` ffprobe cannot open at all — *moov atom not found*, the
+signature of a download that stopped before its index was written. They are not
+small: S01E06's broken copy is 1383.6 MB against a working 1411.5 MB. Largest
+happens to win correctly by 2%, and no rule tuned on size would have known why.
+A duplicates list with a "cannot be read" mark makes it obvious.
 
-**The embedded container title cannot help here.** It is on 76 of the 170 copies
-— and on every single one it is the copy largest-wins *rejects*. Worse, it lies:
-each X-Men `.mp4` carries `X-Men The Animated Series 1080p AI Upscale PROPER -
-https://archive.org/...` while being 638x480, beside an untitled 1442x1080 HEVC
-copy with six subtitle tracks. The title is a good signal for *what a file is*
-(it settled the Batman ordering, and ML-15 rests on it) and a bad one for *which
-copy is better* — it describes the release, not the file.
+**The embedded container title cannot help choose.** It is on 76 of the 170
+copies, and on every one it is the copy largest-wins rejects — and it
+misdescribes the file: each X-Men `.mp4` claims `1080p AI Upscale PROPER` while
+being 638x480, beside an untitled 1442x1080 HEVC copy with six subtitle tracks.
+It names the release, not the file, so it stays an identity signal (it settled
+the Batman ordering, and ML-15 rests on it) and not a quality one.
 
 Nothing has been deleted.
 
