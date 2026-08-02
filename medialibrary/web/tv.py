@@ -14,10 +14,10 @@ from flask import Blueprint, jsonify, request
 from medialibrary import runtime
 from medialibrary.config import TRUSTED_RELEASE_GROUPS
 from medialibrary.discover import (
-    _cached_season_episodes,
     _cached_tv_status,
     _missing_episodes_for_show,
 )
+from medialibrary.episode_ordering import resolved_episodes
 from medialibrary.identify import (
     _episodes_covered,
     _featurette_label,
@@ -129,6 +129,19 @@ def tv_seasons_listing(media_id: int):
         tmdb_names[season['season_number']] = season['name']
         tmdb_counts[season['season_number']] = season['episode_count']
 
+    # Batman is 28/28/29 to a season on disk against TMDB's default 60/10/10 —
+    # if a different ordering was adopted for this show, its own season sizes
+    # replace the default's, or "28 of 60" would show for a season that is
+    # actually complete. Names are left to fall back to "Season N": an
+    # ordering's own season labels are not published the way a show's are, so a
+    # generic name is more honest than borrowing ones that no longer match.
+    ordering = runtime.store().get_episode_ordering(media_id)
+    if ordering and ordering['ordering_id']:
+        tmdb_counts = {}
+        for entry in resolved_episodes(media_id, item['tmdb_id']):
+            tmdb_counts[entry['season_number']] = tmdb_counts.get(entry['season_number'], 0) + 1
+        tmdb_names = {}
+
     # A show whose files carry no SxxExx has no seasons to list, so its folders
     # would offer nothing at all without the extras entry below.
     featurette_seasons: dict[int, int] = {}
@@ -198,11 +211,13 @@ def tv_season_episodes(media_id: int, season_number: int):
 
     show_path = (item['path'] or '').strip()
     matched, unmatched = scan_local_episodes(show_path, item['title'] or '')
+    # Reads whichever ordering was adopted for this show (see
+    # medialibrary.episode_ordering) — TMDB's default unless detection found
+    # the files use a different one, in which case "episode 2" here is that
+    # ordering's episode 2, matching what the filenames actually mean.
     metadata = {
         entry['episode_number']: entry
-        for entry in (
-            _cached_season_episodes(item['tmdb_id'], season_number) if item['tmdb_id'] else []
-        )
+        for entry in resolved_episodes(media_id, item['tmdb_id'], season_number)
     }
 
     owned = {number: path for (season, number), path in matched.items() if season == season_number}
@@ -281,11 +296,7 @@ def tv_next_episode(media_id: int):
         return jsonify({'ok': True, 'next': None})
 
     season, number = upcoming[0]
-    metadata = (
-        _cached_season_episodes(item['tmdb_id'], season)
-        if (runtime.tmdb() and item['tmdb_id'])
-        else []
-    )
+    metadata = resolved_episodes(media_id, item['tmdb_id'], season)
     meta = next((e for e in metadata if e['episode_number'] == number), {})
 
     return jsonify(

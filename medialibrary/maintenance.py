@@ -12,7 +12,12 @@ import os
 
 from medialibrary import runtime, tmdb_state
 from medialibrary.config import FFPROBE_EXE
-from medialibrary.identify import VIDEO_EXTENSIONS
+from medialibrary.episode_ordering import (
+    _resolve_ordering,
+    default_episodes,
+    planned_from_matched,
+)
+from medialibrary.identify import VIDEO_EXTENSIONS, scan_local_episodes
 from medialibrary.importer import _fetch_best_metadata, import_from_configured_folders
 from medialibrary.quality import detect_quality_from_file
 from medialibrary.subtitles import _find_video_file
@@ -119,6 +124,10 @@ def _startup_library_sync():
             logging.getLogger(__name__).info(
                 'Startup quality scan: %d missing-quality item(s) updated.', scanned
             )
+
+        checked = _detect_tv_episode_orderings()
+        if checked:
+            logging.getLogger(__name__).info('Startup ordering check: %d show(s) checked.', checked)
     except Exception as exc:
         logging.getLogger(__name__).warning('Startup library sync failed: %s', exc)
 
@@ -147,3 +156,77 @@ def _scan_missing_quality_items() -> int:
         runtime.store().update_quality(item['id'], quality)
         updated += 1
     return updated
+
+
+def _detect_tv_episode_orderings() -> int:
+    """Work out, once per show, which episode numbering its files actually use.
+
+    Reads every marked file's running time and (where present) its embedded
+    title — see `medialibrary.episode_ordering` — which is too slow to repeat
+    per page load. So this runs once here, in the startup background thread,
+    and persists what it finds; `/api/tv/<id>/season/<n>` and
+    `/api/tv/<id>/next-episode` read the stored answer rather than detecting
+    again. A show already checked (row present, whatever it says) is skipped,
+    so a large library is only ever probed once — see
+    `Storage.clear_episode_ordering` for how a stale answer gets forgotten.
+
+    One show's failure — a TMDB outage mid-loop, an unreadable file — is caught
+    per item rather than at the top, so it costs that show's check, not every
+    show queued after it.
+    """
+    checked = 0
+    for item in runtime.store().list_media_items():
+        if (item['media_type'] or '') != 'tv':
+            continue
+        if not item['tmdb_id']:
+            continue
+        if runtime.store().get_episode_ordering(item['id']) is not None:
+            continue  # already checked, whatever the answer was
+
+        show_path = (item['path'] or '').strip()
+        if not show_path or not os.path.isdir(show_path):
+            continue
+
+        try:
+            matched, _unmatched = scan_local_episodes(show_path, item['title'] or '')
+            planned = planned_from_matched(show_path, matched)
+            episodes = default_episodes(item['tmdb_id'])
+            if not planned or not episodes:
+                # Nothing to compare yet — recorded anyway, so an empty or
+                # not-yet-imported show does not get re-walked every startup.
+                runtime.store().set_episode_ordering(item['id'], None)
+                checked += 1
+                continue
+
+            notes: list = []
+            left_alone: list = []
+            _episodes, untitled, ordering = _resolve_ordering(
+                item['title'] or '', item['tmdb_id'], planned, episodes, notes, left_alone
+            )
+            runtime.store().set_episode_ordering(
+                item['id'],
+                ordering['id'] if ordering else None,
+                ordering['name'] if ordering else None,
+                ordering['kind'] if ordering else None,
+                untitled_seasons=untitled,
+            )
+            checked += 1
+            if ordering:
+                logging.getLogger(__name__).info(
+                    'Episode ordering for %s: adopted %s (%s).',
+                    item['title'],
+                    ordering['name'],
+                    ordering['kind'],
+                )
+            elif untitled:
+                logging.getLogger(__name__).info(
+                    'Episode ordering for %s: no published ordering fits; '
+                    'season(s) %s left untitled.',
+                    item['title'],
+                    sorted(untitled),
+                )
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                'Episode ordering check failed for %s: %s', item['title'], exc
+            )
+    return checked

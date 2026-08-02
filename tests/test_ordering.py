@@ -1,4 +1,10 @@
-"""Detecting which episode numbering a download actually uses."""
+"""Detecting which episode numbering a download actually uses.
+
+Tests medialibrary.episode_ordering directly. This used to exec a slice of
+scripts/_plan_tv_naming.py's source, back when the logic lived only there;
+it moved into a shared module — see episode_ordering.py's docstring — so both
+the rename tool and the live app's ordering detection call the same code.
+"""
 
 import os
 import sys
@@ -7,7 +13,13 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-PLAN = os.path.join(REPO_ROOT, 'scripts', '_plan_tv_naming.py')
+import medialibrary.episode_ordering as episode_ordering
+from medialibrary import tmdb_state
+from medialibrary.episode_ordering import _resolve_ordering, _score_ordering
+
+score = _score_ordering
+resolve = _resolve_ordering
+
 PASS, FAIL = [], []
 
 
@@ -15,27 +27,6 @@ def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
     note = ('  -- ' + str(detail)) if detail and not cond else ''
     print(f'{"PASS" if cond else "FAIL"}  {name}{note}')
-
-
-# The script runs its whole plan at import, so pull the two functions out of the
-# source rather than importing it.
-import app
-
-with open(PLAN, encoding='utf-8') as handle:
-    source = handle.read()
-start = source.index('DURATION_TOLERANCE = 0.5')
-end = source.index("SUBTITLE_EXTENSIONS = {'.srt'")
-from medialibrary.episode_match import normalise_episode_title
-
-namespace = {
-    'app': app,
-    'os': __import__('os'),
-    'json': __import__('json'),
-    'subprocess': __import__('subprocess'),
-    'normalise_episode_title': normalise_episode_title,
-}
-exec(compile(source[start:end], 'ordering', 'exec'), namespace)
-resolve, score = namespace['_resolve_ordering'], namespace['_score_ordering']
 
 
 def ep(season, number, title, runtime):
@@ -74,7 +65,7 @@ _t, _c, agree, disagree = score(two_part, episodes, {'e01e02.mkv': (43.1, '')})
 check('43 minutes of a 22+22 two-parter agrees', (agree, disagree) == (1, 0), (agree, disagree))
 
 print('\n=== 3. The right ordering is adopted ===')
-namespace['_probe'] = lambda path: PROBES.get(path, (0.0, ''))
+episode_ordering._probe = lambda path: PROBES.get(path, (0.0, ''))
 
 
 class FakeTmdb:
@@ -91,11 +82,12 @@ _pair_stub = FakeTmdb(
         {'id': 'y', 'name': 'DVD Order', 'kind': 'DVD', 'episodes': DVD},
     ]
 )
-namespace['tmdb_state'] = type('S', (), {'client': staticmethod(lambda: _pair_stub)})()
+tmdb_state.set_client(_pair_stub)
 
 notes, left = [], []
-chosen, untitled = resolve('Firefly', 1437, PLANNED, BROADCAST, notes, left)
+chosen, untitled, ordering = resolve('Firefly', 1437, PLANNED, BROADCAST, notes, left)
 check('an ordering was adopted', chosen is not BROADCAST)
+check('the adopted ordering is reported', ordering is not None and ordering['id'] == 'y', ordering)
 check('no season had its titles withheld', untitled == set(), untitled)
 check(
     'E01 is now Serenity, not The Train Job',
@@ -119,12 +111,13 @@ check('the default matches no embedded title', (titles, disagree) == (0, 0), (ti
 titles, _c, _a, disagree = score(flat_planned, flat_dvd, flat_probes)
 check('the DVD ordering matches both', (titles, disagree) == (2, 0), (titles, disagree))
 
-namespace['_probe'] = lambda path: flat_probes.get(path, (0.0, ''))
+episode_ordering._probe = lambda path: flat_probes.get(path, (0.0, ''))
 _flat_stub = FakeTmdb([{'id': 'y', 'name': 'DVD Order', 'kind': 'DVD', 'episodes': flat_dvd}])
-namespace['tmdb_state'] = type('S', (), {'client': staticmethod(lambda: _flat_stub)})()
+tmdb_state.set_client(_flat_stub)
 notes, left = [], []
-chosen, untitled = resolve('Batman', 2098, flat_planned, flat_default, notes, left)
+chosen, untitled, ordering = resolve('Batman', 2098, flat_planned, flat_default, notes, left)
 check('the ordering the files vouch for is adopted', chosen is flat_dvd)
+check('the adopted ordering is reported', ordering is not None and ordering['name'] == 'DVD Order')
 check(
     'and the reason given is the embedded titles',
     notes and 'carry the episode title' in notes[0][2],
@@ -150,22 +143,24 @@ for junk in [
     )
 
 print('\n=== 4. The default is kept when it already fits ===')
-namespace['_probe'] = lambda path: {'a.mkv': (43.0, '')}.get(path, (0.0, ''))
+episode_ordering._probe = lambda path: {'a.mkv': (43.0, '')}.get(path, (0.0, ''))
 notes, left = [], []
-chosen, untitled = resolve('Show', 1, {'a.mkv': [(1, 1)]}, BROADCAST, notes, left)
+chosen, untitled, ordering = resolve('Show', 1, {'a.mkv': [(1, 1)]}, BROADCAST, notes, left)
 check('nothing is swapped in', chosen is BROADCAST)
+check('no ordering is reported when the default was kept', ordering is None, ordering)
 check('and nothing is reported', notes == [] and left == [], (notes, left))
 
 print('\n=== 5. Where nothing fits, titles are withheld rather than guessed ===')
 _empty_stub = FakeTmdb([])
-namespace['tmdb_state'] = type('S', (), {'client': staticmethod(lambda: _empty_stub)})()
-namespace['_probe'] = lambda path: (21.6, '')
+tmdb_state.set_client(_empty_stub)
+episode_ordering._probe = lambda path: (21.6, '')
 notes, left = [], []
-chosen, untitled = resolve(
+chosen, untitled, ordering = resolve(
     'Parks', 8592, {'s06e20.mkv': [(6, 20)]}, [ep(6, 20, 'Moving Up', 44)], notes, left
 )
 check('the season is marked untitled', untitled == {6}, untitled)
 check('reported as left alone, not as a detected ordering', left and not notes, (notes, left))
+check('no ordering is reported when nothing fits', ordering is None, ordering)
 
 print(f'\n{"=" * 62}\nPASSED {len(PASS)}   FAILED {len(FAIL)}')
 for f in FAIL:

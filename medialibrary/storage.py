@@ -123,6 +123,22 @@ CREATE TABLE IF NOT EXISTS playback_positions (
     PRIMARY KEY (media_item_id, episode_key),
     FOREIGN KEY(media_item_id) REFERENCES media_items(id)
 );
+
+-- One row per show once its files have been checked. ordering_id is NULL when
+-- checking confirmed TMDB's default numbering was already right — that still
+-- has to be recorded, or the next startup probes every file again. It is also
+-- NULL when nothing published fits (untitled_seasons then names which seasons
+-- to withhold titles for); it is set only when a specific published ordering
+-- was adopted.
+CREATE TABLE IF NOT EXISTS tv_episode_orderings (
+    media_item_id INTEGER PRIMARY KEY,
+    ordering_id TEXT,
+    ordering_name TEXT,
+    ordering_kind TEXT,
+    untitled_seasons TEXT NOT NULL DEFAULT '',
+    detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(media_item_id) REFERENCES media_items(id)
+);
 """
 
 
@@ -907,3 +923,60 @@ class Storage:
                 """,
                 (media_item_id, episode_key or '', position_seconds, duration_seconds, watched),
             )
+
+    def get_episode_ordering(self, media_item_id: int) -> dict | None:
+        """The ordering decided for a show, or None when it has never been checked.
+
+        None is not the same as "use the default" — that is a row with
+        ordering_id NULL. The distinction is what stops every startup from
+        re-probing every file on a show that was already checked and confirmed.
+        """
+        with self.conn() as c:
+            row = c.execute(
+                'SELECT ordering_id, ordering_name, ordering_kind, untitled_seasons '
+                'FROM tv_episode_orderings WHERE media_item_id = ?',
+                (media_item_id,),
+            ).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        result['untitled_seasons'] = {
+            int(n) for n in (result['untitled_seasons'] or '').split(',') if n
+        }
+        return result
+
+    def set_episode_ordering(
+        self,
+        media_item_id: int,
+        ordering_id: str | None,
+        ordering_name: str | None = None,
+        ordering_kind: str | None = None,
+        untitled_seasons: set[int] | None = None,
+    ) -> None:
+        """Record what detection found for a show, including "the default is fine"."""
+        seasons_text = ','.join(str(n) for n in sorted(untitled_seasons or set()))
+        with self.conn() as c:
+            c.execute(
+                """
+                INSERT INTO tv_episode_orderings
+                    (media_item_id, ordering_id, ordering_name, ordering_kind, untitled_seasons)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(media_item_id) DO UPDATE SET
+                    ordering_id=excluded.ordering_id,
+                    ordering_name=excluded.ordering_name,
+                    ordering_kind=excluded.ordering_kind,
+                    untitled_seasons=excluded.untitled_seasons,
+                    detected_at=CURRENT_TIMESTAMP
+                """,
+                (media_item_id, ordering_id, ordering_name, ordering_kind, seasons_text),
+            )
+
+    def clear_episode_ordering(self, media_item_id: int) -> None:
+        """Forget a show's detected ordering, so the next startup checks again.
+
+        Not called automatically — for a future "redetect" action, or by hand
+        when a show's files have been replaced and the old answer no longer
+        applies.
+        """
+        with self.conn() as c:
+            c.execute('DELETE FROM tv_episode_orderings WHERE media_item_id = ?', (media_item_id,))

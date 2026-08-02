@@ -14,9 +14,7 @@ Nothing is renamed without --apply, and nothing is ever deleted. Files that
 cannot be identified are reported and left exactly where they are.
 """
 
-import json
 import os
-import subprocess
 import sys
 
 try:
@@ -28,14 +26,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app
 from medialibrary import tmdb_state
-from medialibrary.config import DISCOVER_COLLECTION_CACHE_HOURS, FFPROBE_EXE
+from medialibrary.config import DISCOVER_COLLECTION_CACHE_HOURS
 from medialibrary.episode_match import (
     is_extras_path,
     match_episode_files,
     match_episode_title,
     names_other_show,
-    normalise_episode_title,
 )
+from medialibrary.episode_ordering import _resolve_ordering
 from medialibrary.identify import (
     _SEASON_DIR_EXACT,
     _SPECIALS_DIR,
@@ -78,180 +76,6 @@ def episode_title_for(episodes, season, number):
         if episode['season_number'] == season and episode['episode_number'] == number:
             return episode.get('title')
     return None
-
-
-# How far a file's running time may sit from the runtime TMDB gives for the
-# episode it claims before the two are taken to be different episodes. Rips vary
-# by a couple of minutes with adverts trimmed, so the band is deliberately wide —
-# it is there to catch an 87-minute pilot named as a 43-minute episode, not to
-# audit encodes.
-DURATION_TOLERANCE = 0.5
-
-
-def _probe(path: str) -> tuple[float, str]:
-    """A video's length in minutes and the episode title written inside it.
-
-    Many rips carry the episode title in the container, which is the one piece of
-    evidence a misleading filename cannot touch — the Batman files say
-    "S01E01 - The Cat and the Claw" while the container says "On Leather Wings".
-    Missing from plenty of files, so it is used when present and never required.
-    """
-    try:
-        probe = subprocess.run(
-            [FFPROBE_EXE, '-v', 'quiet', '-print_format', 'json', '-show_format', path],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        container = json.loads(probe.stdout or '{}').get('format') or {}
-        tags = container.get('tags') or {}
-        title = next((value for key, value in tags.items() if key.lower() == 'title'), '')
-        return float(container.get('duration') or 0) / 60, str(title or '')
-    except (OSError, ValueError, subprocess.SubprocessError, json.JSONDecodeError):
-        return 0.0, ''
-
-
-def _score_ordering(planned, episodes, probes) -> tuple[int, int, int, int]:
-    """How well an ordering fits the files.
-
-    Returns (titles it gets right, slots it has, lengths it explains, contradictions).
-
-    Three signals. An episode title written inside the file is the strongest when
-    it lands: the Batman rip claims "S01E01 - The Cat and the Claw" while the
-    container says "On Leather Wings", which is exactly what the DVD ordering puts
-    in that slot. It only ever counts *for* an ordering, never against one, because
-    most containers hold something other than an episode title — disc labels
-    ("WENTWORTH Series 2 Disc 2"), rip artefacts ("S01D01title_t02"), release
-    names — and reading those as disagreement condemns orderings that are right.
-    A title that matches nothing is simply silent.
-
-    Coverage asks whether the ordering even has the episode a file claims: Batman
-    is numbered 28/28/29 to a season on disk against TMDB's 60/10/10, so 57 files
-    point at slots that ordering does not have. Running time is the only signal
-    trusted to contradict, being the one thing no naming convention can distort —
-    it is what caught Firefly's 87-minute pilot sitting in a 43-minute slot.
-
-    A file covering a range is measured against the sum of its episodes so a
-    two-parter is not read as double-length, and anything the ordering has no
-    answer for is not counted as evidence either way.
-    """
-    slots = {(episode['season_number'], episode['episode_number']): episode for episode in episodes}
-    titles = covered = agree = disagree = 0
-    for path, claimed in planned.items():
-        covered += sum(1 for key in claimed if key in slots)
-        minutes, embedded = probes.get(path, (0.0, ''))
-
-        expected_title = (slots.get(claimed[0], {}) or {}).get('title') or ''
-        if (
-            embedded
-            and expected_title
-            and len(claimed) == 1
-            and normalise_episode_title(embedded) == normalise_episode_title(expected_title)
-        ):
-            titles += 1
-
-        expected = sum((slots.get(key, {}) or {}).get('runtime') or 0 for key in claimed)
-        if not expected or not minutes:
-            continue
-        if abs(minutes - expected) > expected * DURATION_TOLERANCE:
-            disagree += 1
-        else:
-            agree += 1
-    return titles, covered, agree, disagree
-
-
-# Which ordering to prefer when more than one explains the files equally well.
-# They usually agree — Firefly's DVD and "intended" orders are the same sequence —
-# so this is about naming the result the same way twice, not about correctness.
-ORDERING_PREFERENCE = ['DVD', 'Digital', 'Production', 'Absolute', 'Story arc', 'TV']
-
-
-def _resolve_ordering(show_title, tmdb_id, planned, episodes, notes, left_alone):
-    """Pick the episode numbering this show's files are actually in.
-
-    The numbering a release uses is a property of the download, not of the show,
-    so it has to be read off the files rather than configured. Firefly shipped on
-    DVD with its double-length pilot first while TMDB lists that pilot last, so
-    the same "S01E01" means two different episodes; taking TMDB's default on
-    trust wrote "The Train Job" onto the 87-minute Serenity.
-
-    Every ordering TMDB publishes is scored on the evidence in the files — see
-    `_score_ordering` — and one is only adopted if nothing contradicts it and it
-    accounts for more of them than the default did. Where nothing fits, the
-    episode titles are withheld and the files keep their numbers alone: a bare
-    "S01E04" is honest, a wrong title is not.
-
-    Returns (episodes, seasons_to_leave_untitled).
-    """
-    # Each file is read once; every ordering is then scored against the same
-    # evidence, so the cost does not multiply by the number of candidates.
-    probes = {path: _probe(path) for path in planned}
-    wanted = sum(len(claimed) for claimed in planned.values())
-    base_titles, base_covered, base_agree, base_disagree = _score_ordering(
-        planned, episodes, probes
-    )
-    # Settling for the default needs more than the absence of contradiction. Where
-    # the files name their own episodes and the default matches none of them, the
-    # numbering may be a straight permutation — every slot present and every
-    # runtime plausible, yet each title one place out — which is what Batman is.
-    embedded_titles = sum(1 for _minutes, title in probes.values() if title)
-    if not base_disagree and base_covered >= wanted and (base_titles or not embedded_titles):
-        return episodes, set()
-
-    candidates = []
-    for ordering in tmdb_state.client().episode_orderings(tmdb_id) if tmdb_id else []:
-        titles, covered, agree, disagree = _score_ordering(planned, ordering['episodes'], probes)
-        # Nothing may contradict it, and it has to account for more of the files
-        # than the default managed on at least one signal.
-        if disagree:
-            continue
-        if (titles, covered, agree) <= (base_titles, base_covered, base_agree):
-            continue
-        rank = (
-            ORDERING_PREFERENCE.index(ordering['kind'])
-            if ordering['kind'] in ORDERING_PREFERENCE
-            else len(ORDERING_PREFERENCE)
-        )
-        candidates.append((-titles, -covered, -agree, rank, ordering['name'], ordering))
-
-    if candidates:
-        titles, covered, _agree, _rank, _name, ordering = min(candidates)
-        if -titles:
-            evidence = (
-                f'{-titles} files carry the episode title inside them and all of '
-                f'them match this ordering'
-            )
-        else:
-            evidence = (
-                f'it has {-covered} of the {wanted} episodes these files claim, '
-                f"against TMDB's default {base_covered}"
-            )
-        notes.append((show_title, ordering['name'], f'{ordering["kind"]} numbering — {evidence}'))
-        return ordering['episodes'], set()
-
-    # Nothing fits, so withhold titles for the seasons holding the contradictions.
-    slots = {(episode['season_number'], episode['episode_number']): episode for episode in episodes}
-    untitled = set()
-    for path, claimed in planned.items():
-        season_number = claimed[0][0]
-        if season_number in untitled:
-            continue
-        minutes, _embedded = probes.get(path, (0.0, ''))
-        relative = os.path.relpath(path, os.path.dirname(os.path.dirname(path)))
-        expected = sum((slots.get(key, {}) or {}).get('runtime') or 0 for key in claimed)
-        if not expected or not minutes:
-            continue
-        if abs(minutes - expected) > expected * DURATION_TOLERANCE:
-            untitled.add(season_number)
-            left_alone.append(
-                (
-                    show_title,
-                    relative,
-                    f'runs {minutes:.0f} min but TMDB says {expected:.0f}, and no published '
-                    f'ordering fits — Season {season_number:02d} titles withheld',
-                )
-            )
-    return episodes, untitled
 
 
 SUBTITLE_EXTENSIONS = {'.srt', '.sub', '.ass', '.ssa', '.vtt', '.idx', '.sup'}
@@ -384,7 +208,7 @@ for item in app.store.list_media_items():
         for path in unmarked:
             left_alone.append((show_title, os.path.relpath(path, show_path), 'no-tmdb-episodes'))
 
-    episodes, untitled = _resolve_ordering(
+    episodes, untitled, _ordering = _resolve_ordering(
         show_title, item['tmdb_id'], planned, episodes, ordering_notes, left_alone
     )
 

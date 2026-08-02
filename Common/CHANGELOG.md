@@ -4,6 +4,17 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- The episode list now uses the numbering a show's files actually follow,
+  not always TMDB's default. Batman: The Animated Series and Firefly are
+  numbered on disk in DVD order; the episode list was still asking TMDB for
+  broadcast order, so titles, synopses and "up next" pointed at the wrong
+  episode from S01E02 onward on Batman, and put Firefly's 87-minute pilot in
+  the wrong slot entirely. Detection now runs once per show in the background
+  after startup and its answer is kept, rather than being repeated on every
+  request. Where no published ordering fits the files, episode titles are
+  withheld rather than shown wrong, exactly as the offline rename tool already
+  did — this and that tool now share the same detection code.
+
 - A show's episodes now remember where you stopped watching each one
   separately, instead of one shared position for the whole show — resuming
   S01E02 no longer opened at wherever S01E01 was left off. An episode watched

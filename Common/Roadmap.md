@@ -54,6 +54,7 @@ Something that does not do what it already promises.
 | B-0108.03 | Trakt watching list not loading | User need | P1 | Proposed |
 | B-0108.04 | Upgrade check on a TV show reports "complete" without opening the torrent pane, which is what it does for a film | User need | P2 | Proposed |
 | B-0108.07 | Discover's "add new movie" offers local file selection and a quality choice instead of showing in the hero card and pulling a torrent like everywhere else | User need | P1 | Proposed |
+| B-0108.09 | ffprobe subprocess calls decode as cp1252 with no explicit encoding, so a file whose metadata isn't valid cp1252 throws an unraisable exception on Windows | Review finding | P3 | Proposed |
 
 ## Features
 
@@ -61,7 +62,6 @@ Something the app does not do yet.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| F-0108.02 | Carry the detected episode ordering into the app, so the episode list matches the filenames | Follow-on from episode ordering | P2 | Approved |
 | F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
 | F-0108.06 | "Find missing" on a show should offer the whole season as well as a single episode | User need | P2 | Proposed |
@@ -81,24 +81,29 @@ changed.
 Every item above carries today's date because that is when this scheme started,
 not because they were all raised today. Dates are meaningful from here on.
 
-Priorities for B-0108.03, B-0108.04 and F-0108.08 were assumed, not given —
-adjust if wrong. F-0108.08's ID and Status were also completed from a raw line
-that had neither.
+Priorities for B-0108.03, B-0108.04, B-0108.09 and F-0108.08 were assumed, not
+given — adjust if wrong. F-0108.08's ID and Status were also completed from a
+raw line that had neither.
 
 ## Detail
 
 Only where a row needs more than its title. Anything much longer than a paragraph
 is a sign it should be worked on rather than described.
 
-### F-0108.02 — carry the detected episode ordering into the app
+### B-0108.09 — ffprobe subprocess calls assume cp1252
 
-The rename tool works out which ordering a show's files use, but the episode list
-still asks TMDB for the default — so Firefly's browser shows broadcast-order
-titles and synopses beside DVD-order files even though the filenames are right.
+Found live while running episode-ordering detection (F-0108.02) against the
+real library: several files threw `UnicodeDecodeError` from a background
+reader thread, because `subprocess.run(..., text=True)` with no `encoding=`
+falls back to `locale.getpreferredencoding()`, which is cp1252 on this
+machine. ffprobe's own output is UTF-8. The same pattern is repeated across six
+call sites (`episode_ordering.py`, `playback.py`, `quality.py`, `subtitles.py`
+×3) — one place, fixed six times, or missed the same way in a seventh.
 
-Detection is too slow to repeat per request, since it reads every file's running
-time. So persist what the tool found (media_id → episode group id) and have
-`/api/tv/<id>/season/<n>` read the ordering from there, falling back to the
-default. Worth an override in the show's Settings card for the cases detection
-cannot call — two orderings with the same episode count and interchangeable
-runtimes.
+Did not corrupt these three detections — Batman, Firefly and Parks and
+Recreation all matched what was established earlier by hand — because the
+exception happens in a stdlib reader thread outside `_probe`'s own try/except
+and the run still completed for the affected files, likely on a mostly-empty
+capture. Worth fixing on its own pass (`encoding='utf-8', errors='replace'` on
+each), not folded into the change that happened to notice it.
+
