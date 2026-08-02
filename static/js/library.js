@@ -1753,6 +1753,45 @@ document.querySelectorAll('[data-discover-toggle]').forEach(header => {
   });
 });
 
+const SETTINGS_COLLAPSED_KEY = 'media-library.settings-collapsed';
+
+function loadCollapsedSettingsCategories() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_COLLAPSED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch (_error) {
+    return new Set();
+  }
+}
+
+function setSettingsCategoryCollapsed(key, collapsed) {
+  const category = document.querySelector(`[data-settings-category="${key}"]`);
+  if (!category) return;
+  category.classList.toggle('collapsed', collapsed);
+  const btn = category.querySelector('.settings-collapse-btn');
+  if (!btn) return;
+  btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  const titleEl = category.querySelector('.settings-category-title');
+  const title = titleEl ? titleEl.textContent.trim() : '';
+  btn.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${title}`.trim());
+}
+
+document.querySelectorAll('[data-settings-toggle]').forEach(header => {
+  const key = header.dataset.settingsToggle;
+  setSettingsCategoryCollapsed(key, loadCollapsedSettingsCategories().has(key));
+  header.addEventListener('click', () => {
+    const stored = loadCollapsedSettingsCategories();
+    const collapsed = !stored.has(key);
+    if (collapsed) stored.add(key); else stored.delete(key);
+    try {
+      localStorage.setItem(SETTINGS_COLLAPSED_KEY, JSON.stringify([...stored]));
+    } catch (_error) {
+      // Storage unavailable; the collapse still applies for this page view.
+    }
+    setSettingsCategoryCollapsed(key, collapsed);
+  });
+});
+
 const posterLoadBtn = document.getElementById('poster-load-btn');
 if (posterLoadBtn) posterLoadBtn.addEventListener('click', loadPosterOptions);
 const posterLangSelect = document.getElementById('poster-lang');

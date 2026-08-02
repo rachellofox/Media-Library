@@ -2,6 +2,14 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.1.5 - 2026-08-02
+
+- The Settings page is now grouped into five collapsible sections — Library,
+  Network & Access, Downloads, Integrations, Discover — instead of ten panels
+  stacked flat in one long scroll. Each section remembers whether you left it
+  collapsed or open, per browser. No field moved or changed name; this only
+  changes how they're grouped and shown.
+
 ## v0.1.4 - 2026-08-02
 
 - Added watch-history import, in Settings. Upload a JSON or CSV export and

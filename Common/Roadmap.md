@@ -57,7 +57,6 @@ Something the app does not do yet.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
 | F-0108.08 | Choose between torrent mirrors and the underlying trackers — mirrors usually carry fewer results and fewer seeds | User need | P3 | Proposed |
 | F-0208.02 | Track a watchlist locally, not dependent on Trakt | User need | P2 | Proposed |

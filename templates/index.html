@@ -792,6 +792,28 @@
     .settings-inline-btn:disabled { opacity: .45; cursor: default; }
     .settings-inline-btn:disabled:hover { border-color: var(--border); color: var(--text-muted); }
     .settings-inline-btn.is-running { border-color: var(--cyan); color: var(--cyan); opacity: 1; }
+    .settings-category { margin-bottom: 28px; }
+    .settings-category-header {
+      display: flex; align-items: baseline; gap: 10px;
+      margin-bottom: 14px; cursor: pointer;
+    }
+    .settings-category.collapsed .settings-category-header { margin-bottom: 0; }
+    .settings-collapse-btn {
+      background: none; border: none; padding: 0; cursor: pointer; line-height: 1;
+      color: var(--text-muted); font-size: 12px;
+    }
+    .settings-category-header:hover .settings-collapse-btn,
+    .settings-collapse-btn:focus-visible { color: var(--cyan); outline: none; }
+    .settings-chevron { display: inline-block; transition: transform .2s ease; }
+    .settings-category.collapsed .settings-chevron { transform: rotate(-90deg); }
+    .settings-category.collapsed .settings-category-body { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .settings-chevron { transition: none; }
+    }
+    .settings-category-title {
+      font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--text);
+    }
     .ignored-list { display: flex; flex-direction: column; gap: 8px; }
     .ignored-item {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -1162,6 +1184,16 @@
   <div id="section-settings" class="settings-content">
     <div class="settings-section">
       <div class="settings-title">Settings</div>
+
+      <div class="settings-category" id="settings-category-library" data-settings-category="library">
+        <div class="settings-category-header" data-settings-toggle="library">
+          <button type="button" class="settings-collapse-btn" aria-expanded="true"
+                  aria-controls="settings-category-body-library" aria-label="Collapse Library">
+            <span class="settings-chevron" aria-hidden="true">&#x25BE;</span>
+          </button>
+          <span class="settings-category-title">Library</span>
+        </div>
+        <div id="settings-category-body-library" class="settings-category-body">
         <div class="settings-block">
           <div class="settings-subtitle" style="margin-top:0"><span>Library Paths</span></div>
           <form action="/settings" method="post">
@@ -1186,6 +1218,29 @@
           </form>
         </div>
 
+        <div class="settings-block">
+          <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Bulk Actions</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            {% if movies_path or tv_path %}
+            <form action="/sync-library" method="post" data-bulk-label="Scanning library folders for new titles"><button type="submit" class="settings-inline-btn">Scan folders</button></form>
+            {% endif %}
+            <form action="/scan-quality" method="post" data-bulk-label="Scanning media quality"><button type="submit" class="settings-inline-btn">Scan media quality</button></form>
+            <form action="/scan-subtitles" method="post" data-bulk-label="Scanning subtitles"><button type="submit" class="settings-inline-btn">Scan subtitles</button></form>
+            <form action="/refresh-all" method="post" data-bulk-label="Refreshing metadata from TMDB"><button type="submit" class="settings-inline-btn">Refresh all metadata</button></form>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <div class="settings-category" id="settings-category-network" data-settings-category="network">
+        <div class="settings-category-header" data-settings-toggle="network">
+          <button type="button" class="settings-collapse-btn" aria-expanded="true"
+                  aria-controls="settings-category-body-network" aria-label="Collapse Network &amp; Access">
+            <span class="settings-chevron" aria-hidden="true">&#x25BE;</span>
+          </button>
+          <span class="settings-category-title">Network &amp; Access</span>
+        </div>
+        <div id="settings-category-body-network" class="settings-category-body">
         <div class="settings-block">
           <div class="settings-subtitle" style="margin-top:0"><span>Public access</span></div>
           <form action="/settings" method="post">
@@ -1252,7 +1307,18 @@
           </form>
           {% endif %}
         </div>
+        </div>
+      </div>
 
+      <div class="settings-category" id="settings-category-downloads" data-settings-category="downloads">
+        <div class="settings-category-header" data-settings-toggle="downloads">
+          <button type="button" class="settings-collapse-btn" aria-expanded="true"
+                  aria-controls="settings-category-body-downloads" aria-label="Collapse Downloads">
+            <span class="settings-chevron" aria-hidden="true">&#x25BE;</span>
+          </button>
+          <span class="settings-category-title">Downloads</span>
+        </div>
+        <div id="settings-category-body-downloads" class="settings-category-body">
         <div class="settings-block">
           <div class="settings-subtitle" style="margin-top:0"><span>Media preferences</span></div>
           <form action="/settings" method="post">
@@ -1272,25 +1338,6 @@
         </div>
 
         <div class="settings-block">
-        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>TMDB</span></div>
-        <form action="/settings" method="post">
-          <div class="settings-grid" style="margin-bottom:8px;">
-            <label for="tmdb_api_key">API Key</label>
-            <input type="password" id="tmdb_api_key" name="tmdb_api_key" value="" placeholder="{% if tmdb_api_configured %}Saved securely. Leave blank to keep it.{% else %}TMDB API key{% endif %}" autocomplete="new-password">
-            <span></span>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button type="submit" class="btn-save">Save settings</button>
-              <button type="button" id="tmdb-test-btn" class="settings-inline-btn">Test connection</button>
-            </div>
-          </div>
-          <div id="tmdb-test-status" class="settings-note" style="margin-top:0;"></div>
-        </form>
-        <p class="settings-note" style="margin-top:8px;">
-          View documentation for configuring TMDB settings <a href="https://developer.themoviedb.org/docs/getting-started" target="_blank" rel="noopener noreferrer">here</a>.
-        </p>
-      </div>
-
-        <div class="settings-block">
           <div class="settings-subtitle" style="margin-top:0"><span>Torrent settings</span></div>
           <form action="/settings" method="post">
             <div class="settings-grid" style="margin-bottom:8px;">
@@ -1304,106 +1351,137 @@
           </form>
         </div>
 
-      <div class="settings-block">
-        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Torrent WebUI configuration</span></div>
-        <form action="/settings" method="post">
+        <div class="settings-block">
+          <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Torrent WebUI configuration</span></div>
+          <form action="/settings" method="post">
+            <div class="settings-grid" style="margin-bottom:8px;">
+              <label for="qbt_webui_url">WebUI IP address</label>
+              <input type="text" id="qbt_webui_url" name="qbt_webui_url" value="{{ qbt_webui_url }}" placeholder="http://127.0.0.1:8090">
+              <span></span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="submit" class="btn-save">Save settings</button>
+                <button type="button" id="qbt-test-btn" class="settings-inline-btn">Test connection</button>
+              </div>
+            </div>
+            <div id="qbt-test-status" class="settings-note" style="margin-top:0;"></div>
+          </form>
+          <p class="settings-note" style="margin-top:8px;">
+            View documentation for configuring torrent WebUI settings <a href="https://github.com/qbittorrent/qBittorrent/wiki/Explanation-of-Options-in-qBittorrent#web-ui" target="_blank" rel="noopener noreferrer">here</a>.
+          </p>
+        </div>
+        </div>
+      </div>
+
+      <div class="settings-category" id="settings-category-integrations" data-settings-category="integrations">
+        <div class="settings-category-header" data-settings-toggle="integrations">
+          <button type="button" class="settings-collapse-btn" aria-expanded="true"
+                  aria-controls="settings-category-body-integrations" aria-label="Collapse Integrations">
+            <span class="settings-chevron" aria-hidden="true">&#x25BE;</span>
+          </button>
+          <span class="settings-category-title">Integrations</span>
+        </div>
+        <div id="settings-category-body-integrations" class="settings-category-body">
+        <div class="settings-block">
+          <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>TMDB</span></div>
+          <form action="/settings" method="post">
+            <div class="settings-grid" style="margin-bottom:8px;">
+              <label for="tmdb_api_key">API Key</label>
+              <input type="password" id="tmdb_api_key" name="tmdb_api_key" value="" placeholder="{% if tmdb_api_configured %}Saved securely. Leave blank to keep it.{% else %}TMDB API key{% endif %}" autocomplete="new-password">
+              <span></span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="submit" class="btn-save">Save settings</button>
+                <button type="button" id="tmdb-test-btn" class="settings-inline-btn">Test connection</button>
+              </div>
+            </div>
+            <div id="tmdb-test-status" class="settings-note" style="margin-top:0;"></div>
+          </form>
+          <p class="settings-note" style="margin-top:8px;">
+            View documentation for configuring TMDB settings <a href="https://developer.themoviedb.org/docs/getting-started" target="_blank" rel="noopener noreferrer">here</a>.
+          </p>
+        </div>
+
+        <div class="settings-block">
+        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Trakt</span></div>
+        <form action="/settings" method="post" style="margin-bottom:12px;">
           <div class="settings-grid" style="margin-bottom:8px;">
-            <label for="qbt_webui_url">WebUI IP address</label>
-            <input type="text" id="qbt_webui_url" name="qbt_webui_url" value="{{ qbt_webui_url }}" placeholder="http://127.0.0.1:8090">
+            <label for="trakt_username">Username</label>
+            <input type="text" id="trakt_username" name="trakt_username" value="{{ trakt_saved_username }}" placeholder="Trakt username">
+            <label for="trakt_client_id">Client ID</label>
+            <input type="text" id="trakt_client_id" name="trakt_client_id" value="{{ trakt_client_id }}" placeholder="Trakt client ID">
+            <label for="trakt_client_secret">Client Secret</label>
+            <input type="password" id="trakt_client_secret" name="trakt_client_secret" value="" placeholder="{% if trakt_secret_configured %}Saved securely. Leave blank to keep it.{% else %}Trakt client secret{% endif %}" autocomplete="new-password">
             <span></span>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button type="submit" class="btn-save">Save settings</button>
-              <button type="button" id="qbt-test-btn" class="settings-inline-btn">Test connection</button>
+              <button type="button" id="trakt-test-btn" class="settings-inline-btn">Test connection</button>
             </div>
           </div>
-          <div id="qbt-test-status" class="settings-note" style="margin-top:0;"></div>
+          <div id="trakt-test-status" class="settings-note" style="margin-top:0;"></div>
         </form>
-        <p class="settings-note" style="margin-top:8px;">
-          View documentation for configuring torrent WebUI settings <a href="https://github.com/qbittorrent/qBittorrent/wiki/Explanation-of-Options-in-qBittorrent#web-ui" target="_blank" rel="noopener noreferrer">here</a>.
-        </p>
-      </div>
-
-      <div class="settings-block">
-      <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Trakt</span></div>
-      <form action="/settings" method="post" style="margin-bottom:12px;">
-        <div class="settings-grid" style="margin-bottom:8px;">
-          <label for="trakt_username">Username</label>
-          <input type="text" id="trakt_username" name="trakt_username" value="{{ trakt_saved_username }}" placeholder="Trakt username">
-          <label for="trakt_client_id">Client ID</label>
-          <input type="text" id="trakt_client_id" name="trakt_client_id" value="{{ trakt_client_id }}" placeholder="Trakt client ID">
-          <label for="trakt_client_secret">Client Secret</label>
-          <input type="password" id="trakt_client_secret" name="trakt_client_secret" value="" placeholder="{% if trakt_secret_configured %}Saved securely. Leave blank to keep it.{% else %}Trakt client secret{% endif %}" autocomplete="new-password">
-          <span></span>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="submit" class="btn-save">Save settings</button>
-            <button type="button" id="trakt-test-btn" class="settings-inline-btn">Test connection</button>
+        <div id="trakt-auth-summary" class="settings-note" style="margin-top:0;margin-bottom:8px;"></div>
+        <div id="trakt-device-panel" style="display:none;margin-bottom:10px;padding:12px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);">
+          <div style="font-size:12px;font-weight:700;margin-bottom:6px;">Authorize Trakt</div>
+          <div class="settings-note" style="margin:0 0 8px 0;">Open the Trakt activation page and enter this code:</div>
+          <div style="font-size:20px;font-weight:800;letter-spacing:0.08em;margin-bottom:8px;"><code id="trakt-device-code"></code></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <button type="button" id="trakt-copy-btn" class="settings-inline-btn">Copy code</button>
           </div>
+          <div id="trakt-device-status" class="settings-note" style="margin:0;"></div>
         </div>
-        <div id="trakt-test-status" class="settings-note" style="margin-top:0;"></div>
-      </form>
-      <div id="trakt-auth-summary" class="settings-note" style="margin-top:0;margin-bottom:8px;"></div>
-      <div id="trakt-device-panel" style="display:none;margin-bottom:10px;padding:12px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,0.03);">
-        <div style="font-size:12px;font-weight:700;margin-bottom:6px;">Authorize Trakt</div>
-        <div class="settings-note" style="margin:0 0 8px 0;">Open the Trakt activation page and enter this code:</div>
-        <div style="font-size:20px;font-weight:800;letter-spacing:0.08em;margin-bottom:8px;"><code id="trakt-device-code"></code></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-          <button type="button" id="trakt-copy-btn" class="settings-inline-btn">Copy code</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          <button type="button" id="trakt-connect-btn" class="btn-save" {% if not trakt_oauth_available %}style="display:none;"{% endif %}>Connect Trakt</button>
+          <button type="button" id="trakt-open-btn" class="settings-inline-btn" style="display:none;">Open activation page</button>
+          <button type="button" id="trakt-disconnect-btn" class="settings-inline-btn" {% if not trakt_connected %}style="display:none;"{% endif %}>Disconnect</button>
         </div>
-        <div id="trakt-device-status" class="settings-note" style="margin:0;"></div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-        <button type="button" id="trakt-connect-btn" class="btn-save" {% if not trakt_oauth_available %}style="display:none;"{% endif %}>Connect Trakt</button>
-        <button type="button" id="trakt-open-btn" class="settings-inline-btn" style="display:none;">Open activation page</button>
-        <button type="button" id="trakt-disconnect-btn" class="settings-inline-btn" {% if not trakt_connected %}style="display:none;"{% endif %}>Disconnect</button>
-      </div>
-      <p class="settings-note" style="margin-top:8px;">
-        View documentation for configuring Trakt settings <a href="https://docs.trakt.tv/docs/create-an-app" target="_blank" rel="noopener noreferrer">here</a>.
-      </p>
-      </div>
-
-      <div class="settings-block">
-        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Watch History Import</span></div>
-        <p class="settings-note" style="margin-top:0;margin-bottom:10px;">
-          Import a watch-history export from another platform. Trakt, Letterboxd
-          and IMDb exports are recognised automatically; a JSON or CSV file with
-          title/year/date columns of its own will be read as a best effort.
-          Stored separately from your library and safe to import more than once
-          — the same record is never added twice.
+        <p class="settings-note" style="margin-top:8px;">
+          View documentation for configuring Trakt settings <a href="https://docs.trakt.tv/docs/create-an-app" target="_blank" rel="noopener noreferrer">here</a>.
         </p>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <input type="file" id="history-import-file" accept=".json,.csv" style="max-width:320px;">
-          <button type="button" id="history-import-btn" class="settings-inline-btn">Import</button>
-          <span id="history-import-summary" class="settings-note" style="margin:0;"></span>
         </div>
-        <div id="history-import-status" class="settings-note" style="margin-top:8px;"></div>
-      </div>
 
-      <div class="settings-block">
-        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Bulk Actions</span></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          {% if movies_path or tv_path %}
-          <form action="/sync-library" method="post" data-bulk-label="Scanning library folders for new titles"><button type="submit" class="settings-inline-btn">Scan folders</button></form>
-          {% endif %}
-          <form action="/scan-quality" method="post" data-bulk-label="Scanning media quality"><button type="submit" class="settings-inline-btn">Scan media quality</button></form>
-          <form action="/scan-subtitles" method="post" data-bulk-label="Scanning subtitles"><button type="submit" class="settings-inline-btn">Scan subtitles</button></form>
-          <form action="/refresh-all" method="post" data-bulk-label="Refreshing metadata from TMDB"><button type="submit" class="settings-inline-btn">Refresh all metadata</button></form>
+        <div class="settings-block">
+          <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Watch History Import</span></div>
+          <p class="settings-note" style="margin-top:0;margin-bottom:10px;">
+            Import a watch-history export from another platform. Trakt, Letterboxd
+            and IMDb exports are recognised automatically; a JSON or CSV file with
+            title/year/date columns of its own will be read as a best effort.
+            Stored separately from your library and safe to import more than once
+            — the same record is never added twice.
+          </p>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input type="file" id="history-import-file" accept=".json,.csv" style="max-width:320px;">
+            <button type="button" id="history-import-btn" class="settings-inline-btn">Import</button>
+            <span id="history-import-summary" class="settings-note" style="margin:0;"></span>
+          </div>
+          <div id="history-import-status" class="settings-note" style="margin-top:8px;"></div>
+        </div>
         </div>
       </div>
 
-      <div class="settings-block">
-      <div class="settings-subtitle">
-        <span>Discover ignored items</span>
-        <button type="button" id="ignored-refresh-btn" class="settings-inline-btn">Refresh</button>
-      </div>
-      <div class="settings-note" style="margin-top:0;margin-bottom:8px;">Use this list to restore hidden titles or whole collections.</div>
+      <div class="settings-category" id="settings-category-discover" data-settings-category="discover">
+        <div class="settings-category-header" data-settings-toggle="discover">
+          <button type="button" class="settings-collapse-btn" aria-expanded="true"
+                  aria-controls="settings-category-body-discover" aria-label="Collapse Discover">
+            <span class="settings-chevron" aria-hidden="true">&#x25BE;</span>
+          </button>
+          <span class="settings-category-title">Discover</span>
+        </div>
+        <div id="settings-category-body-discover" class="settings-category-body">
+        <div class="settings-block">
+        <div class="settings-subtitle">
+          <span>Discover ignored items</span>
+          <button type="button" id="ignored-refresh-btn" class="settings-inline-btn">Refresh</button>
+        </div>
+        <div class="settings-note" style="margin-top:0;margin-bottom:8px;">Use this list to restore hidden titles or whole collections.</div>
 
-      <div class="settings-subtitle" style="margin-top:10px;margin-bottom:8px;"><span>Ignored Titles</span></div>
-      <div style="margin-bottom:8px;"><button type="button" id="ignored-clear-titles-btn" class="settings-inline-btn">Unignore all titles</button></div>
-      <div id="ignored-titles-list" class="ignored-list"></div>
+        <div class="settings-subtitle" style="margin-top:10px;margin-bottom:8px;"><span>Ignored Titles</span></div>
+        <div style="margin-bottom:8px;"><button type="button" id="ignored-clear-titles-btn" class="settings-inline-btn">Unignore all titles</button></div>
+        <div id="ignored-titles-list" class="ignored-list"></div>
 
-      <div class="settings-subtitle" style="margin-top:14px;margin-bottom:8px;"><span>Ignored Collections</span></div>
-      <div style="margin-bottom:8px;"><button type="button" id="ignored-clear-collections-btn" class="settings-inline-btn">Unignore all collections</button></div>
-      <div id="ignored-collections-list" class="ignored-list"></div>
+        <div class="settings-subtitle" style="margin-top:14px;margin-bottom:8px;"><span>Ignored Collections</span></div>
+        <div style="margin-bottom:8px;"><button type="button" id="ignored-clear-collections-btn" class="settings-inline-btn">Unignore all collections</button></div>
+        <div id="ignored-collections-list" class="ignored-list"></div>
+        </div>
+        </div>
       </div>
     </div>
   </div>
