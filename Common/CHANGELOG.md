@@ -4,6 +4,11 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- Fixed an ffprobe call that could throw a decoding error on Windows for a
+  file whose metadata was not valid Windows-1252 — found live while checking
+  episode-ordering detection against the real library, harmless there but
+  worth closing.
+
 - A TV show is no longer offered a quality check that goes nowhere. The
   "↑ Check" upgrade card searches for one release by title and year, which is
   a film's shape — a show has no one file or one quality — so checking it on

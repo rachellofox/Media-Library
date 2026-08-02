@@ -54,6 +54,8 @@ def _probe(path: str) -> tuple[float, str]:
             [FFPROBE_EXE, '-v', 'quiet', '-print_format', 'json', '-show_format', path],
             capture_output=True,
             text=True,
+            encoding='utf-8',
+            errors='replace',
             timeout=30,
         )
         container = json.loads(probe.stdout or '{}').get('format') or {}

@@ -51,7 +51,6 @@ Something that does not do what it already promises.
 | -- | ----- | ------ | -------- | ------ |
 | B-0108.02 | Transcoded playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
 | B-0108.07 | Discover's "add new movie" offers local file selection and a quality choice instead of showing in the hero card and pulling a torrent like everywhere else | User need | P1 | Blocked |
-| B-0108.09 | ffprobe subprocess calls decode as cp1252 with no explicit encoding, so a file whose metadata isn't valid cp1252 throws an unraisable exception on Windows | Review finding | P3 | Proposed |
 
 ## Features
 
@@ -77,9 +76,8 @@ changed.
 Every item above carries today's date because that is when this scheme started,
 not because they were all raised today. Dates are meaningful from here on.
 
-Priorities for B-0108.09 and F-0108.08 were assumed, not given — adjust if
-wrong. F-0108.08's ID and Status were also completed from a raw line that had
-neither.
+Priority for F-0108.08 was assumed, not given — adjust if wrong. Its ID and
+Status were also completed from a raw line that had neither.
 
 ## Detail
 
@@ -102,21 +100,3 @@ and the report predates it, or it is a specific case (a particular title, a
 particular error path) that a straight read of the code does not surface.
 Needs a live reproduction — which title, and what the screen actually shows —
 to go further.
-
-### B-0108.09 — ffprobe subprocess calls assume cp1252
-
-Found live while running episode-ordering detection (F-0108.02) against the
-real library: several files threw `UnicodeDecodeError` from a background
-reader thread, because `subprocess.run(..., text=True)` with no `encoding=`
-falls back to `locale.getpreferredencoding()`, which is cp1252 on this
-machine. ffprobe's own output is UTF-8. The same pattern is repeated across six
-call sites (`episode_ordering.py`, `playback.py`, `quality.py`, `subtitles.py`
-×3) — one place, fixed six times, or missed the same way in a seventh.
-
-Did not corrupt these three detections — Batman, Firefly and Parks and
-Recreation all matched what was established earlier by hand — because the
-exception happens in a stdlib reader thread outside `_probe`'s own try/except
-and the run still completed for the affected files, likely on a mostly-empty
-capture. Worth fixing on its own pass (`encoding='utf-8', errors='replace'` on
-each), not folded into the change that happened to notice it.
-
