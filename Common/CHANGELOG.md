@@ -15,7 +15,6 @@ All notable user-facing changes to this project are documented here.
   Predator 2, Predators, The Predator and Prey, each in its own correctly named
   folder. A film that cannot be identified confidently is left in the download
   folder rather than filed under a guess, and one you already hold is skipped.
-
 - A show that holds the same episode twice now says so, with a chip on its hero
   reading "2 duplicated". Until now the app quietly kept the larger copy and
   never mentioned the other, so a library could hold 78 duplicated episodes
