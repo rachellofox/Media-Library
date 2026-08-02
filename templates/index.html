@@ -936,6 +936,7 @@
         <div id="hero-library-actions" class="hero-library-actions">
           <button id="hero-watch-btn" type="button" class="hero-action-btn" style="display:none">▶ Watch</button>
           <select id="hero-season-select" class="hero-season-select" style="display:none" aria-label="Choose a season"></select>
+          <button type="button" id="tv-back-to-shows" class="hero-action-btn" style="display:none">&#x2190; Back to Shows</button>
           <button id="hero-check-new-btn" type="button" class="hero-action-btn" style="display:none">Check for new content</button>
           <button id="hero-retry-download-btn" type="button" class="hero-action-btn" style="display:none">Retry / Find Torrent</button>
           <button id="hero-add-missing-btn" type="button" class="hero-action-btn" style="display:none">Add to library</button>
@@ -1149,7 +1150,6 @@
     {% if section_id == 'tv' %}
     <div id="tv-episode-view" class="tv-episode-view">
       <div class="tv-episode-bar">
-        <button type="button" id="tv-back-to-shows" class="btn-sm">&#x2190; Back to Shows</button>
         <span id="tv-episode-heading" class="grid-heading"></span>
         <span id="tv-episode-count" class="grid-count"></span>
       </div>

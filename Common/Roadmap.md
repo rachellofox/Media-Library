@@ -53,7 +53,6 @@ Something that does not do what it already promises.
 | B-0108.02 | Transcoded playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
 | B-0108.03 | Trakt watching list not loading | User need | P1 | Proposed |
 | B-0108.04 | Upgrade check on a TV show reports "complete" without opening the torrent pane, which is what it does for a film | User need | P2 | Proposed |
-| B-0108.05 | "Back to TV Shows" scrolls out of reach — it can only be pressed from the top of the page | User need | P3 | Blocked |
 | B-0108.07 | Discover's "add new movie" offers local file selection and a quality choice instead of showing in the hero card and pulling a torrent like everywhere else | User need | P1 | Proposed |
 
 ## Features
@@ -67,6 +66,7 @@ Something the app does not do yet.
 | F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
 | F-0108.06 | "Find missing" on a show should offer the whole season as well as a single episode | User need | P2 | Proposed |
+| F-0208.01 | Option to choose between torrent mirrors and actual torrents, mirrors usually have less options and less seeds - needs investigating
 
 ## Library
 
@@ -78,9 +78,6 @@ The collection on disk being wrong. No code changes; the fix is to the files.
 These rows are deleted once the files are right, and the commit that corrected
 them is the record — there is no CHANGELOG line, because nothing about the app
 changed.
-
-Priorities for B-0108.03, B-0108.04, B-0108.06, B-0108.07 and F-0108.06 were
-assumed, not given — adjust if wrong.
 
 Every item above carries today's date because that is when this scheme started,
 not because they were all raised today. Dates are meaningful from here on.
@@ -108,10 +105,3 @@ time. So persist what the tool found (media_id → episode group id) and have
 default. Worth an override in the show's Settings card for the cases detection
 cannot call — two orderings with the same episode count and interchangeable
 runtimes.
-
-### B-0108.05 — "Back to TV Shows" scrolls away
-
-Blocked on a decision, not on work. Either pin it so it stays put while the page
-scrolls, or move it into the bottom-left of the hero pane where it is always on
-screen at the top and is not needed further down. Pinning is the smaller change
-and helps most on a long season list; moving it keeps the chrome quieter.

@@ -4,6 +4,9 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- The "Back to Shows" button no longer scrolls out of reach on a long episode
+  list. It has moved from the top of the list into the hero, beside the season
+  picker, where it stays on screen.
 - A download holding several films no longer files the wrong one. It was picking
   the largest video in the torrent, so a five-film Predator pack put Predator 2
   into the library as "Predator (1987)" — renamed on the way in, so nothing

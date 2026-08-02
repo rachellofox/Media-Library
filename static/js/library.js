@@ -195,6 +195,7 @@ function tvEpisodeElements() {
     heading: document.getElementById('tv-episode-heading'),
     count: document.getElementById('tv-episode-count'),
     select: document.getElementById('hero-season-select'),
+    back: document.getElementById('tv-back-to-shows'),
   };
 }
 
@@ -204,6 +205,9 @@ function closeEpisodeView() {
   if (el.grid) el.grid.style.display = '';
   if (el.panel) el.panel.style.display = '';
   if (el.list) el.list.innerHTML = '';
+  // The button sits beside the season dropdown in the hero rather than inside
+  // the episode view, so hiding the view no longer hides it too.
+  if (el.back) el.back.style.display = 'none';
 }
 
 // The chip reports whether the show is still running; the button is about
@@ -292,6 +296,7 @@ async function showSeasonEpisodes(mediaId, seasonNumber) {
   // filters posters is hidden too until Back to Shows restores both.
   if (el.grid) el.grid.style.display = 'none';
   if (el.panel) el.panel.style.display = 'none';
+  if (el.back) el.back.style.display = 'inline-block';
   el.view.classList.add('is-open');
   el.heading.textContent = isExtras
     ? `${item.title || 'Show'} — Extras`
@@ -365,6 +370,7 @@ async function showMissingForShow(mediaId) {
 
   if (el.grid) el.grid.style.display = 'none';
   if (el.panel) el.panel.style.display = 'none';
+  if (el.back) el.back.style.display = 'inline-block';
   el.view.classList.add('is-open');
   el.heading.textContent = `${item.title || 'Show'} — New & Missing`;
   el.count.textContent = '';
