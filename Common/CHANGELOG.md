@@ -4,6 +4,18 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- Fixed two causes of subtitles silently not appearing. A subtitle track
+  stored on disc as an image rather than text (common on DVD-sourced rips —
+  found on X-Men: The Animated Series, which offered six caption tracks and
+  always failed on three of them) was offered in the menu and always failed
+  to load with nothing shown; those are no longer offered, since nothing can
+  convert an image to captions. Separately, two episodes of the same show
+  could read each other's caption files if one was requested shortly after
+  the other, because captions were tracked per show rather than per episode.
+  Verified against a real file with the picture-based tracks the first fix
+  removes. If subtitles are still missing for a specific title, the codec
+  the container actually uses is the next thing to check.
+
 - The episode list now uses the numbering a show's files actually follow,
   not always TMDB's default. Batman: The Animated Series and Firefly are
   numbered on disk in DVD order; the episode list was still asking TMDB for

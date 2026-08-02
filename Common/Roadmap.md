@@ -49,7 +49,6 @@ Something that does not do what it already promises.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| B-0108.01 | Subtitles do not work in the player | User need | P1 | Proposed |
 | B-0108.02 | Transcoded playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
 | B-0108.03 | Trakt watching list not loading | User need | P1 | Proposed |
 | B-0108.04 | Upgrade check on a TV show reports "complete" without opening the torrent pane, which is what it does for a film | User need | P2 | Proposed |

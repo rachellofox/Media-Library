@@ -212,13 +212,32 @@ def _find_video_file(media_path: str | None) -> str | None:
 
 
 # Cache to store subtitle metadata during session
-# Keys: media_id
+# Keys: (media_id, episode_key) — episode_key is '' for a movie. Two episodes
+# of one show share a media_id, and each request to /video/<id> repopulates
+# whichever key its own ?episode= names; keying on media_id alone let a
+# request for episode 2's subtitle list overwrite what episode 1 had just
+# populated, so a track fetch that arrived after could be served the wrong
+# episode's mapping — same class of bug as playback_positions before it
+# gained an episode key.
 # Values: list of subtitle dicts
-_subtitle_cache: dict[int, list[dict]] = {}
+_subtitle_cache: dict[tuple[int, str], list[dict]] = {}
+
+# Subtitle codecs that are text and can be converted to WebVTT. dvd_subtitle,
+# hdmv_pgs_subtitle and dvb_subtitle are bitmaps — a rendered image per line,
+# not text — and ffmpeg's `-c:s webvtt` has nothing to convert; it fails every
+# time. Offering them anyway is how a real X-Men rip's CC menu listed six
+# tracks, three of them (the DVD-sourced French, Spanish and English) always
+# failing extraction with no indication why: the browser just never receives
+# the track, which looks identical to "subtitles do not work".
+_TEXT_SUBTITLE_CODECS = {'subrip', 'srt', 'ass', 'ssa', 'mov_text', 'webvtt', 'text'}
 
 
 def _probe_embedded_subtitles(video_file: str) -> list[dict]:
-    """Return embedded subtitle stream metadata from a video file."""
+    """Return embedded subtitle stream metadata from a video file.
+
+    Bitmap subtitle streams are left out entirely — see _TEXT_SUBTITLE_CODECS —
+    rather than offered and left to fail when picked.
+    """
     results: list[dict] = []
     try:
         probe = subprocess.run(
@@ -242,6 +261,8 @@ def _probe_embedded_subtitles(video_file: str) -> list[dict]:
         data = json.loads(probe.stdout or '{}')
         for stream in data.get('streams', []):
             if stream.get('codec_type') != 'subtitle':
+                continue
+            if (stream.get('codec_name') or '').lower() not in _TEXT_SUBTITLE_CODECS:
                 continue
             tags = stream.get('tags') or {}
             lang = (tags.get('language') or 'und').lower()
@@ -298,11 +319,15 @@ def _extract_embedded_subtitle_to_vtt(video_file: str, stream_index: int, out_pa
         return False
 
 
-def _find_subtitle_files(media_path: str | None, media_id: int | None = None) -> list[dict]:
+def _find_subtitle_files(
+    media_path: str | None, media_id: int | None = None, episode_key: str = ''
+) -> list[dict]:
     """Find all subtitle files (.srt, .vtt, etc.) near a video file.
 
     Returns a list of dicts: [{'name': 'English', 'lang': 'en', 'index': 0}]
-    Caches file paths keyed by media_id for later serving via API.
+    Caches file paths keyed by (media_id, episode_key) for later serving via
+    API — `episode_key` is the same `?episode=` selector the player already
+    sends, so two episodes of one show never share a cache slot.
     """
     video_file = _find_video_file(media_path)
     if not video_file:
@@ -381,6 +406,6 @@ def _find_subtitle_files(media_path: str | None, media_id: int | None = None) ->
 
     # Cache the file paths if media_id provided
     if media_id and entries:
-        _subtitle_cache[media_id] = entries
+        _subtitle_cache[(media_id, episode_key or '')] = entries
 
     return subtitles

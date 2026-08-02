@@ -100,8 +100,10 @@ def watch_video(media_id: int):
         duration_seconds = video_info['duration']
 
     # Resolve subtitles from the episode being played, not the show folder, or a
-    # series would offer every episode's sidecars at once.
-    subtitles = _find_subtitle_files(video_file, media_id)
+    # series would offer every episode's sidecars at once. Keyed by episode too,
+    # so loading episode 2 cannot leave episode 1's tab reading episode 2's
+    # subtitle mapping if its track fetch arrives afterwards.
+    subtitles = _find_subtitle_files(video_file, media_id, episode_key=_request_episode())
 
     return render_template(
         'player.html',
@@ -220,8 +222,13 @@ def stream_video(media_id: int):
 
 @bp.route('/api/video/<int:media_id>/subtitle/<int:index>')
 def subtitle_file(media_id: int, index: int):
-    """Serve a subtitle file by media_id and subtitle index."""
-    subtitle_entries = _subtitle_cache.get(media_id)
+    """Serve a subtitle file by media_id, episode and subtitle index.
+
+    ?episode= is the same selector the <track> src already carries — read here
+    too, or a show's episodes would all draw from whichever one's mapping was
+    cached most recently under this media_id, regardless of which is playing.
+    """
+    subtitle_entries = _subtitle_cache.get((media_id, _request_episode()))
     if not subtitle_entries or index >= len(subtitle_entries):
         return 'Not found', 404
 
