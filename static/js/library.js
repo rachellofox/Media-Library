@@ -345,16 +345,28 @@ async function showSeasonEpisodes(mediaId, seasonNumber) {
     const thumb = episode.still_url
       ? `<img class="tv-episode-thumb" src="${escAttr(episode.still_url)}" alt="" loading="lazy">`
       : '<div class="tv-episode-thumb"></div>';
+    // Resume needs a duration to compute a fraction from; without one — a
+    // freshly saved position with no runtime yet — the bar is skipped rather
+    // than drawn wrong.
+    const resumeFraction = (episode.resume_seconds && episode.runtime)
+      ? Math.min(100, (episode.resume_seconds / (episode.runtime * 60)) * 100)
+      : 0;
+    const overlay = episode.watched
+      ? '<div class="tv-episode-watched" title="Watched">&#10003;</div>'
+      : (resumeFraction > 0
+          ? `<div class="tv-episode-resume-track"><div class="tv-episode-resume-fill" style="width:${resumeFraction.toFixed(1)}%"></div></div>`
+          : '');
+    const watchLabel = episode.watched ? '&#8635; Rewatch' : (episode.resume_seconds ? '&#9654; Resume' : '&#9654; Watch');
     return `
       <div class="tv-episode-row">
         <div class="tv-episode-num">S${String(episode.season_number).padStart(2, '0')}E${String(episode.episode_number).padStart(2, '0')}</div>
-        ${thumb}
+        <div class="tv-episode-thumb-wrap">${thumb}${overlay}</div>
         <div class="tv-episode-main">
           <div class="tv-episode-title">${escHtml(episode.title)}</div>
           ${meta ? `<div class="tv-episode-meta">${escHtml(meta)}</div>` : ''}
           ${episode.synopsis ? `<div class="tv-episode-synopsis">${escHtml(episode.synopsis)}</div>` : ''}
         </div>
-        <a class="hero-action-btn" href="${escAttr(href)}">▶ Watch</a>
+        <a class="hero-action-btn" href="${escAttr(href)}">${watchLabel}</a>
       </div>`;
   }).join('');
 

@@ -4,6 +4,14 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- A show's episodes now remember where you stopped watching each one
+  separately, instead of one shared position for the whole show — resuming
+  S01E02 no longer opened at wherever S01E01 was left off. An episode watched
+  to the end is marked watched with a checkmark on its thumbnail, a partly
+  watched one shows a progress bar, and the player now offers to play the next
+  episode in the last 30 seconds, or moves on to it automatically once the
+  current one ends.
+
 - The "Back to Shows" button no longer scrolls out of reach on a long episode
   list. It has moved from the top of the list into the hero, beside the season
   picker, where it stays on screen.

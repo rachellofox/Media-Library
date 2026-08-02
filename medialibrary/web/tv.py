@@ -19,6 +19,7 @@ from medialibrary.discover import (
     _missing_episodes_for_show,
 )
 from medialibrary.identify import (
+    _episodes_covered,
     _featurette_label,
     _infer_season_from_path,
     duplicate_episode_files,
@@ -205,10 +206,13 @@ def tv_season_episodes(media_id: int, season_number: int):
     }
 
     owned = {number: path for (season, number), path in matched.items() if season == season_number}
+    positions = runtime.store().list_playback_positions(media_id)
 
     episodes = []
     for number in sorted(owned):
         meta = metadata.get(number, {})
+        file_key = os.path.relpath(owned[number], show_path)
+        progress = positions.get(file_key)
         episodes.append(
             {
                 'season_number': season_number,
@@ -218,7 +222,13 @@ def tv_season_episodes(media_id: int, season_number: int):
                 'air_date': meta.get('air_date'),
                 'runtime': meta.get('runtime'),
                 'still_url': meta.get('still_url'),
-                'file': os.path.relpath(owned[number], show_path),
+                'file': file_key,
+                'watched': bool(progress and progress['watched']),
+                # Omitted rather than 0 when nothing is saved, so the front end
+                # can tell "never started" from "resumed at the very start".
+                'resume_seconds': (
+                    progress['position_seconds'] if progress and not progress['watched'] else None
+                ),
             }
         )
 
@@ -240,6 +250,54 @@ def tv_season_episodes(media_id: int, season_number: int):
             'season_number': season_number,
             'episodes': episodes,
             'unmatched': extras,
+        }
+    )
+
+
+@bp.route('/api/tv/<int:media_id>/next-episode')
+def tv_next_episode(media_id: int):
+    """The episode after the one named by `?episode=`, for "up next".
+
+    Ordered by (season, episode_number) over what scan_local_episodes actually
+    found on disk — the same ordering the season list renders — so "next" means
+    the next row of that list, never the next filename alphabetically or an
+    episode TMDB lists but the library does not hold.
+    """
+    item = runtime.store().get_media_item(media_id)
+    if not item or (item['media_type'] or '') != 'tv':
+        return jsonify({'ok': False, 'error': 'not_a_tv_show'}), 404
+
+    current = (request.args.get('episode') or '').strip()
+    covered = _episodes_covered(os.path.basename(current)) if current else None
+    if not covered:
+        return jsonify({'ok': True, 'next': None})
+
+    show_path = (item['path'] or '').strip()
+    matched, _unmatched = scan_local_episodes(show_path, item['title'] or '')
+
+    current_key = (covered[0], covered[1][0])
+    upcoming = sorted(key for key in matched if key > current_key)
+    if not upcoming:
+        return jsonify({'ok': True, 'next': None})
+
+    season, number = upcoming[0]
+    metadata = (
+        _cached_season_episodes(item['tmdb_id'], season)
+        if (runtime.tmdb() and item['tmdb_id'])
+        else []
+    )
+    meta = next((e for e in metadata if e['episode_number'] == number), {})
+
+    return jsonify(
+        {
+            'ok': True,
+            'next': {
+                'season_number': season,
+                'episode_number': number,
+                'title': meta.get('title') or f'Episode {number}',
+                'still_url': meta.get('still_url'),
+                'file': os.path.relpath(matched[(season, number)], show_path),
+            },
         }
     )
 

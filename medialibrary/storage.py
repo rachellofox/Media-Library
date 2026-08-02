@@ -114,10 +114,13 @@ CREATE TABLE IF NOT EXISTS discover_watchlist_cache (
 );
 
 CREATE TABLE IF NOT EXISTS playback_positions (
-    media_item_id INTEGER PRIMARY KEY,
+    media_item_id INTEGER NOT NULL,
+    episode_key TEXT NOT NULL DEFAULT '',
     position_seconds REAL NOT NULL,
     duration_seconds REAL,
+    watched INTEGER NOT NULL DEFAULT 0,
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (media_item_id, episode_key),
     FOREIGN KEY(media_item_id) REFERENCES media_items(id)
 );
 """
@@ -137,9 +140,45 @@ class Storage:
         finally:
             connection.close()
 
+    def _migrate_playback_positions_to_per_episode(self) -> None:
+        """Widen playback_positions from one row per item to one row per episode.
+
+        The primary key changes from (media_item_id) to (media_item_id,
+        episode_key), which SQLite cannot ALTER — the table has to be rebuilt.
+        A movie's existing position carries over as episode_key='', which is
+        also what a movie writes going forward, so nothing is lost for movies.
+        A show's saved position cannot be attributed to a specific episode after
+        the fact, so it is dropped rather than guessed onto one at random.
+        """
+        with self.conn() as c:
+            columns = {row['name'] for row in c.execute('PRAGMA table_info(playback_positions)')}
+            if 'episode_key' in columns:
+                return  # already migrated
+            c.executescript(
+                """
+                ALTER TABLE playback_positions RENAME TO playback_positions_old;
+                CREATE TABLE playback_positions (
+                    media_item_id INTEGER NOT NULL,
+                    episode_key TEXT NOT NULL DEFAULT '',
+                    position_seconds REAL NOT NULL,
+                    duration_seconds REAL,
+                    watched INTEGER NOT NULL DEFAULT 0,
+                    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (media_item_id, episode_key),
+                    FOREIGN KEY(media_item_id) REFERENCES media_items(id)
+                );
+                INSERT INTO playback_positions
+                    (media_item_id, episode_key, position_seconds, duration_seconds, last_updated)
+                SELECT media_item_id, '', position_seconds, duration_seconds, last_updated
+                FROM playback_positions_old;
+                DROP TABLE playback_positions_old;
+                """
+            )
+
     def initialize(self) -> None:
         with self.conn() as c:
             c.executescript(SCHEMA_SQL)
+        self._migrate_playback_positions_to_per_episode()
         # Migrate columns added after initial release.
         with self.conn() as c:
             for col, col_type in [
@@ -801,33 +840,70 @@ class Storage:
                 ),
             )
 
-    def get_playback_position(self, media_item_id: int) -> dict | None:
-        """Get saved playback position for a media item (seconds and duration)."""
+    # A position within the last 2% of the duration counts as watched rather
+    # than requiring the exact end, since players rarely fire a timeupdate at
+    # precisely 100% and credits do not need to be sat through.
+    _WATCHED_THRESHOLD = 0.98
+
+    def get_playback_position(self, media_item_id: int, episode_key: str = '') -> dict | None:
+        """Saved position for one item, or one episode of a show.
+
+        `episode_key` is the episode's file path relative to the show folder —
+        the same string the player already receives as `?episode=` — so a movie
+        (which passes none) and an episode both fall out of one schema. Empty
+        string is the movie/whole-item case, never a wildcard.
+        """
         with self.conn() as c:
             row = c.execute(
-                'SELECT position_seconds, duration_seconds FROM playback_positions '
-                'WHERE media_item_id = ?',
-                (media_item_id,),
+                'SELECT position_seconds, duration_seconds, watched FROM playback_positions '
+                'WHERE media_item_id = ? AND episode_key = ?',
+                (media_item_id, episode_key or ''),
             ).fetchone()
         return dict(row) if row else None
+
+    def list_playback_positions(self, media_item_id: int) -> dict[str, dict]:
+        """Every saved position for an item, keyed by episode_key.
+
+        Lets a season list show a resume point and a watched mark per episode
+        in one query rather than one round trip each.
+        """
+        with self.conn() as c:
+            rows = c.execute(
+                'SELECT episode_key, position_seconds, duration_seconds, watched '
+                'FROM playback_positions WHERE media_item_id = ?',
+                (media_item_id,),
+            ).fetchall()
+        return {row['episode_key']: dict(row) for row in rows}
 
     def set_playback_position(
         self,
         media_item_id: int,
         position_seconds: float,
         duration_seconds: float | None = None,
+        episode_key: str = '',
     ) -> None:
-        """Save playback position for a media item."""
+        """Save the position for one item, or one episode of a show.
+
+        Watched is derived here rather than left to the caller, so "resume"
+        and "watched" cannot silently disagree about the same position.
+        """
+        watched = bool(
+            duration_seconds and position_seconds >= duration_seconds * self._WATCHED_THRESHOLD
+        )
         with self.conn() as c:
             c.execute(
                 """
-                INSERT INTO playback_positions (media_item_id, position_seconds, duration_seconds)
-                VALUES (?, ?, ?)
-                ON CONFLICT(media_item_id) DO UPDATE SET
+                INSERT INTO playback_positions
+                    (media_item_id, episode_key, position_seconds, duration_seconds, watched)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(media_item_id, episode_key) DO UPDATE SET
                     position_seconds=excluded.position_seconds,
                     duration_seconds=COALESCE(excluded.duration_seconds,
                                               playback_positions.duration_seconds),
+                    -- Once watched, a rewind to review a scene should not un-mark it;
+                    -- only reaching the threshold again, or a later episode, does.
+                    watched=(playback_positions.watched OR excluded.watched),
                     last_updated=CURRENT_TIMESTAMP
                 """,
-                (media_item_id, position_seconds, duration_seconds),
+                (media_item_id, episode_key or '', position_seconds, duration_seconds, watched),
             )

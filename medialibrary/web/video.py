@@ -86,8 +86,9 @@ def watch_video(media_id: int):
     if not video_file:
         return 'Video file not found', 404
 
-    # Get playback position
-    playback = runtime.store().get_playback_position(media_id)
+    # Get playback position. Keyed by episode so a show remembers where you
+    # stopped in each episode separately, not one position for the whole show.
+    playback = runtime.store().get_playback_position(media_id, _request_episode())
     playback = dict(playback) if playback else None
     position_seconds = playback.get('position_seconds', 0) if playback else 0
     duration_seconds = playback.get('duration_seconds') if playback else None
@@ -783,13 +784,20 @@ def hls_segment(media_id: int, filename: str):
 
 @bp.route('/api/video/<int:media_id>/playback', methods=['GET', 'POST'])
 def playback_position_api(media_id: int):
-    """Get or set the playback position for a media item."""
+    """Get or set the playback position for a media item, or one of its episodes.
+
+    `?episode=` is the same relative-path selector direct playback already
+    uses, so a show's episodes never share one position — see
+    `medialibrary.identify._resolve_episode_file`.
+    """
+    episode_key = _request_episode()
+
     if request.method == 'GET':
         item = runtime.store().get_media_item(media_id)
         if not item:
             return jsonify({'ok': False, 'error': 'not_found'}), 404
 
-        playback = runtime.store().get_playback_position(media_id)
+        playback = runtime.store().get_playback_position(media_id, episode_key)
         playback = dict(playback) if playback else None
         if playback:
             return jsonify(
@@ -797,10 +805,13 @@ def playback_position_api(media_id: int):
                     'ok': True,
                     'position_seconds': playback.get('position_seconds', 0),
                     'duration_seconds': playback.get('duration_seconds'),
+                    'watched': bool(playback.get('watched')),
                     'last_updated': playback.get('last_updated'),
                 }
             )
-        return jsonify({'ok': True, 'position_seconds': 0, 'duration_seconds': None})
+        return jsonify(
+            {'ok': True, 'position_seconds': 0, 'duration_seconds': None, 'watched': False}
+        )
 
     elif request.method == 'POST':
         item = runtime.store().get_media_item(media_id)
@@ -817,7 +828,9 @@ def playback_position_api(media_id: int):
         except Exception:
             return jsonify({'ok': False, 'error': 'invalid_format'}), 400
 
-        runtime.store().set_playback_position(media_id, position_seconds, duration_seconds)
+        runtime.store().set_playback_position(
+            media_id, position_seconds, duration_seconds, episode_key
+        )
         return jsonify({'ok': True, 'position_seconds': position_seconds})
 
     return jsonify({'ok': False, 'error': 'method_not_allowed'}), 405

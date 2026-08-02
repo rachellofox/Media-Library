@@ -149,6 +149,35 @@
             text-align: center;
         }
 
+        .up-next {
+            position: absolute;
+            right: 20px;
+            bottom: 90px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px 14px;
+            width: 260px;
+            max-width: calc(100vw - 40px);
+            z-index: 20;
+            display: none;
+        }
+        .up-next.is-visible { display: block; }
+        .up-next-label {
+            font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+            color: rgba(255, 255, 255, 0.6); margin-bottom: 4px;
+        }
+        .up-next-title { font-size: 14px; color: #f0f0f0; margin-bottom: 10px; }
+        .up-next-actions { display: flex; gap: 8px; }
+        .up-next-actions button {
+            flex: 1; padding: 7px 10px; border-radius: 6px; font-size: 12px;
+            cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.08); color: #f0f0f0;
+        }
+        .up-next-actions button.primary {
+            background: #2dd4bf; border-color: #2dd4bf; color: #06231f; font-weight: 700;
+        }
+
         .controls-overlay {
             position: absolute;
             left: 0;
@@ -499,6 +528,14 @@
                 Your browser does not support the video tag.
             </video>
             <div id="statusMessage" class="status-message"></div>
+            <div id="upNext" class="up-next">
+                <div class="up-next-label">Up next</div>
+                <div id="upNextTitle" class="up-next-title"></div>
+                <div class="up-next-actions">
+                    <button id="upNextDismiss" type="button">Dismiss</button>
+                    <button id="upNextPlay" type="button" class="primary">Play now</button>
+                </div>
+            </div>
             <div id="controlOverlay" class="controls-overlay">
                 <div class="scrubber-bar">
                     <div id="currentTimeLabel" class="time-label">0:00</div>

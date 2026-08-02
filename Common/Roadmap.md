@@ -61,12 +61,11 @@ Something the app does not do yet.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| F-0108.01 | Per-episode playback progress — resume, watched marks, next-episode progression | Second pass of the TV work | P2 | Approved |
 | F-0108.02 | Carry the detected episode ordering into the app, so the episode list matches the filenames | Follow-on from episode ordering | P2 | Approved |
 | F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
 | F-0108.06 | "Find missing" on a show should offer the whole season as well as a single episode | User need | P2 | Proposed |
-| F-0208.01 | Option to choose between torrent mirrors and actual torrents, mirrors usually have less options and less seeds - needs investigating
+| F-0108.08 | Choose between torrent mirrors and the underlying trackers — mirrors usually carry fewer results and fewer seeds | User need | P3 | Proposed |
 
 ## Library
 
@@ -82,16 +81,14 @@ changed.
 Every item above carries today's date because that is when this scheme started,
 not because they were all raised today. Dates are meaningful from here on.
 
+Priorities for B-0108.03, B-0108.04 and F-0108.08 were assumed, not given —
+adjust if wrong. F-0108.08's ID and Status were also completed from a raw line
+that had neither.
+
 ## Detail
 
 Only where a row needs more than its title. Anything much longer than a paragraph
 is a sign it should be worked on rather than described.
-
-### F-0108.01 — per-episode playback progress
-
-`playback_positions` is keyed by media item, so a show remembers one position
-across every episode. It needs an episode key, and then resume, watched marks and
-next-episode progression follow from it.
 
 ### F-0108.02 — carry the detected episode ordering into the app
 

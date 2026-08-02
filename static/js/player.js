@@ -399,10 +399,13 @@ async function startHlsPlay(sourceUrl) {
 
 async function loadPlaybackPosition(applyNow = true) {
     try {
-        const resp = await fetch(`/api/video/${mediaId}/playback`);
+        // withEp carries ?episode= so a show's episodes each keep their own
+        // position — without it every episode would read/write the same row.
+        const resp = await fetch(withEp(`/api/video/${mediaId}/playback`));
         if (!resp.ok) return 0;
         const data = await resp.json();
-        if (data.ok && data.position_seconds > 0) {
+        // A finished episode resumes from the start, not from the credits.
+        if (data.ok && data.position_seconds > 0 && !data.watched) {
             pendingResumeTime = data.position_seconds;
             if (applyNow) {
                 applyResumeTime();
@@ -423,7 +426,7 @@ function savePlaybackPosition() {
         if (Math.abs(position - lastSavedPosition) < 2) return;
         lastSavedPosition = position;
         try {
-            await fetch(`/api/video/${mediaId}/playback`, {
+            await fetch(withEp(`/api/video/${mediaId}/playback`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -559,9 +562,69 @@ controlOverlay.addEventListener('mouseleave', function () {
 
 document.addEventListener('keydown', handleKeyboardShortcuts);
 
+// Up next: only meaningful mid-series, so nothing here runs for a movie or a
+// standalone file, where episodeParam is empty and nextEpisode stays null.
+let nextEpisode = null;
+let upNextShown = false;
+let upNextDismissed = false;
+const upNextEl = document.getElementById('upNext');
+const upNextTitleEl = document.getElementById('upNextTitle');
+
+async function loadNextEpisode() {
+    if (!episodeParam) return;
+    try {
+        const resp = await fetch(`/api/tv/${mediaId}/next-episode?episode=${encodeURIComponent(episodeParam)}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data.ok && data.next) nextEpisode = data.next;
+    } catch (_err) {
+        // No prompt is the safe failure here — never block playback on this.
+    }
+}
+
+function goToNextEpisode() {
+    if (!nextEpisode) return;
+    window.location.href = `/video/${mediaId}?episode=${encodeURIComponent(nextEpisode.file)}`;
+}
+
+function showUpNext() {
+    if (!nextEpisode || upNextShown || !upNextEl) return;
+    upNextShown = true;
+    const label = `S${String(nextEpisode.season_number).padStart(2, '0')}E${String(nextEpisode.episode_number).padStart(2, '0')} — ${nextEpisode.title}`;
+    upNextTitleEl.textContent = label;
+    upNextEl.classList.add('is-visible');
+}
+
+function hideUpNext() {
+    if (upNextEl) upNextEl.classList.remove('is-visible');
+}
+
+function dismissUpNext() {
+    // Dismissing also cancels the auto-advance on 'ended' — otherwise the
+    // button would only hide the card for a few seconds before doing the
+    // thing it was just told not to do.
+    upNextDismissed = true;
+    hideUpNext();
+}
+
+const upNextPlayBtn = document.getElementById('upNextPlay');
+const upNextDismissBtn = document.getElementById('upNextDismiss');
+if (upNextPlayBtn) upNextPlayBtn.addEventListener('click', goToNextEpisode);
+if (upNextDismissBtn) upNextDismissBtn.addEventListener('click', dismissUpNext);
+
+loadNextEpisode();
+
 video.addEventListener('timeupdate', function () {
     savePlaybackPosition();
     updateScrubber();
+    // Prompt inside the last 30 seconds, mirroring the streaming-service norm
+    // of offering the next episode before the credits finish rather than after.
+    if (video.duration && video.duration - video.currentTime <= 30) {
+        showUpNext();
+    }
+});
+video.addEventListener('ended', function () {
+    if (nextEpisode && !upNextDismissed) goToNextEpisode();
 });
 video.addEventListener('play', function () {
     updatePlayPauseButton();
