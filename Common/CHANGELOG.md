@@ -4,6 +4,13 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- A TV show is no longer offered a quality check that goes nowhere. The
+  "↑ Check" upgrade card searches for one release by title and year, which is
+  a film's shape — a show has no one file or one quality — so checking it on
+  a show could report a release "found" and then open nothing, since the
+  torrent pane that finding one leads to only ever knew how to open for a
+  film. The check is no longer offered on TV at all.
+
 - "Find missing" on a show can now search for a whole season at once instead
   of one release per episode — a "Find season" button appears next to "Hide
   season" whenever more than one episode is missing. Downloading a season

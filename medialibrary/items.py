@@ -20,7 +20,19 @@ def _upgrade_available(item) -> bool:
     upgraded — it will even offer a 1080p release for a file that is now 2160p.
     Re-comparing the recorded result against the current quality makes the
     badge self-correcting no matter how stale the stored check is.
+
+    TV is excluded outright, not merely untested: `current_quality` on a show
+    is whichever episode happened to be filed last, not a property of the
+    show, and the search this answers is "title and year", which finds a
+    single release the way a film has one — never true of a show. Offering it
+    for TV made the check "complete" with nothing to show for it, since the
+    torrent pane it would open next only ever knew how to open for a movie.
     """
+    try:
+        if (item['media_type'] or 'movie') == 'tv':
+            return False
+    except (KeyError, IndexError):
+        pass
     try:
         if int(item['found'] or 0) != 1:
             return False

@@ -2555,7 +2555,13 @@ function openHeroFromItem(item, el, isLibraryItem, options = {}) {
     // for an active download, so without the extra check a title with no file
     // yet reads as "below preferred quality" and is offered an upgrade — and
     // clicking it could start a second download for the same title.
-    const shouldShowUpgrade = !item.file_missing
+    // TV is excluded outright: current_quality is whichever episode was filed
+    // last, not a property of the show, and the check this card triggers
+    // searches by title and year for one release — a movie's shape. Offering
+    // it on TV reported "check complete" and opened nothing, since the
+    // torrent pane it hands off to only ever knew how to open for a movie.
+    const shouldShowUpgrade = (item.media_type || 'movie') === 'movie'
+      && !item.file_missing
       && !libraryItemDownloading(item)
       && (item.upgrade_available || belowPreferred);
     if (shouldShowUpgrade) {

@@ -50,7 +50,6 @@ Something that does not do what it already promises.
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
 | B-0108.02 | Transcoded playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
-| B-0108.04 | Upgrade check on a TV show reports "complete" without opening the torrent pane, which is what it does for a film | User need | P2 | Proposed |
 | B-0108.07 | Discover's "add new movie" offers local file selection and a quality choice instead of showing in the hero card and pulling a torrent like everywhere else | User need | P1 | Blocked |
 | B-0108.09 | ffprobe subprocess calls decode as cp1252 with no explicit encoding, so a file whose metadata isn't valid cp1252 throws an unraisable exception on Windows | Review finding | P3 | Proposed |
 
@@ -78,9 +77,9 @@ changed.
 Every item above carries today's date because that is when this scheme started,
 not because they were all raised today. Dates are meaningful from here on.
 
-Priorities for B-0108.04, B-0108.09 and F-0108.08 were assumed, not given —
-adjust if wrong. F-0108.08's ID and Status were also completed from a raw line
-that had neither.
+Priorities for B-0108.09 and F-0108.08 were assumed, not given — adjust if
+wrong. F-0108.08's ID and Status were also completed from a raw line that had
+neither.
 
 ## Detail
 

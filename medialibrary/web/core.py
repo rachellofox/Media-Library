@@ -186,6 +186,17 @@ def check_quality(media_id: int):
             return jsonify({'ok': False, 'error': 'not_found'}), 404
         return redirect(url_for('core.index'))
 
+    # A title-and-year search finds one release for one file, which is a
+    # movie's shape, not a show's — see _upgrade_available for why the badge
+    # that would normally lead here is never offered for TV in the first
+    # place. Rejected explicitly rather than run a search that means nothing,
+    # for whatever reaches this route despite that (a stale client, a direct
+    # call).
+    if (item['media_type'] or 'movie') == 'tv':
+        if request.headers.get('X-Requested-With') == 'fetch':
+            return jsonify({'ok': False, 'error': 'not_a_movie'}), 400
+        return redirect(url_for('core.index'))
+
     runtime.qb().set_mirror_urls(configured_mirror_urls())
     try:
         outcome = runtime.qb().check_for_higher_quality(
