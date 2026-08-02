@@ -54,6 +54,8 @@ Something that does not do what it already promises.
 | B-0108.03 | Trakt watching list not loading | User need | P1 | Proposed |
 | B-0108.04 | Upgrade check on a TV show reports "complete" without opening the torrent pane, which is what it does for a film | User need | P2 | Proposed |
 | B-0108.05 | "Back to TV Shows" scrolls out of reach — it can only be pressed from the top of the page | User need | P3 | Blocked |
+| B-0108.06 | A completed movie download is not moved into the Movies folder, renamed, or restructured into the expected folder and file layout | User need | P1 | Proposed |
+| B-0108.07 | Discover's "add new movie" offers local file selection and a quality choice instead of showing in the hero card and pulling a torrent like everywhere else | User need | P1 | Proposed |
 
 ## Features
 
@@ -63,19 +65,23 @@ Something the app does not do yet.
 | -- | ----- | ------ | -------- | ------ |
 | F-0108.01 | Per-episode playback progress — resume, watched marks, next-episode progression | Second pass of the TV work | P2 | Approved |
 | F-0108.02 | Carry the detected episode ordering into the app, so the episode list matches the filenames | Follow-on from episode ordering | P2 | Approved |
-| F-0108.03 | Surface duplicate episode copies instead of silently discarding them | Review finding | P2 | Approved |
 | F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
+| F-0108.06 | "Find missing" on a show should offer the whole season as well as a single episode | User need | P2 | Proposed |
 
 ## Library
 
 The collection on disk being wrong. No code changes; the fix is to the files.
 
+| ID | Title | Source | Priority | Status |
+| -- | ----- | ------ | -------- | ------ |
+
 Nothing open. These rows are deleted once the files are right, and the commit
 that corrected them is the record — there is no CHANGELOG line, because nothing
 about the app changed.
 
-Priorities for B-0108.03 and B-0108.04 were assumed, not given — adjust if wrong.
+Priorities for B-0108.03, B-0108.04, B-0108.06, B-0108.07 and F-0108.06 were
+assumed, not given — adjust if wrong.
 
 Every item above carries today's date because that is when this scheme started,
 not because they were all raised today. Dates are meaningful from here on.
@@ -104,75 +110,9 @@ default. Worth an override in the show's Settings card for the cases detection
 cannot call — two orderings with the same episode count and interchangeable
 runtimes.
 
-### F-0108.03 — duplicate episode copies
-
-`scan_local_episodes` keeps the largest of two files claiming one episode and
-drops the other without recording it, so the app knows about every duplicate it
-holds and tells the user about none of them.
-
-All 78 have since been resolved by hand, which is what this item exists to make
-unnecessary: they were only ever found because a renaming pass happened to make
-them legible, and the app never mentioned them at all.
-
-**These are not a good copy and a bad copy.** Each X-Men pair is the original
-episode at its native 638x480 beside an AI upscale of it at 1442x1080, and
-Avatar is the same arrangement the other way round in the folder. An upscale is
-invented detail, not recovered detail: it is the one to keep if the show is
-being watched on a large screen and the wrong one to keep if the original
-transfer is what matters. Nothing in a file can decide that, which is the whole
-case for reporting rather than resolving. Largest-wins currently discards the
-originals without saying so.
-
-The renaming work did not cause this, though it is how the duplicates came to
-light: every copy was modified in June 2024, from two separate downloads of each
-show. Giving both copies the same canonical name made a pairing visible that had
-been on disk, unnoticed, for two years — which is the argument for reporting
-duplicates rather than the argument against it.
-
-Every pair was then checked by picture rather than by name, because Explorer
-picks its thumbnail from a different position for `.mkv` than for `.mp4` and the
-pairs look like different scenes in a folder listing. Comparing a frame at the
-same fraction of running time settled 74; the remaining four needed a 30-second
-window slid against the other copy to find the offset, since a fixed timestamp
-lands either side of a cut, and Avatar's `.mkv` copies carry 30s and 77s more
-intro than their `.mp4`. All 78 are the same episode twice. Any report built
-here should list the facts and let a person decide — a filename is not evidence
-that two files hold the same thing, and neither is a thumbnail.
-
-**The work is to report duplicates, not to choose between them better.** A
-duplicate is a housekeeping decision that wants a person: which copy to keep is
-a judgement about codecs, subtitles and disc space, and deleting the wrong one
-is unrecoverable. `scan_local_episodes` already has the shape for this — files
-it cannot match are returned as `unmatched` and surfaced through
-`/api/tv/<id>/unmatched` and the season payload's `unmatched_count`. Duplicates
-should travel the same route: returned beside `matched`, counted, listed with
-size, resolution, codec and subtitle count so the choice can be made on sight,
-and left entirely alone on disk. Largest-wins stays as the display default,
-because the episode list still has to show something.
-
-One case argues for reporting rather than a cleverer heuristic. Seven Buffy
-episodes hold an `.mp4` ffprobe cannot open at all — *moov atom not found*, the
-signature of a download that stopped before its index was written. They are not
-small: S01E06's broken copy is 1383.6 MB against a working 1411.5 MB. Largest
-happens to win correctly by 2%, and no rule tuned on size would have known why.
-A duplicates list with a "cannot be read" mark makes it obvious.
-
-**The embedded container title cannot help choose.** It is on 76 of the 170
-copies, and on every one it is the copy largest-wins rejects — and read as a
-description of the file it is simply wrong: each X-Men `.mp4` claims `1080p AI
-Upscale PROPER` while being 638x480. It is naming the release the file was
-downloaded from, and that release is the upscale *set*, of which this file is
-the source. So the title stays an identity signal — what a file is, which is how
-it settled the Batman ordering, and how L-0108.01 was resolved — and never a
-quality
-one. Worth remembering that it can describe a sibling rather than itself.
-
-Nothing has been deleted.
-
 ### B-0108.05 — "Back to TV Shows" scrolls away
 
 Blocked on a decision, not on work. Either pin it so it stays put while the page
 scrolls, or move it into the bottom-left of the hero pane where it is always on
 screen at the top and is not needed further down. Pinning is the smaller change
 and helps most on a long season list; moving it keeps the chrome quieter.
-

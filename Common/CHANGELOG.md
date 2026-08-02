@@ -2,6 +2,20 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.1.3 - 2026-08-01
+
+- A show that holds the same episode twice now says so, with a chip on its hero
+  reading "2 duplicated". Until now the app quietly kept the larger copy and
+  never mentioned the other, so a library could hold 78 duplicated episodes
+  across two shows without a word — which is exactly what this one did. The chip
+  is a flag and nothing more: it offers no action and deletes nothing, because
+  which copy to keep depends on codec, subtitles, disc space and whether you
+  want an upscale over its source, and getting it wrong cannot be undone.
+- Fixed the startup scan that fills in a missing quality. It had been raising on
+  its very first item and the error was caught and logged as a warning, so a
+  title imported before its download finished kept a blank quality until it was
+  refreshed by hand. Nothing showed that anything had failed.
+
 ## v0.1.2 - 2026-07-25
 
 - The pages now load their JavaScript from a cached file instead of carrying it

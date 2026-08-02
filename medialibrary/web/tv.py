@@ -18,7 +18,12 @@ from medialibrary.discover import (
     _cached_tv_status,
     _missing_episodes_for_show,
 )
-from medialibrary.identify import _featurette_label, _infer_season_from_path, scan_local_episodes
+from medialibrary.identify import (
+    _featurette_label,
+    _infer_season_from_path,
+    duplicate_episode_files,
+    scan_local_episodes,
+)
 from medialibrary.qb_search import SearchEngineError, configured_mirror_urls
 from medialibrary.quality import detect_quality
 
@@ -171,6 +176,10 @@ def tv_seasons_listing(media_id: int):
             'title': item['title'],
             'seasons': seasons,
             'extras_count': show_level_extras,
+            # A flag only. Which copy to keep is a judgement about codecs,
+            # subtitles and disc space that no rule here can make, so the app
+            # says how many episodes need looking at and changes nothing.
+            'duplicate_count': len(duplicate_episode_files(show_path, item['title'] or '')),
             'unmatched_count': len(unmatched),
             'status': overview.get('status'),
             'in_production': bool(overview.get('in_production')),

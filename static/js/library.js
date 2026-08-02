@@ -231,9 +231,24 @@ function setAiringUi(inProduction, status, missingCount) {
     : 'Check TMDB for episodes you do not have';
 }
 
+// A flag, deliberately and only a flag. Which copy of an episode to keep is a
+// judgement about codecs, subtitles and disc space, and deleting the wrong one
+// cannot be undone — so this says how many need a look and offers no action.
+function setDuplicatesUi(duplicateCount) {
+  const chip = document.getElementById('hero-chip-duplicates');
+  if (!chip) return;
+  const count = Number(duplicateCount) || 0;
+  chip.style.display = count > 0 ? 'inline-block' : 'none';
+  chip.textContent = `${count} duplicated`;
+  chip.title = count === 1
+    ? '1 episode is held more than once — check which copy you want to keep'
+    : `${count} episodes are held more than once — check which copies you want to keep`;
+}
+
 async function loadSeasonsForHero(item) {
   const el = tvEpisodeElements();
   setAiringUi(false, null, 0);
+  setDuplicatesUi(0);
   if (!el.select) return;
   el.select.style.display = 'none';
   el.select.innerHTML = '';
@@ -249,6 +264,7 @@ async function loadSeasonsForHero(item) {
   }
   if (!data.ok) return;
   setAiringUi(!!data.in_production, data.status, data.missing_count);
+  setDuplicatesUi(data.duplicate_count);
   if (!(data.seasons || []).length) return;
 
   const options = ['<option value="">Season…</option>'].concat(data.seasons.map(season => {
@@ -2441,6 +2457,7 @@ function openHeroFromItem(item, el, isLibraryItem, options = {}) {
       seasonEl.innerHTML = '';
     }
     setAiringUi(false, null, 0);
+    setDuplicatesUi(0);
   }
 
   setInfoCard('hero-card-rating', 'hero-rating-val', item.rating ? item.rating.toFixed(1) + ' / 10' : null);

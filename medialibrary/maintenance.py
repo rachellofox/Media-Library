@@ -127,9 +127,12 @@ def _scan_missing_quality_items() -> int:
     """Detect local quality for items that currently have no stored quality."""
     updated = 0
     for item in runtime.store().list_media_items():
-        if str(item.get('current_quality') or '').strip():
+        # Subscript, not .get: these are sqlite3.Row, which has no .get. Using it
+        # raised on the first item, and the caller logs the exception as a
+        # warning and carries on — so this had silently never run.
+        if str(item['current_quality'] or '').strip():
             continue
-        path = item.get('path')
+        path = item['path']
         if not path:
             continue
 

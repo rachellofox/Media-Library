@@ -172,6 +172,36 @@ def _file_size(path: str) -> int:
         return 0
 
 
+def _index_show_folder(
+    show_path: str, show_title: str
+) -> tuple[dict[tuple[int, int], list[str]], list[str]]:
+    """Every video in a show folder, grouped by the episode its name claims.
+
+    Keeps *all* the files claiming an episode rather than picking one, so a
+    caller can ask either "which file is this episode" or "is this episode held
+    more than once".
+    """
+    by_episode: dict[tuple[int, int], list[str]] = {}
+    unmatched: list[str] = []
+    if not show_path or not os.path.isdir(show_path):
+        return by_episode, unmatched
+
+    show_title = show_title or os.path.basename(os.path.normpath(show_path))
+    for root, _dirs, files in os.walk(show_path):
+        for name in sorted(files):
+            if os.path.splitext(name)[1].lower() not in VIDEO_EXTENSIONS:
+                continue
+            full = os.path.join(root, name)
+            covered = _episodes_covered(name)
+            if not covered or names_other_show(name, show_title):
+                unmatched.append(full)
+                continue
+            season, episode_numbers = covered
+            for episode in episode_numbers:
+                by_episode.setdefault((season, episode), []).append(full)
+    return by_episode, unmatched
+
+
 def scan_local_episodes(
     show_path: str, show_title: str = ''
 ) -> tuple[dict[tuple[int, int], str], list[str]]:
@@ -187,31 +217,34 @@ def scan_local_episodes(
     A marker is not trusted when the filename names a different show — see
     `names_other_show`. Such a file is reported as unmatched, so it stays visible
     without being played, counted or renamed as an episode it is not.
-    """
-    matched: dict[tuple[int, int], str] = {}
-    unmatched: list[str] = []
-    if not show_path or not os.path.isdir(show_path):
-        return matched, unmatched
 
-    show_title = show_title or os.path.basename(os.path.normpath(show_path))
-    for root, _dirs, files in os.walk(show_path):
-        for name in sorted(files):
-            if os.path.splitext(name)[1].lower() not in VIDEO_EXTENSIONS:
-                continue
-            full = os.path.join(root, name)
-            covered = _episodes_covered(name)
-            if not covered or names_other_show(name, show_title):
-                unmatched.append(full)
-                continue
-            season, episode_numbers = covered
-            for episode in episode_numbers:
-                key = (season, episode)
-                previous = matched.get(key)
-                # Duplicate rips of one episode are common; keep the largest.
-                if previous and _file_size(previous) >= _file_size(full):
-                    continue
-                matched[key] = full
+    Where an episode is held more than once the largest is listed, because the
+    list has to show something. That choice is not a judgement about which copy
+    is better and it discards nothing — see `duplicate_episode_files`, which is
+    how the duplicates are surfaced for a person to settle.
+    """
+    by_episode, unmatched = _index_show_folder(show_path, show_title)
+    matched = {key: max(paths, key=_file_size) for key, paths in by_episode.items()}
     return matched, unmatched
+
+
+def duplicate_episode_files(
+    show_path: str, show_title: str = ''
+) -> dict[tuple[int, int], list[str]]:
+    """Episodes held more than once, largest copy first.
+
+    Two files claiming one episode is not something the app should quietly
+    resolve. Which copy to keep depends on codec, subtitles, disc space and
+    whether an upscale is wanted over its source — none of which a file can
+    settle, and deleting the wrong one cannot be undone. So this reports them
+    and touches nothing.
+    """
+    by_episode, _unmatched = _index_show_folder(show_path, show_title)
+    return {
+        key: sorted(paths, key=_file_size, reverse=True)
+        for key, paths in by_episode.items()
+        if len(paths) > 1
+    }
 
 
 def _pack_films_in(folder_path: str) -> list[str]:
