@@ -185,12 +185,21 @@ def _place_video_in_library(source_video: str, dest_file: str) -> str | None:
         return None
 
 
-def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
-    """File a finished TV download into its show as an episode.
+def _file_one_tv_episode(row, new_video: str, new_quality: str | None) -> tuple[str, str | None]:
+    """File one video as an episode of a show. Writes no download state.
 
-    A show's path is a folder of many episodes, so there is no single "old file"
-    a download replaces. Nothing here retires anything: the episode is filed
-    alongside the others, or left in place if it cannot be identified.
+    Returns (status, message), where status is one of:
+      'filed'         placed successfully.
+      'clear'         nothing to file, but settled — no marker, or an
+                       identical file already there. The download is resolved
+                       either way, not stuck.
+      'needs_review'  a real problem: wrong show, or not actually better.
+      'leave'         a transient placement failure. Left exactly as found so
+                       the next pass retries, rather than treated as resolved.
+    Split out from `_finalize_tv_episode` so a season pack can file several
+    episodes and report ONE combined outcome — calling the old all-in-one
+    version once per file would let a later file's success silently clear a
+    warning an earlier file in the same pack had just raised.
     """
     media_id = int(row['id'])
     show_path = (row['path'] or '').strip()
@@ -200,8 +209,7 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
         _log().info(
             'Media %s: leaving TV download in place (show folder or SxxExx missing).', media_id
         )
-        _store().clear_download_state(media_id)
-        return
+        return 'clear', None
 
     # The scan refuses a file whose name belongs to a different show, but filing
     # a download *renames* it to this show's convention — so the evidence is gone
@@ -210,17 +218,12 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
     # S01E01 once already; that arrived by being misplaced on disk, and this is
     # the same outcome reached by downloading it.
     if names_other_show(os.path.basename(new_video), row['title'] or ''):
-        _store().set_download_state(
-            media_item_id=media_id,
-            status='needs_review',
-            source=row['download_source'] or 'qb_webui',
-            message=(
-                f'{os.path.basename(new_video)} looks like a different show, so it '
-                f'was not filed under {row["title"]}. The file is untouched.'
-            ),
+        message = (
+            f'{os.path.basename(new_video)} looks like a different show, so it '
+            f'was not filed under {row["title"]}. The file is untouched.'
         )
         _log().warning('Media %s: refused %s — its name is not this show.', media_id, new_video)
-        return
+        return 'needs_review', message
 
     season, episode = int(marker.group(1)), int(marker.group(2))
     stem = canonical_stem(row['title'] or '', row['year'], 'tv') or (row['title'] or 'Show')
@@ -234,28 +237,22 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
     if existing_file:
         existing_quality = detect_quality_from_file(existing_file, ffprobe_exe=FFPROBE_EXE)
         if compare_quality(existing_quality, new_quality) <= 0:
-            _store().set_download_state(
-                media_item_id=media_id,
-                status='needs_review',
-                source=row['download_source'] or 'qb_webui',
-                message=(
-                    f'S{season:02d}E{episode:02d}: downloaded '
-                    f'{new_quality or "unknown"} is not '
-                    f'better than existing {existing_quality or "unknown"}'
-                ),
+            message = (
+                f'S{season:02d}E{episode:02d}: downloaded '
+                f'{new_quality or "unknown"} is not '
+                f'better than existing {existing_quality or "unknown"}'
             )
-            return
+            return 'needs_review', message
 
     if os.path.exists(dest_file) and not (
         existing_file and os.path.samefile(existing_file, dest_file)
     ):
         _log().info('Media %s: %s already exists, leaving download in place.', media_id, dest_file)
-        _store().clear_download_state(media_id)
-        return
+        return 'clear', None
 
     landing = f'{dest_file}.incoming' if os.path.exists(dest_file) else dest_file
     if _place_video_in_library(new_video, landing) is None:
-        return
+        return 'leave', None
 
     if existing_file:
         # A file covering several episodes must survive: retiring the S04E01-E02
@@ -281,7 +278,7 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
             os.replace(landing, dest_file)
         except OSError as exc:
             _log().warning('Could not rename %s into place: %s', landing, exc)
-            return
+            return 'leave', None
 
     _log().info('Media %s: filed S%02dE%02d at %s', media_id, season, episode, dest_file)
     try:
@@ -290,6 +287,106 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
         pass
     if new_quality:
         _store().update_quality(media_id, new_quality)
+    return 'filed', None
+
+
+def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
+    """File a finished TV download into its show as an episode.
+
+    A show's path is a folder of many episodes, so there is no single "old file"
+    a download replaces. Nothing here retires anything: the episode is filed
+    alongside the others, or left in place if it cannot be identified.
+    """
+    media_id = int(row['id'])
+    status, message = _file_one_tv_episode(row, new_video, new_quality)
+    if status == 'needs_review':
+        _store().set_download_state(
+            media_item_id=media_id,
+            status='needs_review',
+            source=row['download_source'] or 'qb_webui',
+            message=message,
+        )
+        return
+    if status == 'leave':
+        return  # transient failure; do not mark resolved, let the next pass retry
+    _store().clear_download_state(media_id)  # 'filed' or 'clear'
+
+
+def _episode_video_files_in(content_path: str) -> list[str]:
+    """Every video under content_path whose name carries an SxxExx marker.
+
+    A season pack is a folder of many such files; a single-episode download is
+    a folder (or a bare file) with exactly one. Files with no marker are left
+    out here — they are handled the same way a lone unmarked file already is,
+    by `_file_one_tv_episode` reporting 'clear'.
+    """
+    if os.path.isfile(content_path):
+        return [content_path] if EPISODE_MARKER.search(os.path.basename(content_path)) else []
+    found = []
+    for path in _videos_in(content_path):
+        if EPISODE_MARKER.search(os.path.basename(path)):
+            found.append(path)
+    return found
+
+
+def _finalize_tv_pack(row, content_path: str) -> None:
+    """File every episode in a season pack, with one combined outcome.
+
+    A season pack downloaded to fill several missing episodes contains one
+    video per episode, and the largest-file-wins logic used for a normal
+    single-episode download would file only one of them and leave the rest
+    sitting in the download folder unfiled and unmentioned — the same shape of
+    bug fixed for movie packs in F-0108.07, here for the TV side that
+    find-missing's whole-season search (F-0108.06) can now produce downloads
+    of.
+    """
+    media_id = int(row['id'])
+    episode_files = _episode_video_files_in(content_path)
+    if len(episode_files) <= 1:
+        new_video = episode_files[0] if episode_files else _best_local_video_path(content_path)
+        if not new_video:
+            return
+        new_quality = detect_quality_from_file(
+            new_video, ffprobe_exe=FFPROBE_EXE
+        ) or detect_quality(os.path.basename(new_video))
+        _finalize_tv_episode(row, new_video, new_quality)
+        return
+
+    problems = []
+    filed = 0
+    any_leave = False
+    for video_path in episode_files:
+        quality = detect_quality_from_file(video_path, ffprobe_exe=FFPROBE_EXE) or detect_quality(
+            os.path.basename(video_path)
+        )
+        status, message = _file_one_tv_episode(row, video_path, quality)
+        if status == 'filed':
+            filed += 1
+        elif status == 'needs_review':
+            problems.append(message)
+        elif status == 'leave':
+            any_leave = True
+
+    _log().info(
+        'Season pack for media %s: filed %d of %d episode(s).', media_id, filed, len(episode_files)
+    )
+    if problems:
+        _store().set_download_state(
+            media_item_id=media_id,
+            status='needs_review',
+            source=row['download_source'] or 'qb_webui',
+            message=(
+                f'Filed {filed} of {len(episode_files)} episodes from this pack. '
+                + ' '.join(problems)
+            ),
+        )
+        return
+    if any_leave:
+        # A transient placement failure on at least one file, nothing wrong
+        # found on any other — leave the download state as-is so the next
+        # pass retries. Already-filed episodes re-run harmlessly: the file is
+        # already in place, so filing it again is a same-file no-op.
+        return
     _store().clear_download_state(media_id)
 
 
@@ -381,6 +478,13 @@ def _finalize_completed_download(row, torrent: dict) -> None:
 
     content_path = (torrent.get('content_path') or '').strip()
 
+    # TV branches off immediately: a season pack holds one file per episode,
+    # and the movie pack-picking logic below (choosing a single "wanted" file)
+    # does not apply here at all — every identifiable episode gets filed.
+    if media_type == 'tv':
+        _finalize_tv_pack(row, content_path)
+        return
+
     # A pack holds several films, and the largest is not the wanted one. Filing
     # by size put Predator 2 into the "Predator (1987)" folder, under that name,
     # while the other four films stayed in the download folder unnoticed.
@@ -421,12 +525,6 @@ def _finalize_completed_download(row, torrent: dict) -> None:
     new_quality = detect_quality_from_file(new_video, ffprobe_exe=FFPROBE_EXE) or detect_quality(
         os.path.basename(new_video)
     )
-
-    # A TV item points at a whole show, so the movie logic below — which replaces
-    # "the" file and retires what it supersedes — would recycle every episode.
-    if media_type == 'tv':
-        _finalize_tv_episode(row, new_video, new_quality)
-        return
 
     # Resolve the outgoing file *before* placing the replacement. When the old
     # file already sits in the canonical folder the new one lands beside it,

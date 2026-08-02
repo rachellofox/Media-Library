@@ -4,6 +4,13 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- "Find missing" on a show can now search for a whole season at once instead
+  of one release per episode — a "Find season" button appears next to "Hide
+  season" whenever more than one episode is missing. Downloading a season
+  pack now files every episode it contains rather than only the largest file
+  in it, which used to leave the rest sitting unfiled in the download folder
+  with nothing to say they were there.
+
 - Trakt no longer disconnects itself on a bad moment. Refreshing an expiring
   token used to clear the whole connection on any failure at all — a network
   blip, a Trakt outage, a rate limit — not just a token Trakt itself rejects,

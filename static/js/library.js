@@ -1397,11 +1397,19 @@ function showMissingEpisodesMarkup(show) {
                 <span class="dep-ep-num">${label}</span>${escHtml(title.slice(0, 34))}
               </span>`;
     }).join('');
+    // Worth a season-pack search once more than one episode is missing; for a
+    // single gap the per-episode chip above is already the right tool, and a
+    // season search would just offer the same one release a different way.
+    const findSeasonBtn = season.missing.length > 1
+      ? `<button type="button" class="settings-inline-btn" data-season-search="${escAttr(show.media_id)}"
+                 data-season="${escAttr(season.season_number)}">Find season</button>`
+      : '';
     return `
       <div class="dep-season">
         <div class="dep-season-head">
           ${escHtml(season.name)} &middot; ${season.owned_count}/${season.episode_count} owned
           <span class="dep-actions">
+            ${findSeasonBtn}
             <button type="button" class="settings-inline-btn" data-ignore-tv="${escAttr(show.tmdb_id)}"
                     data-ignore-season="${escAttr(season.season_number)}">Hide season</button>
           </span>
@@ -1591,12 +1599,42 @@ async function findEpisodeTorrents(mediaId, season, episode) {
   }
 }
 
+async function findSeasonTorrents(mediaId, season) {
+  const noteEl = document.getElementById('discover-episodes-note');
+  const label = `Season ${season}`;
+  if (noteEl) noteEl.textContent = `Searching for the ${label} pack…`;
+  try {
+    const url = `/api/tv/${mediaId}/episode-candidates?season=${encodeURIComponent(season)}`;
+    const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const payload = await response.json();
+    if (payload.error === 'search_unavailable') {
+      if (noteEl) noteEl.textContent = 'Search engine unreachable.';
+      showToast('Torrent search engine unreachable.', 'error');
+      return;
+    }
+    if (!response.ok || !payload.ok) throw new Error(payload.error || 'search_failed');
+    if (noteEl) {
+      noteEl.textContent = (payload.candidates || []).length
+        ? '' : `No season pack found for ${label}.`;
+    }
+    showTorrentModal(payload.media_id, payload.title || label, payload.candidates || []);
+  } catch (_error) {
+    if (noteEl) noteEl.textContent = 'Season search failed.';
+    showToast('Unable to search for that season.', 'error');
+  }
+}
+
 // Delegated: the episode rows are rebuilt whenever the block reloads.
 document.addEventListener('click', event => {
   const epEl = event.target.closest('[data-episode-search]');
   if (epEl) {
     findEpisodeTorrents(
       Number(epEl.dataset.episodeSearch), Number(epEl.dataset.season), Number(epEl.dataset.episode));
+    return;
+  }
+  const seasonEl = event.target.closest('[data-season-search]');
+  if (seasonEl) {
+    findSeasonTorrents(Number(seasonEl.dataset.seasonSearch), Number(seasonEl.dataset.season));
     return;
   }
   const ignoreEl = event.target.closest('[data-ignore-tv]');

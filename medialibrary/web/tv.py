@@ -55,13 +55,20 @@ def tv_missing_episodes(media_id: int):
 
 @bp.route('/api/tv/<int:media_id>/episode-candidates')
 def tv_episode_candidates(media_id: int):
-    """Torrent candidates for one episode, for the add-to-library flow."""
+    """Torrent candidates for one episode, or a whole season, for find-missing.
+
+    `episode` is optional. Without it this searches for the season pack — most
+    trackers list one under "Show S04" — rather than one release per missing
+    episode, which is the difference between one download and a dozen when a
+    whole season is gone.
+    """
     item = runtime.store().get_media_item(media_id)
     if not item or (item['media_type'] or '') != 'tv':
         return jsonify({'ok': False, 'error': 'not_a_tv_show'}), 404
     try:
         season = int(request.args.get('season'))
-        episode = int(request.args.get('episode'))
+        episode_raw = request.args.get('episode')
+        episode = int(episode_raw) if episode_raw not in (None, '') else None
     except (TypeError, ValueError):
         return jsonify({'ok': False, 'error': 'invalid_episode'}), 400
 
@@ -69,9 +76,12 @@ def tv_episode_candidates(media_id: int):
     if not title:
         return jsonify({'ok': False, 'error': 'missing_title'}), 400
 
-    # Searched as "Show S04E02" — the year is deliberately left out, since a
-    # series year rarely appears in an episode release name.
-    query = f'{title} S{season:02d}E{episode:02d}'
+    # Searched as "Show S04E02", or "Show S04" for the whole season — the year
+    # is deliberately left out, since a series year rarely appears in an
+    # episode or season release name.
+    query = (
+        f'{title} S{season:02d}E{episode:02d}' if episode is not None else f'{title} S{season:02d}'
+    )
     try:
         runtime.qb().set_mirror_urls(configured_mirror_urls())
         rows = runtime.qb()._run_search(query)
@@ -94,12 +104,17 @@ def tv_episode_candidates(media_id: int):
             }
         )
     candidates.sort(key=lambda c: (not c['trusted'], -int(c['seeds'] or 0)))
+    result_title = (
+        f'{title} S{season:02d}E{episode:02d}'
+        if episode is not None
+        else f'{title} Season {season}'
+    )
     return jsonify(
         {
             'ok': True,
             'media_id': media_id,
             'query': query,
-            'title': f'{title} S{season:02d}E{episode:02d}',
+            'title': result_title,
             'candidates': candidates[:25],
         }
     )
