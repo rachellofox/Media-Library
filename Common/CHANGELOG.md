@@ -4,6 +4,14 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- A download holding several films no longer files the wrong one. It was picking
+  the largest video in the torrent, so a five-film Predator pack put Predator 2
+  into the library as "Predator (1987)" — renamed on the way in, so nothing
+  afterwards showed which film it really was. The film whose own title and year
+  match is the one taken now, and where no single film matches, the download is
+  flagged for review and left completely untouched. This does not yet file the
+  other films in a pack; they stay where they are.
+
 - A show that holds the same episode twice now says so, with a chip on its hero
   reading "2 duplicated". Until now the app quietly kept the larger copy and
   never mentioned the other, so a library could hold 78 duplicated episodes

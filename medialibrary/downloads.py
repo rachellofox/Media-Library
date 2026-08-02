@@ -40,6 +40,7 @@ from medialibrary.identify import (
     _best_local_video_path,
     _episodes_covered,
     _videos_in,
+    film_in_pack_for,
     scan_local_episodes,
 )
 from medialibrary.naming import canonical_paths, canonical_stem
@@ -297,7 +298,40 @@ def _finalize_completed_download(row, torrent: dict) -> None:
     mode = (row['download_mode'] or 'fill').strip().lower()
     previous_path = (row['download_previous_path'] or '').strip() or (row['path'] or '').strip()
 
-    new_video = _best_local_video_path((torrent.get('content_path') or '').strip())
+    content_path = (torrent.get('content_path') or '').strip()
+
+    # A pack holds several films, and the largest is not the wanted one. Filing
+    # by size put Predator 2 into the "Predator (1987)" folder, under that name,
+    # while the other four films stayed in the download folder unnoticed.
+    chosen = None
+    if media_type != 'tv':
+        chosen, films = film_in_pack_for(content_path, row['title'], row['year'])
+        if films and not chosen:
+            _store().set_download_state(
+                media_item_id=media_id,
+                status='needs_review',
+                source=row['download_source'] or 'qb_webui',
+                message=(
+                    f'This download holds {len(films)} films and none matches '
+                    f'{row["title"]} ({row["year"]}) on its own. Nothing was moved or '
+                    f'renamed, so the files are untouched in {content_path}.'
+                ),
+            )
+            _log().info(
+                'Pack download for media %s left in place: %d films, no single match.',
+                media_id,
+                len(films),
+            )
+            return
+        if chosen:
+            _log().info(
+                'Pack download for media %s: filing %s of %d films.',
+                media_id,
+                os.path.basename(chosen),
+                len(films),
+            )
+
+    new_video = chosen or _best_local_video_path(content_path)
     if not new_video:
         return  # complete per qB but nothing playable yet; retry next pass
 

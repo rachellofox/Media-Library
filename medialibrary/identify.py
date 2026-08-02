@@ -263,6 +263,40 @@ def _pack_films_in(folder_path: str) -> list[str]:
     return films
 
 
+def film_in_pack_for(
+    content_path: str, title: str | None, year: int | None
+) -> tuple[str | None, list[str]]:
+    """Which film in a multi-film download is the one being filed.
+
+    Returns (the matching video or None, every film found). A pack is only a
+    pack when two or more feature-sized videos each carry their own year, so a
+    film shipped with extras is unaffected and returns no films at all.
+
+    Size cannot answer this. A Predator pack of five films filed its *largest*
+    video as "Predator (1987)", which put Predator 2 in the 1987 folder — the
+    same class of mistake as filing a Chernobyl episode under Parks and
+    Recreation, and just as invisible afterwards, since the file is renamed on
+    the way in. So the year has to agree as well as the title: without it,
+    "Predator" matches "Predators" and "The Predator" too.
+    """
+    films = _pack_films_in(content_path)
+    if len(films) < 2:
+        return None, []
+
+    matches = []
+    for film in films:
+        candidate_title, candidate_year = normalize_media_name(os.path.basename(film), 'movie')
+        if not _titles_likely_match(title, candidate_title):
+            continue
+        if year and candidate_year and int(year) != int(candidate_year):
+            continue
+        matches.append(film)
+
+    # Exactly one, or nothing: two candidates mean the pack cannot be read
+    # confidently, and guessing renames a file into a name that hides the error.
+    return (matches[0] if len(matches) == 1 else None), films
+
+
 def _detect_release_year(text: str) -> tuple[int | None, int | None]:
     """Find the release year and where the release noise starts.
 

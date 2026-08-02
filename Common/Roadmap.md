@@ -54,7 +54,6 @@ Something that does not do what it already promises.
 | B-0108.03 | Trakt watching list not loading | User need | P1 | Proposed |
 | B-0108.04 | Upgrade check on a TV show reports "complete" without opening the torrent pane, which is what it does for a film | User need | P2 | Proposed |
 | B-0108.05 | "Back to TV Shows" scrolls out of reach — it can only be pressed from the top of the page | User need | P3 | Blocked |
-| B-0108.06 | A completed movie download is not moved into the Movies folder, renamed, or restructured into the expected folder and file layout | User need | P1 | Proposed |
 | B-0108.07 | Discover's "add new movie" offers local file selection and a quality choice instead of showing in the hero card and pulling a torrent like everywhere else | User need | P1 | Proposed |
 
 ## Features
@@ -68,6 +67,7 @@ Something the app does not do yet.
 | F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
 | F-0108.06 | "Find missing" on a show should offer the whole season as well as a single episode | User need | P2 | Proposed |
+| F-0108.07 | File every film in a multi-film download, not just the one the item asked for | Follow-on from B-0108.06 | P2 | Proposed |
 
 ## Library
 
@@ -75,10 +75,11 @@ The collection on disk being wrong. No code changes; the fix is to the files.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
+| L-0108.03 | `Predator (1987)` in the library is really Predator 2 (1990), and four films from that pack are unfiled | Follow-on from B-0108.06 | P1 | Proposed |
 
-Nothing open. These rows are deleted once the files are right, and the commit
-that corrected them is the record — there is no CHANGELOG line, because nothing
-about the app changed.
+These rows are deleted once the files are right, and the commit that corrected
+them is the record — there is no CHANGELOG line, because nothing about the app
+changed.
 
 Priorities for B-0108.03, B-0108.04, B-0108.06, B-0108.07 and F-0108.06 were
 assumed, not given — adjust if wrong.
