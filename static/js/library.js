@@ -1462,56 +1462,48 @@ function renderSearchResults(query, results) {
     return;
   }
   note.textContent = `${results.length} result${results.length === 1 ? '' : 's'} for “${query}”.`;
+  // Opens the hero, same as every other Discover surface (watchlist, trending,
+  // collections) — which is what then offers "Add to library" and pulls a
+  // torrent. This used to be its own form with typed-in quality and a local
+  // path, a leftover from before that flow existed; picking a search result
+  // showed a mechanism nothing else in Discover used.
   resultsEl.innerHTML = results.map(result => {
     const title = result.title || 'Untitled';
     const meta = [result.media_type === 'tv' ? 'TV Show' : 'Movie', result.year].filter(Boolean).join(' · ');
     const poster = result.thumbnail
       ? `<img src="${escAttr(result.thumbnail)}" alt="" loading="lazy">`
       : escHtml(title.charAt(0).toUpperCase() || '?');
-    const buttonLabel = result.in_library ? 'Already in library' : 'Add to library';
+    if (result.in_library) {
+      return `
+        <div class="discover-result-card">
+          <div class="discover-result-thumb">${poster}</div>
+          <div class="discover-result-body">
+            <div class="discover-result-title">${escHtml(title)}</div>
+            <div class="discover-result-meta">${escHtml(meta)}</div>
+            <div class="discover-result-status">Already in library.</div>
+          </div>
+        </div>
+      `;
+    }
     return `
-      <div class="discover-result-card">
+      <button
+        type="button"
+        class="discover-result-card discover-hero-trigger"
+        style="all:unset;display:flex;cursor:pointer;"
+        data-tmdb-id="${escAttr(result.tmdb_id || '')}"
+        data-media-type="${escAttr(result.media_type || 'movie')}"
+        data-title="${escAttr(title)}"
+        data-year="${escAttr(result.year || '')}"
+        data-poster-url="${escAttr(result.thumbnail || '')}"
+      >
         <div class="discover-result-thumb">${poster}</div>
         <div class="discover-result-body">
           <div class="discover-result-title">${escHtml(title)}</div>
           <div class="discover-result-meta">${escHtml(meta)}</div>
-          <form class="discover-add-form">
-            <input type="hidden" name="tmdb_id" value="${escAttr(result.tmdb_id)}">
-            <input type="hidden" name="media_type" value="${escAttr(result.media_type)}">
-            <input type="hidden" name="return_section" value="discover">
-            <input type="text" name="current_quality" placeholder="Quality (e.g. 1080p)" style="width:170px;">
-            <input type="text" name="path" placeholder="Local path (optional)" style="width:240px;">
-            <button type="submit" ${result.in_library ? 'disabled' : ''}>${buttonLabel}</button>
-          </form>
-          <div class="discover-result-status"></div>
         </div>
-      </div>
+      </button>
     `;
   }).join('');
-}
-
-async function submitDiscoverAdd(form) {
-  const button = form.querySelector('button[type="submit"]');
-  const status = form.parentElement.querySelector('.discover-result-status');
-  const payload = new FormData(form);
-  button.disabled = true;
-  status.textContent = 'Adding…';
-  try {
-    const response = await fetch('/add', {
-      method: 'POST',
-      body: payload,
-      headers: { 'X-Requested-With': 'fetch' },
-    });
-    const data = await response.json();
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || 'add_failed');
-    }
-    button.textContent = 'Added';
-    status.textContent = 'Saved to library.';
-  } catch (_error) {
-    button.disabled = false;
-    status.textContent = 'Add failed.';
-  }
 }
 
 document.getElementById('discover-search-form').addEventListener('submit', event => {
@@ -1924,13 +1916,6 @@ document.addEventListener('click', event => {
     openDiscoverHero(heroTrigger);
     return;
   }
-});
-
-document.addEventListener('submit', event => {
-  const form = event.target.closest('.discover-add-form');
-  if (!form) return;
-  event.preventDefault();
-  submitDiscoverAdd(form);
 });
 
 document.getElementById('ignored-refresh-btn').addEventListener('click', () => {

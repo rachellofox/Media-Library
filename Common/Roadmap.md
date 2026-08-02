@@ -50,7 +50,6 @@ Something that does not do what it already promises.
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
 | B-0108.02 | Transcoded playback: poor quality, stream freezes, high CPU — full diagnosis needed | User need | P1 | Proposed |
-| B-0108.07 | Discover's "add new movie" offers local file selection and a quality choice instead of showing in the hero card and pulling a torrent like everywhere else | User need | P1 | Blocked |
 
 ## Features
 
@@ -83,20 +82,3 @@ Status were also completed from a raw line that had neither.
 
 Only where a row needs more than its title. Anything much longer than a paragraph
 is a sign it should be worked on rather than described.
-
-### B-0108.07 — Discover's "add new movie" flow
-
-Investigated, not fixed — blocked on a reproduction. Read every path that can
-add a title from Discover (`hero-add-btn`, `hero-add-missing-btn`, both
-funnelling through `addDiscoverHeroItem()` to `/api/discover/add-and-search`)
-and ran the real route in a sandbox: it adds the library row with no path and
-no quality set, returns torrent candidates, and the client opens the same
-torrent modal every other add path uses. No "local file selection" or
-"quality choice" control exists anywhere in the templates or JS — grepped for
-both. This is what the row asks for already.
-
-Two explanations fit: this was already fixed by earlier work on this branch
-and the report predates it, or it is a specific case (a particular title, a
-particular error path) that a straight read of the code does not surface.
-Needs a live reproduction — which title, and what the screen actually shows —
-to go further.

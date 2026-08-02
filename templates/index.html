@@ -734,20 +734,7 @@
     .discover-result-body { flex: 1; min-width: 0; }
     .discover-result-title { font-size: 16px; font-weight: 700; color: var(--text); }
     .discover-result-meta { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
-    .discover-add-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-    .discover-add-form input {
-      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-      border-radius: 5px; padding: 8px 10px; font-size: 13px; outline: none;
-    }
-    .discover-add-form input:focus { border-color: var(--cyan); }
-    .discover-add-form button {
-      padding: 8px 14px; border-radius: 5px; cursor: pointer; border: 1px solid var(--pink);
-      background: var(--pink); color: #fff; font-size: 12px; font-weight: 700;
-      letter-spacing: .06em; text-transform: uppercase;
-    }
-    .discover-add-form button[disabled] {
-      cursor: default; border-color: var(--border); background: var(--surface2); color: var(--text-muted);
-    }
+    button.discover-result-card:hover .discover-result-title { color: var(--cyan); }
     .discover-result-status { margin-top: 8px; font-size: 12px; color: var(--text-muted); }
     .discover-collections { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
     .discover-card-poster-only { border-radius: 0; }

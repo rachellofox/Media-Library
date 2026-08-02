@@ -4,6 +4,12 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- Picking a search result in Discover now opens the hero and pulls a torrent,
+  the same as every other Discover surface (watchlist, trending, collections).
+  It used to show a standalone form asking you to type in a quality and,
+  optionally, a local path — a leftover from before the hero-based flow
+  existed, still wired to a title's search results specifically.
+
 - Fixed an ffprobe call that could throw a decoding error on Windows for a
   file whose metadata was not valid Windows-1252 — found live while checking
   episode-ordering detection against the real library, harmless there but
