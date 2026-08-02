@@ -4,6 +4,20 @@ All notable user-facing changes to this project are documented here.
 
 ## v0.1.3 - 2026-08-01
 
+- Trakt no longer disconnects itself on a bad moment. Refreshing an expiring
+  token used to clear the whole connection on any failure at all — a network
+  blip, a Trakt outage, a rate limit — not just a token Trakt itself rejects,
+  so a single failed refresh near expiry could silently turn "your watchlist"
+  into "connect Trakt" with nothing to explain why. Only a refresh Trakt
+  explicitly rejects clears the connection now; anything else is treated as
+  try again later. Checked against this install directly: Trakt has never
+  actually been connected here — no token has been stored at all — so the
+  watchlist showing "Connect Trakt" is correct as things stand, not this bug;
+  Settings → Connect Trakt is what starts it.
+- The watchlist also now says when it failed to load, rather than showing
+  "your watchlist is empty" for that too — a genuinely empty watchlist and a
+  failed request looked identical before.
+
 - Fixed two causes of subtitles silently not appearing. A subtitle track
   stored on disc as an image rather than text (common on DVD-sourced rips —
   found on X-Men: The Animated Series, which offered six caption tracks and

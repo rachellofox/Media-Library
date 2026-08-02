@@ -50,14 +50,22 @@ def _trakt_client():
     return _get_trakt_client() if _get_trakt_client else None
 
 
-def _discover_watchlist(limit: int = 16) -> list[dict]:
+def _discover_watchlist(limit: int = 16) -> tuple[list[dict], bool]:
+    """The Trakt watchlist, and whether the fetch actually succeeded.
+
+    An empty list on its own does not say why: no Trakt connection, a genuinely
+    empty watchlist, and a failed request all look identical to a caller that
+    only checks truthiness. The second value is False only for the failed-fetch
+    case, so "your watchlist is empty" is never shown for "the request to Trakt
+    failed" — the same distinction connected/not-connected already gets.
+    """
     trakt = _trakt_client()
     if not trakt:
-        return []
+        return [], True
     try:
         raw_items = trakt.watchlist_movies() + trakt.watchlist_shows()
     except Exception:
-        return []
+        return [], False
 
     # Keep cache aligned with the current Trakt watchlist set.
     watchlist_ids = {str(item.get('imdb_id')) for item in raw_items if item.get('imdb_id')}
@@ -102,7 +110,7 @@ def _discover_watchlist(limit: int = 16) -> list[dict]:
 
     if to_cache:
         _store().upsert_watchlist_cache_entries(to_cache)
-    return out
+    return out, True
 
 
 def _discover_incomplete_collections() -> list[dict]:

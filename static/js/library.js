@@ -1308,11 +1308,20 @@ async function loadDiscoverOnce() {
   try {
     const response = await fetch('/api/discover', { headers: { 'Accept': 'application/json' } });
     const data = await response.json();
+    // Three distinct states, not two: no connection, a request that failed,
+    // and a watchlist that is genuinely empty. Collapsing the last two into
+    // one message is what made a failed fetch look like "you have nothing
+    // on your watchlist" instead of "this didn't load".
+    const watchlistNote = !data.trakt_connected
+      ? 'Connect Trakt to load your watchlist.'
+      : data.watchlist_error
+        ? 'Could not load your Trakt watchlist — check your connection and try again.'
+        : 'Your Trakt watchlist is empty.';
     renderDiscoverStrip(
       'discover-watchlist',
       'discover-watchlist-note',
       data.watchlist || [],
-      data.trakt_connected ? 'Your Trakt watchlist is empty.' : 'Connect Trakt to load your watchlist.',
+      watchlistNote,
       (data.watchlist || []).length ? `${data.watchlist.length} titles` : ''
     );
     renderCollections(data.collections || []);

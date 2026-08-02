@@ -29,9 +29,14 @@ bp = Blueprint('discover', __name__)
 @bp.route('/api/discover')
 def discover_data():
     trakt = _trakt_context()
+    watchlist, watchlist_ok = _discover_watchlist()
     return jsonify(
         {
-            'watchlist': _discover_watchlist(),
+            'watchlist': watchlist,
+            # False only when Trakt is connected and the request to it failed —
+            # never for "not connected" or "genuinely empty", which the front
+            # end already tells apart via trakt_connected.
+            'watchlist_error': not watchlist_ok,
             'collections': _discover_incomplete_collections(),
             'trending': runtime.tmdb().trending() if runtime.tmdb() else [],
             'trakt_configured': trakt['configured'],

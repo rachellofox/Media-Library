@@ -20,7 +20,7 @@ from medialibrary.settings_util import (
     _save_json_setting,
     _utc_now,
 )
-from medialibrary.trakt_client import TraktClient
+from medialibrary.trakt_client import TraktClient, TraktRequestError
 
 TRAKT_TOKEN_SETTING = 'trakt_oauth_token'
 TRAKT_PROFILE_SETTING = 'trakt_oauth_profile'
@@ -83,6 +83,18 @@ def _clear_trakt_auth() -> None:
 
 
 def _refresh_trakt_token_if_needed() -> dict | None:
+    """The current access token, refreshing it first if it is due to expire.
+
+    Only a refresh Trakt itself rejects as invalid (401 'unauthorized') means
+    the connection is actually gone, and only that clears it. Anything else —
+    a network hiccup, a Trakt outage, a rate limit — left the stored token in
+    place before this fixed it and disconnected Trakt on the next page load
+    that happened to call this near expiry, with nothing to say why: the
+    watchlist would just go from "your titles" to "connect Trakt" between one
+    visit and the next. Failing this one refresh and trying again later is the
+    honest response to a failure that says nothing about whether the token is
+    still good.
+    """
     token = _load_json_setting(TRAKT_TOKEN_SETTING)
     if not token:
         return None
@@ -92,6 +104,8 @@ def _refresh_trakt_token_if_needed() -> dict | None:
     client_id = _trakt_client_id()
     client_secret = _trakt_client_secret()
     if not client_id or not client_secret or not token.get('refresh_token'):
+        # Nothing left to refresh with — this is a real disconnection, not a
+        # transient failure, so clearing here is correct rather than cautious.
         _clear_trakt_auth()
         return None
     try:
@@ -99,8 +113,14 @@ def _refresh_trakt_token_if_needed() -> dict | None:
         refreshed = _serialize_trakt_token(trakt.exchange_refresh_token(token['refresh_token']))
         _save_json_setting(TRAKT_TOKEN_SETTING, refreshed)
         return refreshed
+    except TraktRequestError as exc:
+        if exc.code == 'unauthorized':
+            _clear_trakt_auth()
+        return None
     except Exception:
-        _clear_trakt_auth()
+        # DNS failure, timeout, malformed response — none of these are Trakt
+        # saying the token is bad, so the token stays and this refresh is
+        # simply treated as not having happened yet.
         return None
 
 
