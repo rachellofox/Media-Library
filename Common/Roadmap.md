@@ -60,6 +60,8 @@ Something the app does not do yet.
 | F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
 | F-0108.08 | Choose between torrent mirrors and the underlying trackers — mirrors usually carry fewer results and fewer seeds | User need | P3 | Proposed |
+| F-0208.01 | Import watch history from other platforms | User need | P2 | Proposed |
+| F-0208.02 | Track a watchlist locally, not dependent on Trakt | User need | P2 | Proposed |
 
 ## Library
 
@@ -72,13 +74,34 @@ These rows are deleted once the files are right, and the commit that corrected
 them is the record — there is no CHANGELOG line, because nothing about the app
 changed.
 
-Every item above carries today's date because that is when this scheme started,
-not because they were all raised today. Dates are meaningful from here on.
+Every 0108 item carries the date this scheme started, not necessarily when it
+was raised — see the note at the top of this file. F-0208.01 and F-0208.02 are
+the first items with a genuine raise date: 2 August 2026.
 
 Priority for F-0108.08 was assumed, not given — adjust if wrong. Its ID and
-Status were also completed from a raw line that had neither.
+Status were also completed from a raw line that had neither. F-0208.01 and
+F-0208.02's priority (P2) is likewise assumed — both are proposed only, not
+approved for work.
 
 ## Detail
 
 Only where a row needs more than its title. Anything much longer than a paragraph
 is a sign it should be worked on rather than described.
+
+### F-0208.01 — import watch history from other platforms
+
+Raised alongside F-0208.02 once Trakt's API access changed — see
+`Common/DevLog.md`'s "Why doesn't Trakt work" entry for what happened there.
+The intent is to stop depending on Trakt for a user's existing watch history by
+letting it be brought in directly: which platforms to support, and in what
+format (a platform export file vs. a live account connection per platform) are
+open. Scope and design not started.
+
+### F-0208.02 — track a watchlist locally
+
+A first-party "want to watch" list, replacing what the Trakt watchlist strip in
+Discover currently provides, so that feature does not depend on Trakt access
+being available. Needs its own storage (something in the shape of
+`discover_watchlist_cache`, but writable directly rather than only populated
+from a synced source) and UI to add/remove a title without going through
+Trakt. Scope and design not started.
