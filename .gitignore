@@ -16,6 +16,11 @@ media.backup*.db
 library.db
 library.backup*.db
 
+# Imported watch history (F-0208.01) — a separate database from the library,
+# same reasoning: personal runtime data, never committed.
+history.db
+history.backup*.db
+
 # Transcode cache and scratch working files
 tmp/
 

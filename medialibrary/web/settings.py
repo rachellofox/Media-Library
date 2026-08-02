@@ -17,6 +17,7 @@ from werkzeug.security import generate_password_hash
 
 from medialibrary import qbt, runtime
 from medialibrary.auth import _auth_password_hash, _auth_username
+from medialibrary.history_import import UnrecognisedFormat, parse_upload
 from medialibrary.importer import import_from_configured_folders
 from medialibrary.qb_search import configured_mirror_urls
 from medialibrary.qbt import _extract_btih_hash, _sanitize_qbt_webui_url
@@ -348,3 +349,49 @@ def debug_qbt_status():
             'num_leechs': torrent.get('num_leechs'),
         }
     )
+
+
+# Generous but not unbounded: a personal watch-history export is thousands of
+# rows at most, so this is about refusing something wrong, not something big.
+HISTORY_UPLOAD_MAX_BYTES = 50 * 1024 * 1024
+
+
+@bp.route('/api/settings/history-import', methods=['POST'])
+def history_import():
+    """Import a watch-history export (F-0208.01) into its own database.
+
+    Never touches media_items — see medialibrary.history_store for why. A file
+    that parses but matches no known or generic shape is rejected with the
+    reason, rather than silently importing nothing.
+    """
+    upload = request.files.get('file')
+    if not upload or not upload.filename:
+        return jsonify({'ok': False, 'error': 'no_file'}), 400
+
+    raw_bytes = upload.read(HISTORY_UPLOAD_MAX_BYTES + 1)
+    if len(raw_bytes) > HISTORY_UPLOAD_MAX_BYTES:
+        return jsonify({'ok': False, 'error': 'file_too_large'}), 400
+    if not raw_bytes:
+        return jsonify({'ok': False, 'error': 'empty_file'}), 400
+
+    try:
+        raw_records, normalized, source_format = parse_upload(upload.filename, raw_bytes)
+    except UnrecognisedFormat as exc:
+        return jsonify({'ok': False, 'error': 'unrecognised_format', 'message': str(exc)}), 400
+
+    if not normalized:
+        return jsonify(
+            {'ok': False, 'error': 'no_usable_records', 'format': source_format}
+        ), 400
+
+    result = runtime.history_store().import_records(
+        raw_records, normalized, source_format, upload.filename
+    )
+    result['ok'] = True
+    result['format'] = source_format
+    return jsonify(result)
+
+
+@bp.route('/api/settings/history-summary')
+def history_summary():
+    return jsonify({'ok': True, **runtime.history_store().summary()})

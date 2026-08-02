@@ -1362,6 +1362,23 @@
       </div>
 
       <div class="settings-block">
+        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Watch History Import</span></div>
+        <p class="settings-note" style="margin-top:0;margin-bottom:10px;">
+          Import a watch-history export from another platform. Trakt, Letterboxd
+          and IMDb exports are recognised automatically; a JSON or CSV file with
+          title/year/date columns of its own will be read as a best effort.
+          Stored separately from your library and safe to import more than once
+          — the same record is never added twice.
+        </p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="file" id="history-import-file" accept=".json,.csv" style="max-width:320px;">
+          <button type="button" id="history-import-btn" class="settings-inline-btn">Import</button>
+          <span id="history-import-summary" class="settings-note" style="margin:0;"></span>
+        </div>
+        <div id="history-import-status" class="settings-note" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="settings-block">
         <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Bulk Actions</span></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           {% if movies_path or tv_path %}
@@ -1447,6 +1464,7 @@
   const DISCOVER_STATE = { loaded: false, loading: false };
   const TMDB_CONFIGURED = {{ tmdb_api_configured | tojson }};
   const IGNORES_STATE = { loaded: false, loading: false };
+  const HISTORY_SUMMARY_STATE = { loaded: false, loading: false };
   const HERO_STATE = { source: 'library', item: null };
   const SUBTITLE_FETCH_INFLIGHT = new Set();
   const TORRENT_MODAL_STATE = { mediaId: null, title: '' };

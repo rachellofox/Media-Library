@@ -45,7 +45,7 @@ function activateSection(name) {
     // Ignore storage issues.
   }
   if (name === 'discover') loadDiscoverOnce();
-  if (name === 'settings') loadIgnoredItemsOnce();
+  if (name === 'settings') { loadIgnoredItemsOnce(); loadHistorySummaryOnce(); }
 }
 
 function showSection(name) {
@@ -705,6 +705,69 @@ async function loadIgnoredItemsOnce(force = false) {
     IGNORES_STATE.loading = false;
   }
 }
+
+async function loadHistorySummaryOnce(force = false) {
+  if ((HISTORY_SUMMARY_STATE.loaded && !force) || HISTORY_SUMMARY_STATE.loading) return;
+  HISTORY_SUMMARY_STATE.loading = true;
+  const el = document.getElementById('history-import-summary');
+  try {
+    const response = await fetch('/api/settings/history-summary', { headers: { 'Accept': 'application/json' } });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error('summary_failed');
+    if (el) {
+      el.textContent = data.total
+        ? `${data.total} record${data.total === 1 ? '' : 's'} imported so far.`
+        : 'No history imported yet.';
+    }
+    HISTORY_SUMMARY_STATE.loaded = true;
+  } catch (_error) {
+    if (el) el.textContent = '';
+  } finally {
+    HISTORY_SUMMARY_STATE.loading = false;
+  }
+}
+
+async function importHistoryFile() {
+  const fileInput = document.getElementById('history-import-file');
+  const button = document.getElementById('history-import-btn');
+  const statusEl = document.getElementById('history-import-status');
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if (!file) {
+    if (statusEl) statusEl.textContent = 'Choose a file first.';
+    return;
+  }
+  button.disabled = true;
+  if (statusEl) statusEl.textContent = 'Importing…';
+  try {
+    const body = new FormData();
+    body.append('file', file);
+    const response = await fetch('/api/settings/history-import', { method: 'POST', body });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      const reasons = {
+        unrecognised_format: data.message ? `Could not read this file: ${data.message}` : 'Could not read this file.',
+        no_usable_records: 'The file was read, but none of its records had a usable title.',
+        file_too_large: 'That file is too large to import.',
+        empty_file: 'That file is empty.',
+        no_file: 'Choose a file first.',
+      };
+      throw new Error(reasons[data.error] || 'Import failed.');
+    }
+    if (statusEl) {
+      statusEl.textContent = `Imported ${data.imported} of ${data.total_in_file} record${data.total_in_file === 1 ? '' : 's'}`
+        + (data.skipped_duplicate ? ` (${data.skipped_duplicate} already imported).` : '.')
+        + ` Read as ${data.format}.`;
+    }
+    fileInput.value = '';
+    await loadHistorySummaryOnce(true);
+  } catch (error) {
+    if (statusEl) statusEl.textContent = error.message || 'Import failed.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById('history-import-btn').addEventListener('click', importHistoryFile);
 
 function traktStatusMessage() {
   if (TRAKT_STATE.connected) {

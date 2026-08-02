@@ -11,8 +11,10 @@ from flask import Flask, jsonify, redirect, request, url_for
 from medialibrary import network, runtime, tmdb_state
 from medialibrary.config import (
     DB_PATH,
+    HISTORY_DB_PATH,
     POSTER_DIR,
 )
+from medialibrary.history_store import HistoryStore
 from medialibrary.qb_search import (
     QBSearch,
 )
@@ -253,6 +255,10 @@ store = Storage(DB_PATH)
 # meets a database with no tables and fails on the first query. The statements
 # are all CREATE TABLE IF NOT EXISTS, so running them every import costs nothing.
 store.initialize()
+# A separate database and a separate singleton — see medialibrary.history_store
+# for why imported watch history is never a table in library.db.
+history_store = HistoryStore(HISTORY_DB_PATH)
+history_store.initialize()
 # medialibrary.qbt reads its URL and username from settings, but must not import
 # this module to get at the store — that would be circular. It is handed a getter
 # instead, once the store exists.
@@ -286,6 +292,7 @@ runtime.configure(
     store=lambda: store,
     tmdb=tmdb_state.client,
     qb=lambda: qb,
+    history_store=lambda: history_store,
 )
 app.secret_key = _session_secret_key()
 app.permanent_session_lifetime = timedelta(days=SESSION_LIFETIME_DAYS)

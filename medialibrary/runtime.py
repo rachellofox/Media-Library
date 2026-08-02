@@ -39,3 +39,8 @@ def tmdb():
 
 def qb():
     return _get('qb')
+
+
+def history_store():
+    """The imported watch-history store — a separate database from `store()`."""
+    return _get('history_store')

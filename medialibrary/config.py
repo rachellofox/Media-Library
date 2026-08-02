@@ -8,6 +8,10 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, 'library.db')
+# Deliberately its own file, not a table in library.db — imported watch history
+# is a record of what happened elsewhere, not part of this library, and keeping
+# it separate means a bad import can never touch media_items.
+HISTORY_DB_PATH = os.path.join(BASE_DIR, 'history.db')
 POSTER_DIR = os.path.join(BASE_DIR, 'static', 'posters')
 HLS_CACHE_DIR = os.path.join(BASE_DIR, 'tmp', 'hls')
 

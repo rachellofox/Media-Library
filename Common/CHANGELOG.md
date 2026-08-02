@@ -2,6 +2,15 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.1.4 - 2026-08-02
+
+- Added watch-history import, in Settings. Upload a JSON or CSV export and
+  it's read into its own database, separate from the library — Trakt,
+  Letterboxd and IMDb exports are recognised automatically, and a file from
+  somewhere else is read on a best effort if it has title/year/date columns
+  of its own. Safe to import the same file more than once; only genuinely new
+  records are added.
+
 ## v0.1.3 - 2026-08-01
 
 - Picking a search result in Discover now opens the hero and pulls a torrent,
