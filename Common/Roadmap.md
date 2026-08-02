@@ -67,7 +67,6 @@ Something the app does not do yet.
 | F-0108.04 | Tidy the settings page into sections (network, preferences, storage — categories to confirm) | User need | P3 | Proposed |
 | F-0108.05 | Move the favourites icon | User need | P3 | Proposed |
 | F-0108.06 | "Find missing" on a show should offer the whole season as well as a single episode | User need | P2 | Proposed |
-| F-0108.07 | File every film in a multi-film download, not just the one the item asked for | Follow-on from B-0108.06 | P2 | Proposed |
 
 ## Library
 

@@ -9,8 +9,12 @@ All notable user-facing changes to this project are documented here.
   into the library as "Predator (1987)" — renamed on the way in, so nothing
   afterwards showed which film it really was. The film whose own title and year
   match is the one taken now, and where no single film matches, the download is
-  flagged for review and left completely untouched. This does not yet file the
-  other films in a pack; they stay where they are.
+  flagged for review and left completely untouched.
+- Every film in a pack is now added to the library, not just the one you asked
+  for. Downloading a five-film Predator pack for Predator (1987) also files
+  Predator 2, Predators, The Predator and Prey, each in its own correctly named
+  folder. A film that cannot be identified confidently is left in the download
+  folder rather than filed under a guess, and one you already hold is skipped.
 
 - A show that holds the same episode twice now says so, with a chip on its hero
   reading "2 duplicated". Until now the app quietly kept the larger copy and

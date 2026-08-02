@@ -39,11 +39,13 @@ from medialibrary.identify import (
     EPISODE_MARKER,
     _best_local_video_path,
     _episodes_covered,
+    _is_local_media_missing,
     _videos_in,
     film_in_pack_for,
     scan_local_episodes,
 )
 from medialibrary.naming import canonical_paths, canonical_stem
+from medialibrary.posters import cache_poster
 from medialibrary.qbt import QbtUnavailableError
 from medialibrary.quality import compare_quality, detect_quality, detect_quality_from_file
 from medialibrary.subtitles import scan_subtitles
@@ -291,6 +293,85 @@ def _finalize_tv_episode(row, new_video: str, new_quality: str | None) -> None:
     _store().clear_download_state(media_id)
 
 
+def _file_extra_pack_films(films: list[str], already_filed: str, media_type: str) -> int:
+    """File the films in a pack that no library item asked for.
+
+    A pack arrives because one film in it was wanted; the rest are real films
+    that would otherwise sit in the download folder and disappear with it. Each
+    is identified on its own name, hardlinked into its own canonical folder and
+    given a library entry, exactly as a scan of the library would have done.
+
+    Skips anything it cannot identify confidently, and anything already held —
+    filing a film under a guessed name hides the mistake behind a rename, which
+    is how Predator 2 came to be called Predator (1987).
+    """
+    from medialibrary.importer import identify_for_library
+
+    library_root = _library_root_for(media_type)
+    if not library_root:
+        return 0
+
+    held = {
+        (item['imdb_id'] or '')
+        for item in _store().list_media_items()
+        if item['imdb_id'] and not _is_local_media_missing(item['path'])
+    }
+
+    filed = 0
+    for film in films:
+        try:
+            if os.path.samefile(film, already_filed):
+                continue
+        except OSError:
+            continue
+
+        meta = identify_for_library(os.path.basename(film), 'movie')
+        if not meta:
+            _log().info('Pack film not identified, left in place: %s', os.path.basename(film))
+            continue
+        if meta['imdb_id'] in held:
+            continue
+
+        destination = canonical_paths(
+            library_root, meta['title'], meta['year'], os.path.splitext(film)[1], 'movie'
+        )
+        if not destination:
+            continue
+        dest_folder, dest_file = destination
+        if _place_video_in_library(film, dest_file) is None:
+            continue
+
+        _store().add_media_item(
+            imdb_id=meta['imdb_id'],
+            tmdb_id=meta.get('tmdb_id'),
+            title=meta['title'],
+            year=meta['year'],
+            media_type=meta['media_type'],
+            collection_id=meta.get('collection_id'),
+            collection_name=meta.get('collection_name'),
+            current_quality=(
+                detect_quality_from_file(dest_file, ffprobe_exe=FFPROBE_EXE)
+                or detect_quality(os.path.basename(film))
+            ),
+            path=dest_folder,
+            poster_url=(
+                cache_poster(meta['imdb_id'], meta.get('poster_url') or '')
+                or meta.get('poster_url')
+            ),
+            synopsis=meta.get('synopsis'),
+            actors=meta.get('actors'),
+            genre_1=meta.get('genre_1'),
+            genre_2=meta.get('genre_2'),
+            rating=meta.get('rating'),
+            subtitles=scan_subtitles(dest_folder),
+        )
+        held.add(meta['imdb_id'])
+        filed += 1
+        _log().info('Pack: also filed %s (%s) at %s.', meta['title'], meta['year'], dest_folder)
+
+    return filed
+
+
 def _finalize_completed_download(row, torrent: dict) -> None:
     """Move one finished download into the library under its canonical name."""
     media_id = int(row['id'])
@@ -304,8 +385,10 @@ def _finalize_completed_download(row, torrent: dict) -> None:
     # by size put Predator 2 into the "Predator (1987)" folder, under that name,
     # while the other four films stayed in the download folder unnoticed.
     chosen = None
+    pack_films: list[str] = []
     if media_type != 'tv':
         chosen, films = film_in_pack_for(content_path, row['title'], row['year'])
+        pack_films = films
         if films and not chosen:
             _store().set_download_state(
                 media_item_id=media_id,
@@ -463,6 +546,11 @@ def _finalize_completed_download(row, torrent: dict) -> None:
     # The stored upgrade result was measured against the file we just replaced.
     _store().clear_quality_checks(media_id)
     _store().clear_download_state(media_id)
+
+    # One torrent, one item — but a pack carries films nobody asked for, and
+    # leaving them in the download folder means they vanish when it is cleared.
+    if pack_films:
+        _file_extra_pack_films(pack_films, new_video, media_type)
 
 
 def _readopt_orphaned_downloads(torrents: list[dict]) -> None:

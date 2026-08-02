@@ -68,6 +68,28 @@ def scan_media_entries(folder_path: str, media_type: str) -> list[dict[str, str]
     return sorted(entries, key=lambda item: item['name'].lower())
 
 
+def identify_for_library(name: str, media_type: str) -> dict | None:
+    """TMDB metadata for a release name, or None when nothing matches confidently.
+
+    Shared with download finalisation, which has to identify the extra films in
+    a pack the same way a scan would. Returns None rather than a best guess: an
+    unidentified film is left where it is, and a wrongly identified one is filed
+    under a name that hides the mistake.
+    """
+    title, year = normalize_media_name(name, media_type)
+    if not title:
+        return None
+    client = tmdb_state.client()
+    if not client:
+        return None
+    # Search by title alone — a year in the folder name confuses TMDB ranking.
+    match = choose_search_result(client.search(title, max_results=10), title, media_type, year)
+    if not match:
+        return None
+    meta = client.metadata_by_tmdb_id(match['tmdb_id'], match['media_type'])
+    return meta if meta.get('imdb_id') else None
+
+
 def import_media_from_paths(folder_path: str, media_type: str) -> int:
     """Import missing items from a configured media folder into the local library."""
     existing_items = runtime.store().list_media_items()
@@ -82,26 +104,8 @@ def import_media_from_paths(folder_path: str, media_type: str) -> int:
         if normalized_path in existing_paths:
             continue
 
-        title, year = normalize_media_name(entry['name'], media_type)
-        if not title:
-            continue
-
-        query = title  # year in folder name can confuse TMDB ranking; search by title alone
-        match = choose_search_result(
-            tmdb_state.client().search(query, max_results=10) if tmdb_state.client() else [],
-            title,
-            media_type,
-            year,
-        )
-        if not match:
-            continue
-
-        meta = (
-            tmdb_state.client().metadata_by_tmdb_id(match['tmdb_id'], match['media_type'])
-            if tmdb_state.client()
-            else {}
-        )
-        if not meta.get('imdb_id'):
+        meta = identify_for_library(entry['name'], media_type)
+        if not meta:
             continue
 
         # Don't let a duplicate/alternate folder (e.g. a second copy or a stale

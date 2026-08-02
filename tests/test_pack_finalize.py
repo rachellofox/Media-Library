@@ -144,6 +144,113 @@ with tempfile.TemporaryDirectory() as tmp:
         message,
     )
 
+print('\n=== 4. The other films in the pack are filed too ===')
+with tempfile.TemporaryDirectory() as tmp:
+    lib, staging = setup(tmp)
+    pack = build_pack(staging)
+
+    # Stub the identification so the test needs no network and no API key.
+    CATALOGUE = {
+        'predator2': ('tt0099740', 'Predator 2', 1990),
+        'predators': ('tt1424381', 'Predators', 2010),
+        'thepredator': ('tt3829266', 'The Predator', 2018),
+        'prey': ('tt11866324', 'Prey', 2022),
+    }
+
+    def fake_identify(name, media_type):
+        # Parse the release name the way the real lookup does, then answer from
+        # the table — so the test exercises the parsing rather than replacing it.
+        import re as _re
+
+        from medialibrary.identify import normalize_media_name
+
+        parsed, _year = normalize_media_name(name, media_type)
+        key = _re.sub(r'[^a-z0-9]', '', (parsed or '').lower())
+        if key not in CATALOGUE:
+            return None
+        imdb, title, year = CATALOGUE[key]
+        return {
+            'imdb_id': imdb,
+            'tmdb_id': None,
+            'title': title,
+            'year': year,
+            'media_type': 'movie',
+            'poster_url': '',
+            'synopsis': '',
+            'actors': '',
+            'genre_1': '',
+            'genre_2': '',
+            'rating': None,
+        }
+
+    import medialibrary.importer
+
+    medialibrary.importer.identify_for_library = fake_identify
+    medialibrary.downloads.cache_poster = lambda *a, **k: ''
+
+    media_id = add('tt0093773', 'Predator', 1987)
+    app.store.set_download_state(
+        media_id, 'downloading', 'qb_webui', 'x', torrent_hash='D' * 40, mode='fill'
+    )
+    app._finalize_completed_download(
+        row_for(media_id),
+        {'state': 'stalledUP', 'progress': 1.0, 'amount_left': 0, 'content_path': pack},
+    )
+
+    folders = sorted(os.listdir(lib))
+    check('all five films have canonical folders', len(folders) == 5, str(folders))
+    for expected in (
+        'Predator (1987)',
+        'Predator 2 (1990)',
+        'Predators (2010)',
+        'The Predator (2018)',
+        'Prey (2022)',
+    ):
+        check(f'  {expected}', expected in folders)
+    check(
+        'each folder holds its canonically named film',
+        all(os.path.isfile(os.path.join(lib, f, f + '.mkv')) for f in folders),
+        str(folders),
+    )
+    titles = {i['title'] for i in app.store.list_media_items()}
+    check(
+        'library items exist for the extras',
+        {'Predator 2', 'Predators', 'The Predator', 'Prey'} <= titles,
+        str(sorted(titles)),
+    )
+    check(
+        'the originally wanted item is unchanged',
+        app.store.get_media_item(media_id)['path'] == os.path.join(lib, 'Predator (1987)'),
+    )
+    check(
+        'nothing left the download folder',
+        len([1 for _r, _d, f in os.walk(pack) for n in f if n.endswith('.mkv')]) == 5,
+    )
+
+print('\n=== 5. An unidentifiable extra is left where it is ===')
+with tempfile.TemporaryDirectory() as tmp:
+    lib, staging = setup(tmp)
+    pack = build_pack(staging)
+    import medialibrary.importer
+
+    medialibrary.importer.identify_for_library = lambda name, media_type: None
+    medialibrary.downloads.cache_poster = lambda *a, **k: ''
+
+    media_id = add('tt0093773', 'Predator', 1987)
+    app.store.set_download_state(
+        media_id, 'downloading', 'qb_webui', 'x', torrent_hash='E' * 40, mode='fill'
+    )
+    app._finalize_completed_download(
+        row_for(media_id),
+        {'state': 'stalledUP', 'progress': 1.0, 'amount_left': 0, 'content_path': pack},
+    )
+    check(
+        'only the wanted film is filed',
+        os.listdir(lib) == ['Predator (1987)'],
+        str(os.listdir(lib)),
+    )
+    check('no invented library items', len(app.store.list_media_items()) == 1)
+
 print('\n=== 3. An ordinary single-film download is unaffected ===')
 with tempfile.TemporaryDirectory() as tmp:
     lib, staging = setup(tmp)
