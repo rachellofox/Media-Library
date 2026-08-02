@@ -75,7 +75,6 @@ The collection on disk being wrong. No code changes; the fix is to the files.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| L-0108.03 | `Predator (1987)` in the library is really Predator 2 (1990), and four films from that pack are unfiled | Follow-on from B-0108.06 | P1 | Proposed |
 
 These rows are deleted once the files are right, and the commit that corrected
 them is the record — there is no CHANGELOG line, because nothing about the app
