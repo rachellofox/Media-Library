@@ -12,7 +12,6 @@ from medialibrary import qbt, runtime
 from medialibrary.discover import (
     _discover_incomplete_collections,
     _discover_missing_episodes,
-    _discover_watchlist,
 )
 from medialibrary.downloads import _staging_path_for
 from medialibrary.identify import _is_local_media_missing
@@ -29,14 +28,12 @@ bp = Blueprint('discover', __name__)
 @bp.route('/api/discover')
 def discover_data():
     trakt = _trakt_context()
-    watchlist, watchlist_ok = _discover_watchlist()
     return jsonify(
         {
-            'watchlist': watchlist,
-            # False only when Trakt is connected and the request to it failed —
-            # never for "not connected" or "genuinely empty", which the front
-            # end already tells apart via trakt_connected.
-            'watchlist_error': not watchlist_ok,
+            # F-0208.02: a first-party list, not a Trakt sync, so there is no
+            # "the request failed" state left to tell apart from "genuinely
+            # empty" — it either has rows or it does not.
+            'watchlist': runtime.store().list_watchlist(),
             'collections': _discover_incomplete_collections(),
             'trending': runtime.tmdb().trending() if runtime.tmdb() else [],
             'trakt_configured': trakt['configured'],
@@ -61,6 +58,7 @@ def discover_hero_data():
         return jsonify({'ok': False, 'error': 'invalid_tmdb_id'}), 400
 
     meta = runtime.tmdb().metadata_by_tmdb_id(tmdb_id, media_type)
+    resolved_media_type = meta.get('media_type') or media_type
     return jsonify(
         {
             'ok': True,
@@ -69,7 +67,7 @@ def discover_hero_data():
                 'imdb_id': meta.get('imdb_id'),
                 'title': meta.get('title') or request.args.get('title') or str(tmdb_id),
                 'year': meta.get('year'),
-                'media_type': meta.get('media_type') or media_type,
+                'media_type': resolved_media_type,
                 'poster_url': meta.get('poster_url'),
                 'synopsis': meta.get('synopsis'),
                 'actors': meta.get('actors'),
@@ -80,9 +78,25 @@ def discover_hero_data():
                 'subtitles': None,
                 'found': 0,
                 'favourite': 0,
+                'in_watchlist': runtime.store().is_in_watchlist(
+                    meta.get('tmdb_id') or tmdb_id, resolved_media_type
+                ),
             },
         }
     )
+
+
+def _parse_tmdb_id_and_media_type(payload: dict) -> tuple[int, str] | tuple[None, str]:
+    tmdb_id_raw = str(request.form.get('tmdb_id') or payload.get('tmdb_id') or '').strip()
+    media_type = (
+        str(request.form.get('media_type') or payload.get('media_type') or 'movie').strip().lower()
+    )
+    if media_type not in {'movie', 'tv'}:
+        return None, 'invalid_media_type'
+    try:
+        return int(tmdb_id_raw), media_type
+    except Exception:
+        return None, 'invalid_tmdb_id'
 
 
 @bp.route('/api/discover/add-and-search', methods=['POST'])
@@ -91,17 +105,10 @@ def discover_add_and_search():
         return jsonify({'ok': False, 'error': 'tmdb_not_configured'}), 503
 
     payload = request.get_json(silent=True) or {}
-    tmdb_id_raw = str(request.form.get('tmdb_id') or payload.get('tmdb_id') or '').strip()
-    media_type = (
-        str(request.form.get('media_type') or payload.get('media_type') or 'movie').strip().lower()
-    )
-    if media_type not in {'movie', 'tv'}:
-        return jsonify({'ok': False, 'error': 'invalid_media_type'}), 400
-
-    try:
-        tmdb_id = int(tmdb_id_raw)
-    except Exception:
-        return jsonify({'ok': False, 'error': 'invalid_tmdb_id'}), 400
+    tmdb_id, media_type_or_error = _parse_tmdb_id_and_media_type(payload)
+    if tmdb_id is None:
+        return jsonify({'ok': False, 'error': media_type_or_error}), 400
+    media_type = media_type_or_error
 
     meta = runtime.tmdb().metadata_by_tmdb_id(tmdb_id, media_type)
     if not meta.get('imdb_id'):
@@ -125,6 +132,11 @@ def discover_add_and_search():
         rating=meta.get('rating'),
         subtitles=None,
     )
+    # Owning a title and wanting to watch it are mutually exclusive states —
+    # once it's in the library, it has no business still showing up as "want
+    # to watch but don't have yet".
+    if meta.get('tmdb_id'):
+        runtime.store().remove_from_watchlist(meta['tmdb_id'], meta['media_type'])
     row = runtime.store().get_media_item_by_imdb_id(meta['imdb_id'])
     media_id = row['id'] if row else None
     try:
@@ -148,6 +160,52 @@ def discover_add_and_search():
             'candidates': candidates,
         }
     )
+
+
+@bp.route('/api/discover/watchlist/add', methods=['POST'])
+def discover_watchlist_add():
+    """F-0208.02: add a title to the local watchlist -- no Trakt involved.
+
+    Looks the title up via TMDB rather than trusting client-supplied title/
+    year/poster strings, the same as discover_add_and_search does for adding
+    to the library proper.
+    """
+    if not runtime.tmdb():
+        return jsonify({'ok': False, 'error': 'tmdb_not_configured'}), 503
+
+    payload = request.get_json(silent=True) or {}
+    tmdb_id, media_type_or_error = _parse_tmdb_id_and_media_type(payload)
+    if tmdb_id is None:
+        return jsonify({'ok': False, 'error': media_type_or_error}), 400
+    media_type = media_type_or_error
+
+    meta = runtime.tmdb().metadata_by_tmdb_id(tmdb_id, media_type)
+    if not meta.get('title'):
+        return jsonify({'ok': False, 'error': 'title_not_found'}), 404
+
+    resolved_tmdb_id = meta.get('tmdb_id') or tmdb_id
+    resolved_media_type = meta.get('media_type') or media_type
+    runtime.store().add_to_watchlist(
+        tmdb_id=resolved_tmdb_id,
+        media_type=resolved_media_type,
+        imdb_id=meta.get('imdb_id'),
+        title=meta.get('title'),
+        year=meta.get('year'),
+        poster_url=meta.get('poster_url'),
+    )
+    return jsonify({'ok': True, 'tmdb_id': resolved_tmdb_id, 'media_type': resolved_media_type})
+
+
+@bp.route('/api/discover/watchlist/remove', methods=['POST'])
+def discover_watchlist_remove():
+    payload = request.get_json(silent=True) or {}
+    tmdb_id, media_type_or_error = _parse_tmdb_id_and_media_type(payload)
+    if tmdb_id is None:
+        return jsonify({'ok': False, 'error': media_type_or_error}), 400
+    media_type = media_type_or_error
+
+    runtime.store().remove_from_watchlist(tmdb_id, media_type)
+    return jsonify({'ok': True, 'tmdb_id': tmdb_id, 'media_type': media_type})
 
 
 @bp.route('/api/discover/start-download', methods=['POST'])

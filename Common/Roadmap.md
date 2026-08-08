@@ -57,7 +57,6 @@ Something the app does not do yet.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| F-0208.02 | Track a watchlist locally, not dependent on Trakt | User need | P2 | Proposed |
 
 ## Library
 
@@ -71,21 +70,9 @@ them is the record — there is no CHANGELOG line, because nothing about the app
 changed.
 
 Every 0108 item carries the date this scheme started, not necessarily when it
-was raised — see the note at the top of this file. F-0208.02 is the first item
-with a genuine raise date: 2 August 2026.
-
-F-0208.02's priority (P2) is assumed — it is proposed only, not approved for work.
+was raised — see the note at the top of this file.
 
 ## Detail
 
 Only where a row needs more than its title. Anything much longer than a paragraph
 is a sign it should be worked on rather than described.
-
-### F-0208.02 — track a watchlist locally
-
-A first-party "want to watch" list, replacing what the Trakt watchlist strip in
-Discover currently provides, so that feature does not depend on Trakt access
-being available. Needs its own storage (something in the shape of
-`discover_watchlist_cache`, but writable directly rather than only populated
-from a synced source) and UI to add/remove a title without going through
-Trakt. Scope and design not started.

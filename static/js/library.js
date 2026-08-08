@@ -1004,6 +1004,42 @@ async function addDiscoverHeroItem() {
   }
 }
 
+async function toggleWatchlist() {
+  const item = HERO_STATE.item;
+  if (!item || HERO_STATE.source !== 'discover' || !item.tmdb_id) return;
+
+  const btn = document.getElementById('hero-watchlist-btn');
+  const statusEl = document.getElementById('hero-discover-status');
+  const wasInWatchlist = !!item.in_watchlist;
+  const endpoint = wasInWatchlist ? '/api/discover/watchlist/remove' : '/api/discover/watchlist/add';
+  btn.disabled = true;
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        tmdb_id: item.tmdb_id,
+        media_type: item.media_type || 'movie',
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || 'watchlist_failed');
+    }
+    item.in_watchlist = !wasInWatchlist;
+    btn.textContent = item.in_watchlist ? '✓ In Watchlist' : '+ Watchlist';
+    statusEl.textContent = item.in_watchlist ? 'Added to watchlist.' : 'Removed from watchlist.';
+    await refreshDiscover();
+  } catch (_error) {
+    statusEl.textContent = 'Could not update watchlist.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function retryLibraryDownloadSearch(options = {}) {
   const item = HERO_STATE.item;
   if (!item || HERO_STATE.source !== 'library' || !item.id) return;
@@ -1371,20 +1407,14 @@ async function loadDiscoverOnce() {
   try {
     const response = await fetch('/api/discover', { headers: { 'Accept': 'application/json' } });
     const data = await response.json();
-    // Three distinct states, not two: no connection, a request that failed,
-    // and a watchlist that is genuinely empty. Collapsing the last two into
-    // one message is what made a failed fetch look like "you have nothing
-    // on your watchlist" instead of "this didn't load".
-    const watchlistNote = !data.trakt_connected
-      ? 'Connect Trakt to load your watchlist.'
-      : data.watchlist_error
-        ? 'Could not load your Trakt watchlist — check your connection and try again.'
-        : 'Your Trakt watchlist is empty.';
+    // F-0208.02: a first-party list, not synced from Trakt, so there is no
+    // "the request failed" state to tell apart from "genuinely empty" —
+    // it either has rows or it doesn't.
     renderDiscoverStrip(
       'discover-watchlist',
       'discover-watchlist-note',
       data.watchlist || [],
-      watchlistNote,
+      'Your watchlist is empty. Add a title from Discover to track it here.',
       (data.watchlist || []).length ? `${data.watchlist.length} titles` : ''
     );
     renderCollections(data.collections || []);
@@ -2060,6 +2090,10 @@ document.getElementById('hero-add-btn').addEventListener('click', () => {
   addDiscoverHeroItem();
 });
 
+document.getElementById('hero-watchlist-btn').addEventListener('click', () => {
+  toggleWatchlist();
+});
+
 document.getElementById('hero-add-missing-btn').addEventListener('click', () => {
   addDiscoverHeroItem();
 });
@@ -2471,6 +2505,7 @@ function openHeroFromItem(item, el, isLibraryItem, options = {}) {
   const libraryActions = document.getElementById('hero-library-actions');
   const libraryStatus = document.getElementById('hero-library-status');
   const addBtn = document.getElementById('hero-add-btn');
+  const watchlistBtn = document.getElementById('hero-watchlist-btn');
   const retryBtn = document.getElementById('hero-retry-download-btn');
   const addMissingBtn = document.getElementById('hero-add-missing-btn');
 
@@ -2514,6 +2549,9 @@ function openHeroFromItem(item, el, isLibraryItem, options = {}) {
     discoverStatus.textContent = '';
     libraryStatus.textContent = '';
     addBtn.disabled = false;
+    watchlistBtn.style.display = item.tmdb_id ? 'inline-block' : 'none';
+    watchlistBtn.disabled = false;
+    watchlistBtn.textContent = item.in_watchlist ? '✓ In Watchlist' : '+ Watchlist';
   }
 
   // Background blur

@@ -113,6 +113,22 @@ CREATE TABLE IF NOT EXISTS discover_watchlist_cache (
     fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- F-0208.02: a first-party "want to watch" list, not synced from anywhere —
+-- added and removed directly, unlike discover_watchlist_cache above which is
+-- only ever a cache of what Trakt already says. Keyed on (tmdb_id,
+-- media_type) rather than imdb_id since that is what the Discover hero
+-- already identifies a title by, before an imdb_id is necessarily known.
+CREATE TABLE IF NOT EXISTS watchlist_items (
+    tmdb_id INTEGER NOT NULL,
+    media_type TEXT NOT NULL,
+    imdb_id TEXT,
+    title TEXT,
+    year INTEGER,
+    poster_url TEXT,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tmdb_id, media_type)
+);
+
 CREATE TABLE IF NOT EXISTS playback_positions (
     media_item_id INTEGER NOT NULL,
     episode_key TEXT NOT NULL DEFAULT '',
@@ -802,6 +818,56 @@ class Storage:
                     if entry.get('imdb_id')
                 ],
             )
+
+    def add_to_watchlist(
+        self,
+        *,
+        tmdb_id: int,
+        media_type: str,
+        imdb_id: str | None = None,
+        title: str | None = None,
+        year: int | None = None,
+        poster_url: str | None = None,
+    ) -> None:
+        with self.conn() as c:
+            c.execute(
+                """
+                INSERT INTO watchlist_items (tmdb_id, media_type, imdb_id, title, year, poster_url)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(tmdb_id, media_type) DO UPDATE SET
+                    imdb_id=excluded.imdb_id,
+                    title=excluded.title,
+                    year=excluded.year,
+                    poster_url=excluded.poster_url
+                """,
+                (tmdb_id, media_type, imdb_id, title, year, poster_url),
+            )
+
+    def remove_from_watchlist(self, tmdb_id: int, media_type: str) -> None:
+        with self.conn() as c:
+            c.execute(
+                'DELETE FROM watchlist_items WHERE tmdb_id = ? AND media_type = ?',
+                (tmdb_id, media_type),
+            )
+
+    def list_watchlist(self) -> list[dict]:
+        with self.conn() as c:
+            rows = c.execute(
+                """
+                SELECT tmdb_id, media_type, imdb_id, title, year, poster_url, added_at
+                FROM watchlist_items
+                ORDER BY added_at DESC
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def is_in_watchlist(self, tmdb_id: int, media_type: str) -> bool:
+        with self.conn() as c:
+            row = c.execute(
+                'SELECT 1 FROM watchlist_items WHERE tmdb_id = ? AND media_type = ?',
+                (tmdb_id, media_type),
+            ).fetchone()
+        return row is not None
 
     def get_setting(self, key: str) -> str | None:
         with self.conn() as c:

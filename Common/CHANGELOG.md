@@ -2,6 +2,14 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.1.9 - 2026-08-08
+
+- Added a local watchlist (F-0208.02). Discover's "Your Watchlist" strip is
+  no longer read from Trakt — open any title from Discover and use the new
+  "+ Watchlist" button on its hero to add or remove it. Adding a title to
+  your library takes it off the watchlist automatically, since you don't
+  need to be reminded to watch something you already own.
+
 ## v0.1.8 - 2026-08-08
 
 - Added a Main torrent URL setting (Settings → Downloads → Torrent settings),
