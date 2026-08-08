@@ -2,6 +2,11 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.1.7 - 2026-08-08
+
+- Moved the favourite heart off the poster and onto the title, next to the
+  chips, so it no longer sits over the artwork (F-0108.05).
+
 ## v0.1.6 - 2026-08-08
 
 - Favouriting or unfavouriting a title from the hero now shows up immediately.

@@ -215,7 +215,9 @@
       font-size: 3.5rem; font-weight: 800; color: rgba(240,230,255,0.15);
     }
     .hero-details { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+    .hero-title-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .hero-title {
+      flex: 1; min-width: 0;
       font-size: 2rem; font-weight: 800; line-height: 1.15;
       color: var(--text); text-shadow: 0 0 24px var(--pink-glow);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -527,7 +529,7 @@
     .info-card.clickable:hover { border-color: var(--pink); background: rgba(255,100,200,0.08); }
 
     .hero-fav-form {
-      position: absolute; top: 8px; right: 8px; z-index: 5; display: none;
+      flex-shrink: 0; display: none;
     }
     .hero-fav-btn {
       background: rgba(11,9,25,0.75); border: 1px solid rgba(212,0,107,.55);
@@ -933,12 +935,14 @@
       <div class="hero-poster">
         <img id="hero-poster-img" src="" alt="" style="display:none">
         <div id="hero-poster-ph" class="hero-poster-ph"></div>
-        <form id="hero-fav-form" method="post" class="hero-fav-form">
-          <button id="hero-fav-btn" type="submit" class="hero-fav-btn" aria-label="Toggle favourite" title="Toggle favourite">&#9825;</button>
-        </form>
       </div>
       <div class="hero-details">
-        <h2 id="hero-title" class="hero-title"></h2>
+        <div class="hero-title-row">
+          <h2 id="hero-title" class="hero-title"></h2>
+          <form id="hero-fav-form" method="post" class="hero-fav-form">
+            <button id="hero-fav-btn" type="submit" class="hero-fav-btn" aria-label="Toggle favourite" title="Toggle favourite">&#9825;</button>
+          </form>
+        </div>
         <div class="hero-chips">
           <span id="hero-chip-year"    class="chip chip-year"></span>
           <span id="hero-chip-type"    class="chip chip-type"></span>
