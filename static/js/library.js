@@ -2201,6 +2201,42 @@ function showToast(message, variant = 'success', timeoutMs = 2400) {
   }, timeoutMs);
 }
 
+// The Favourites grid and its nav-count are rendered once from the server at
+// page load into LIBRARY_SECTION_ITEMS.favourites; toggling a favourite from
+// the hero never touched either, so both stayed stale until a full reload.
+function updateFavouritesSection(itemId, isFavourite) {
+  const list = LIBRARY_SECTION_ITEMS.favourites;
+  const idx = list.indexOf(itemId);
+  if (isFavourite) {
+    if (idx === -1) list.push(itemId);
+  } else if (idx !== -1) {
+    list.splice(idx, 1);
+  } else {
+    return;
+  }
+
+  const countEl = document.querySelector('#nav-favourites .nav-count');
+  if (countEl) countEl.textContent = String(list.length);
+
+  const section = document.getElementById('section-favourites');
+  if (!section) return;
+  let grid = document.getElementById('media-grid-favourites');
+  if (!grid && list.length) {
+    grid = document.createElement('div');
+    grid.id = 'media-grid-favourites';
+    grid.className = 'media-grid';
+    const emptyState = section.querySelector('.empty-state');
+    if (emptyState) emptyState.replaceWith(grid); else section.prepend(grid);
+  }
+  if (grid) renderLibrarySection('favourites');
+  if (grid && !list.length) {
+    const emptyState = document.createElement('div');
+    emptyState.className = 'empty-state';
+    emptyState.innerHTML = '<strong>No favourites yet</strong>Select a title and click the heart to add it.';
+    grid.replaceWith(emptyState);
+  }
+}
+
 document.getElementById('hero-fav-form').addEventListener('submit', async event => {
   event.preventDefault();
   if (HERO_STATE.source !== 'library' || !HERO_STATE.item || !HERO_STATE.item.id) return;
@@ -2224,8 +2260,9 @@ document.getElementById('hero-fav-form').addEventListener('submit', async event 
     const merged = { ...(ITEMS[itemId] || HERO_STATE.item), ...payload.item };
     ITEMS[itemId] = merged;
     HERO_STATE.item = merged;
+    updateFavouritesSection(itemId, !!merged.favourite);
     const card = document.getElementById('card-' + itemId);
-    openHeroFromItem(merged, card, true);
+    openHeroFromItem(merged, card, true, { suppressToggle: true });
     showToast(merged.favourite ? 'Added to favourites.' : 'Removed from favourites.');
   } catch (_error) {
     showToast('Unable to update favourite right now.', 'error');

@@ -2,6 +2,13 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.1.6 - 2026-08-08
+
+- Favouriting or unfavouriting a title from the hero now shows up immediately.
+  Two things used to lag behind a page reload: the heart icon itself stayed
+  unfilled until the hero was reopened, and the Favourites tab (and its count)
+  didn't gain or lose the title until the page was refreshed.
+
 ## v0.1.5 - 2026-08-02
 
 - The Settings page is now grouped into five collapsible sections — Library,
