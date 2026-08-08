@@ -29,7 +29,14 @@ import os
 import re
 
 from medialibrary.episode_match import is_extras_path, match_episode_title
-from medialibrary.identify import _episodes_covered, scan_local_episodes
+from medialibrary.identify import (
+    _SEASON_DIR_EXACT,
+    _SPECIALS_DIR,
+    VIDEO_EXTENSIONS,
+    _episodes_covered,
+    _infer_season_from_path,
+    scan_local_episodes,
+)
 from medialibrary.naming import sanitize_title
 from medialibrary.rename_plan import ACTIVE_DOWNLOAD_STATES, entry_key
 from medialibrary.subtitles import SUBTITLE_EXTENSIONS
@@ -90,6 +97,21 @@ def title_from_filename(filename: str) -> str:
     return re.sub(r'[\s\-_]+$', '', tail).strip()
 
 
+def _below_season_folder(path: str) -> str:
+    """The part of a path below its deepest season-naming folder.
+
+    ".../Featurettes/Season 6/The Cast's Favourite Scenes/Kate A.mkv" gives
+    "The Cast's Favourite Scenes/Kate A.mkv", so the grouping survives the
+    move. Flattening to the basename would collide — Wentworth has a
+    "Kate A.mkv" under more than one season's featurettes folder.
+    """
+    parts = os.path.normpath(path).split(os.sep)
+    for index in range(len(parts) - 2, -1, -1):
+        if _SEASON_DIR_EXACT.match(parts[index]) or _SPECIALS_DIR.match(parts[index]):
+            return os.path.join(*parts[index + 1:])
+    return os.path.basename(path)
+
+
 def _subtitle_suffix(stem: str) -> str:
     parts = stem.replace('_', '.').split('.')
     if len(parts) > 1 and parts[-1].lower() in _SUBTITLE_SUFFIXES:
@@ -145,6 +167,7 @@ def plan_show_renames(item: dict, preset, tmdb_titles: dict, tmdb_episodes: list
         'show': show_title,
         'episodes': [],
         'subtitles': [],
+        'strays': [],
         'manual': [],
         'trusted': False,
         'trust_reason': '',
@@ -169,8 +192,12 @@ def plan_show_renames(item: dict, preset, tmdb_titles: dict, tmdb_episodes: list
     # folder itself is the title-level job in `rename_plan`, applied after
     # these, so the paths here stay valid while they move.
     final_for: dict[tuple[int, int], str] = {}
+    # Every file this plan already accounts for, renamed or already correct.
+    # Whatever is left over is what the stray sweep below is allowed to move.
+    handled: set[str] = set()
 
     for path, covered in _episode_targets(marked).items():
+        handled.add(entry_key(path))
         season, first = covered[0]
         last = covered[-1][1]
         on_disk_title = title_from_filename(os.path.basename(path))
@@ -227,6 +254,7 @@ def plan_show_renames(item: dict, preset, tmdb_titles: dict, tmdb_episodes: list
             if not episode_target:
                 continue
             source = os.path.join(root, name)
+            handled.add(entry_key(source))
             stem = os.path.splitext(os.path.basename(episode_target))[0]
             suffix = _subtitle_suffix(os.path.splitext(name)[0])
             target = os.path.join(
@@ -248,6 +276,64 @@ def plan_show_renames(item: dict, preset, tmdb_titles: dict, tmdb_episodes: list
                     'to_name': os.path.relpath(target, show_path),
                     'title_source': 'sidecar',
                     'conflict': os.path.exists(target) and entry_key(target) != entry_key(source),
+                }
+            )
+
+    # F-0808.03: everything else stranded in a season folder that the canonical
+    # one supersedes — featurettes, artwork, .nfo, waveform caches. These are
+    # what keeps a duplicate "Season 1" alive beside "Season 01", and gathering
+    # them is what finally empties it.
+    #
+    # No identity is inferred here: which season a file belongs to comes from
+    # the folder it is already sitting in, never from its name or from TMDB, so
+    # none of the risk that shaped the episode rules applies.
+    for root, _dirs, files in os.walk(show_path):
+        for name in files:
+            path = os.path.join(root, name)
+            if entry_key(path) in handled:
+                continue
+            season = _infer_season_from_path(show_path, path)
+            if season is None:
+                continue  # a show-wide extra belongs to no season; leave it be
+            season_folder = os.path.join(show_path, preset.season_folder_name(season))
+            if os.path.normcase(root).startswith(os.path.normcase(season_folder)):
+                continue  # already where it should be
+
+            relative = os.path.relpath(path, show_path)
+            extension = os.path.splitext(name)[1].lower()
+            is_video = extension in VIDEO_EXTENSIONS
+            if is_video and not is_extras_path(relative):
+                # A video with no marker that nothing has filed as bonus
+                # material may be an episode this tool could not identify.
+                # Moving it under Featurettes would hide it from the episode
+                # scanner and read as the episode having gone missing, so it
+                # stays where it is and the manual list reports it instead.
+                continue
+
+            # Bonus video goes under Featurettes so it is never mistaken for an
+            # episode; a sidecar (.nfo, artwork) belongs beside the episodes.
+            below = _below_season_folder(path)
+            target = (
+                os.path.join(season_folder, 'Featurettes', below)
+                if is_video
+                else os.path.join(season_folder, below)
+            )
+            if entry_key(path) == entry_key(target):
+                continue
+            result['strays'].append(
+                {
+                    'kind': 'stray',
+                    'key': entry_key(path),
+                    'media_id': int(item['id']),
+                    'show': show_title,
+                    'season': season,
+                    'episode': 0,
+                    'from': path,
+                    'to': target,
+                    'from_name': os.path.relpath(path, show_path),
+                    'to_name': os.path.relpath(target, show_path),
+                    'title_source': 'folder',
+                    'conflict': os.path.exists(target) and entry_key(target) != entry_key(path),
                 }
             )
 
@@ -297,10 +383,14 @@ def plan_tv_renames(store, preset, episode_titles_for, episodes_for) -> dict:
             episode_titles_for(item['tmdb_id']),
             episodes_for(item['tmdb_id']),
         )
-        if plan['episodes'] or plan['subtitles'] or plan['manual']:
+        if plan['episodes'] or plan['subtitles'] or plan['strays'] or plan['manual']:
             shows.append(plan)
 
-    entries = [entry for show in shows for entry in show['episodes'] + show['subtitles']]
+    entries = [
+        entry
+        for show in shows
+        for entry in show['episodes'] + show['subtitles'] + show['strays']
+    ]
 
     # Two files planned onto one name means an identification is wrong. Refuse
     # both rather than letting the first win and the second fail.
@@ -330,7 +420,7 @@ def plan_tv_renames(store, preset, episode_titles_for, episodes_for) -> dict:
 
 def apply_tv_renames(plan: dict, selected_keys: set[str] | None = None) -> dict:
     """Rename the chosen entries. Episodes before subtitles, so a sidecar's
-    destination folder exists by the time it moves.
+    destination folder exists by the time it moves, and strays last.
 
     No database write: an episode lives inside the show's folder, which is
     what `media_items.path` records, and that does not change here.
@@ -339,8 +429,10 @@ def apply_tv_renames(plan: dict, selected_keys: set[str] | None = None) -> dict:
     failed: list[dict] = []
     skipped_conflict = 0
 
-    entries = [entry for show in plan.get('shows') or [] for entry in show['episodes']]
-    entries += [entry for show in plan.get('shows') or [] for entry in show['subtitles']]
+    shows = plan.get('shows') or []
+    entries = [entry for show in shows for entry in show['episodes']]
+    entries += [entry for show in shows for entry in show['subtitles']]
+    entries += [entry for show in shows for entry in show.get('strays') or []]
 
     for entry in entries:
         if selected_keys is not None and entry['key'] not in selected_keys:

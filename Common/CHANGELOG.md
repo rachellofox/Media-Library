@@ -2,6 +2,18 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.2.3 - 2026-08-08
+
+- Tools → TV Shows now also gathers stray files into the canonical season
+  folder (F-0808.03). Featurettes, artwork, `.nfo` files and the like left in
+  a duplicate season folder — "Season 1" sitting beside "Season 01" — are
+  offered for moving into the right one, which is what finally empties the
+  duplicate. Grouping below the season folder is kept, so a "Deleted Scenes"
+  folder stays a "Deleted Scenes" folder. Bonus video lands under
+  "Featurettes" so it is never mistaken for an episode; a video with no
+  episode number that is not already filed as bonus material is left where it
+  is and reported instead, since moving it could hide a real episode.
+
 ## v0.2.2 - 2026-08-08
 
 - The Tools rename tool is now split into **Movies** and **TV Shows**, with a

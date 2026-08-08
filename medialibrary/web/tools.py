@@ -169,6 +169,7 @@ def tools_tv_rename_preview():
                     'trust_reason': show['trust_reason'],
                     'episodes': [_serializable(entry) for entry in show['episodes']],
                     'subtitles': [_serializable(entry) for entry in show['subtitles']],
+                    'strays': [_serializable(entry) for entry in show['strays']],
                     'manual': show['manual'],
                 }
                 for show in plan['shows']

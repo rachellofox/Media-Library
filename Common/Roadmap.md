@@ -57,7 +57,6 @@ Something the app does not do yet.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| F-0808.03 | Gather stray bonus files into their canonical season folder — the last thing `scripts/_plan_tv_naming.py` does that the Tools section does not | Follow-up to F-0808.02 | P3 | Proposed |
 
 ## Library
 
@@ -77,12 +76,3 @@ was raised — see the note at the top of this file.
 
 Only where a row needs more than its title. Anything much longer than a paragraph
 is a sign it should be worked on rather than described.
-
-### F-0808.03 — gather stray bonus files into the canonical season folder
-
-`scripts/_plan_tv_naming.py` also moves featurettes, artwork and `.nfo` files
-out of superseded season folders ("Season 1" beside "Season 01") and into the
-canonical one, which is what stops a show keeping two folders for one season.
-The Tools section does not do that yet — it renames episodes and their
-subtitles only. Worth lifting, and safe to: it moves non-episode files by
-folder, so none of the episode-identity risk that shaped F-0808.02 applies.

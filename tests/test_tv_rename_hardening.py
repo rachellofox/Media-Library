@@ -210,6 +210,80 @@ check(
     kodi['episodes'][0]['to_name'],
 )
 
+print('\n=== 11. Strays: a sidecar in a superseded season folder is gathered ===')
+tv = setup()
+show_path = os.path.join(tv, 'Stray Show')
+make(os.path.join(show_path, 'Season 01', 'Stray Show - S01E01 - One.mkv'))
+make(os.path.join(show_path, 'Season 1', 'poster.jpg'))  # duplicate, non-canonical folder
+item = add_show('Stray Show', 2020, show_path, 'tt2000010')
+plan = plan_show_renames(item, HOUSE, {(1, 1): 'One'}, [])
+check('the sidecar is planned', len(plan['strays']) == 1, plan['strays'])
+check(
+    'into the canonical season folder',
+    plan['strays'][0]['to_name'] == os.path.join('Season 01', 'poster.jpg'),
+    plan['strays'][0]['to_name'],
+)
+
+print('\n=== 12. Strays: bonus video keeps its grouping and lands under Featurettes ===')
+tv = setup()
+show_path = os.path.join(tv, 'Bonus Show')
+make(os.path.join(show_path, 'Season 01', 'Bonus Show - S01E01 - One.mkv'))
+make(os.path.join(show_path, 'Featurettes', 'Season 1', 'Deleted Scenes', 'A Scene.mkv'))
+item = add_show('Bonus Show', 2020, show_path, 'tt2000011')
+plan = plan_show_renames(item, HOUSE, {(1, 1): 'One'}, [])
+check('the bonus video is planned', len(plan['strays']) == 1, plan['strays'])
+check(
+    'under Featurettes, with the grouping kept',
+    plan['strays'][0]['to_name']
+    == os.path.join('Season 01', 'Featurettes', 'Deleted Scenes', 'A Scene.mkv'),
+    plan['strays'][0]['to_name'],
+)
+
+print('\n=== 13. Strays never swallow a video that might be an episode ===')
+tv = setup()
+show_path = os.path.join(tv, 'Unknown Show')
+make(os.path.join(show_path, 'Season 01', 'Unknown Show - S01E01 - One.mkv'))
+make(os.path.join(show_path, 'Season 1', 'mystery episode.mkv'))  # no marker, not extras
+item = add_show('Unknown Show', 2020, show_path, 'tt2000012')
+plan = plan_show_renames(item, HOUSE, {(1, 1): 'One'}, [])
+check(
+    'it is not moved under Featurettes',
+    all('mystery' not in entry['from_name'] for entry in plan['strays']),
+    plan['strays'],
+)
+check(
+    'it is reported for manual attention instead',
+    any('mystery' in entry['file'] for entry in plan['manual']),
+    plan['manual'],
+)
+
+print('\n=== 14. Strays: already-canonical placement and show-wide extras are left alone ===')
+tv = setup()
+show_path = os.path.join(tv, 'Settled Show')
+make(os.path.join(show_path, 'Season 01', 'Settled Show - S01E01 - One.mkv'))
+make(os.path.join(show_path, 'Season 01', 'poster.jpg'))  # already in the right place
+make(os.path.join(show_path, 'Extras', 'Cast Interview.mkv'))  # belongs to no season
+item = add_show('Settled Show', 2020, show_path, 'tt2000013')
+plan = plan_show_renames(item, HOUSE, {(1, 1): 'One'}, [])
+check('nothing is gathered', plan['strays'] == [], plan['strays'])
+
+print('\n=== 15. Strays: an occupied destination is refused, and applying moves the rest ===')
+tv = setup()
+show_path = os.path.join(tv, 'Clash Show')
+make(os.path.join(show_path, 'Season 01', 'Clash Show - S01E01 - One.mkv'))
+make(os.path.join(show_path, 'Season 01', 'poster.jpg'))  # the blocker
+make(os.path.join(show_path, 'Season 1', 'poster.jpg'))  # wants the same name
+make(os.path.join(show_path, 'Season 1', 'fanart.jpg'))  # free to move
+item = add_show('Clash Show', 2020, show_path, 'tt2000014')
+plan = plan_show_renames(item, HOUSE, {(1, 1): 'One'}, [])
+blocked = [entry for entry in plan['strays'] if entry['conflict']]
+check('the clash is flagged', len(blocked) == 1, plan['strays'])
+result = apply_tv_renames({'shows': [plan]})
+check('the free one moved', os.path.isfile(os.path.join(show_path, 'Season 01', 'fanart.jpg')))
+stayed = os.path.join(show_path, 'Season 1', 'poster.jpg')
+check('the blocked one stayed put', os.path.isfile(stayed), stayed)
+check('and was counted as skipped', result['skipped_conflict'] == 1, result)
+
 print(f'\npassed {len(PASS)}   failed {len(FAIL)}')
 if FAIL:
     print('FAILED: ' + ', '.join(FAIL))

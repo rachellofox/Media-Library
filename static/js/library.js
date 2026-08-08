@@ -776,7 +776,9 @@ function renameRowMarkup(entry) {
   const conflict = entry.conflict
     ? '<div class="rename-note">Skipped — something already has that name.</div>'
     : '';
-  const context = entry.folder ? ` <span style="opacity:.7">in ${escHtml(entry.folder)}</span>` : '';
+  const context = entry.kind === 'stray'
+    ? ' <span style="opacity:.7">— gathered into the canonical season folder</span>'
+    : (entry.folder ? ` <span style="opacity:.7">in ${escHtml(entry.folder)}</span>` : '');
   return `
     <label class="rename-row${entry.conflict ? ' is-conflict' : ''}">
       <input type="checkbox" data-rename-key="${escAttr(entry.key)}"${entry.conflict ? ' disabled' : ''}>
@@ -860,7 +862,7 @@ async function loadTvRenamePreviewOnce(force = false) {
         + data.folders.map(renameRowMarkup).join(''));
     }
     (data.shows || []).forEach(show => {
-      const rows = show.episodes.concat(show.subtitles);
+      const rows = show.episodes.concat(show.subtitles, show.strays || []);
       if (!rows.length && !show.manual.length) return;
       // Saying why a show is untrusted matters more than that it is: it is the
       // difference between "nothing to do" and "we refused to guess here".
