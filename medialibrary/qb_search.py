@@ -5,9 +5,9 @@ import urllib.request
 
 from medialibrary.quality import compare_quality, detect_quality
 
+DEFAULT_MAIN_URL = 'https://kickasstorrents.to'
 DEFAULT_MIRROR_URLS = [
     'https://kickasstorrents.bz',
-    'https://kickasstorrents.to',
     'https://kickasstorrents.cr',
 ]
 
@@ -218,7 +218,9 @@ class QBSearch:
 
 
 def configured_mirror_urls() -> list[str]:
-    """Mirrors to search: the configured list, or the defaults if none is set.
+    """Fallback mirrors only, not the main URL: what the Settings page's
+    Mirrors textarea shows and saves. The configured list, or the defaults
+    if none is set.
 
     Lives here rather than in the application because both the routes and the
     request handlers need it, and a route module importing `app` would be
@@ -230,3 +232,27 @@ def configured_mirror_urls() -> list[str]:
     raw = runtime.store().get_setting('mirror_urls') or ''
     urls = [line.strip() for line in raw.splitlines() if line.strip()]
     return urls or list(DEFAULT_MIRROR_URLS)
+
+
+def configured_main_url() -> str:
+    """The primary torrent site: tried before any mirror. Configured value,
+    or the default if none is set.
+    """
+    from medialibrary import runtime
+
+    value = (runtime.store().get_setting('torrent_main_url') or '').strip().rstrip('/')
+    return value or DEFAULT_MAIN_URL
+
+
+def configured_search_urls() -> list[str]:
+    """What a search actually tries, in order: the main URL first, then the
+    mirrors as fallback if it fails. This is what feeds QBSearch.set_mirror_urls
+    before every search -- kept distinct from configured_mirror_urls(), which
+    stays mirrors-only so the Settings page can show that list without the
+    main URL mixed into it.
+    """
+    ordered = [configured_main_url()]
+    for url in configured_mirror_urls():
+        if url not in ordered:
+            ordered.append(url)
+    return ordered

@@ -22,7 +22,12 @@ from medialibrary.network import (
     _server_port,
 )
 from medialibrary.posters import _cache_meta_poster, cache_poster
-from medialibrary.qb_search import SearchEngineError, configured_mirror_urls
+from medialibrary.qb_search import (
+    SearchEngineError,
+    configured_main_url,
+    configured_mirror_urls,
+    configured_search_urls,
+)
 from medialibrary.quality import detect_quality_from_file
 from medialibrary.subtitles import _find_video_file, scan_subtitles
 from medialibrary.tmdb_state import _tmdb_api_key
@@ -79,6 +84,7 @@ def index():
     auth_username = _auth_username()
     auth_configured = _auth_configured()
     mirror_urls_text = '\n'.join(configured_mirror_urls())
+    main_url = configured_main_url()
     initial_section = request.args.get('section', 'movies')
     if initial_section not in {'discover', 'movies', 'tv', 'favourites', 'settings'}:
         initial_section = 'movies'
@@ -117,6 +123,7 @@ def index():
         status=request.args.get('status', ''),
         preferred_quality=preferred_quality,
         mirror_urls_text=mirror_urls_text,
+        main_url=main_url,
         initial_section=initial_section,
     )
 
@@ -197,7 +204,7 @@ def check_quality(media_id: int):
             return jsonify({'ok': False, 'error': 'not_a_movie'}), 400
         return redirect(url_for('core.index'))
 
-    runtime.qb().set_mirror_urls(configured_mirror_urls())
+    runtime.qb().set_mirror_urls(configured_search_urls())
     try:
         outcome = runtime.qb().check_for_higher_quality(
             title=item['title'],
@@ -381,7 +388,7 @@ def check_all():
         [i for i in all_items if i['media_type'] == media_type] if media_type else list(all_items)
     )
 
-    runtime.qb().set_mirror_urls(configured_mirror_urls())
+    runtime.qb().set_mirror_urls(configured_search_urls())
 
     checked = 0
     failed = 0

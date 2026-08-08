@@ -57,7 +57,6 @@ Something the app does not do yet.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
-| F-0108.08 | Choose between torrent mirrors and the underlying trackers — mirrors usually carry fewer results and fewer seeds | User need | P3 | Proposed |
 | F-0208.02 | Track a watchlist locally, not dependent on Trakt | User need | P2 | Proposed |
 
 ## Library
@@ -75,9 +74,7 @@ Every 0108 item carries the date this scheme started, not necessarily when it
 was raised — see the note at the top of this file. F-0208.02 is the first item
 with a genuine raise date: 2 August 2026.
 
-Priority for F-0108.08 was assumed, not given — adjust if wrong. Its ID and
-Status were also completed from a raw line that had neither. F-0208.02's
-priority (P2) is likewise assumed — it is proposed only, not approved for work.
+F-0208.02's priority (P2) is assumed — it is proposed only, not approved for work.
 
 ## Detail
 

@@ -25,7 +25,7 @@ from medialibrary.identify import (
     duplicate_episode_files,
     scan_local_episodes,
 )
-from medialibrary.qb_search import SearchEngineError, configured_mirror_urls
+from medialibrary.qb_search import SearchEngineError, configured_search_urls
 from medialibrary.quality import detect_quality
 
 bp = Blueprint('tv', __name__)
@@ -83,7 +83,7 @@ def tv_episode_candidates(media_id: int):
         f'{title} S{season:02d}E{episode:02d}' if episode is not None else f'{title} S{season:02d}'
     )
     try:
-        runtime.qb().set_mirror_urls(configured_mirror_urls())
+        runtime.qb().set_mirror_urls(configured_search_urls())
         rows = runtime.qb()._run_search(query)
     except SearchEngineError as exc:
         return jsonify({'ok': False, 'error': 'search_unavailable', 'detail': str(exc)}), 503

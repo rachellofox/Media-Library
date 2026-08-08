@@ -8,7 +8,7 @@ found" and "could not look" are different answers and were once the same bug.
 
 from medialibrary import runtime
 from medialibrary.config import TRUSTED_RELEASE_GROUPS
-from medialibrary.qb_search import configured_mirror_urls
+from medialibrary.qb_search import configured_search_urls
 from medialibrary.quality import compare_quality, detect_quality
 
 
@@ -20,7 +20,7 @@ def _torrent_candidates_for(meta: dict, limit: int = 25) -> list[dict]:
     query = f'{title} {year}' if year else title
     # SearchEngineError is deliberately not caught here: an unreachable search
     # engine must not look like a title with no available releases.
-    runtime.qb().set_mirror_urls(configured_mirror_urls())
+    runtime.qb().set_mirror_urls(configured_search_urls())
     rows = runtime.qb()._run_search(query)
 
     candidates = []

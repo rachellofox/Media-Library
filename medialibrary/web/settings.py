@@ -19,7 +19,7 @@ from medialibrary import qbt, runtime
 from medialibrary.auth import _auth_password_hash, _auth_username
 from medialibrary.history_import import UnrecognisedFormat, parse_upload
 from medialibrary.importer import import_from_configured_folders
-from medialibrary.qb_search import configured_mirror_urls
+from medialibrary.qb_search import configured_search_urls
 from medialibrary.qbt import _extract_btih_hash, _sanitize_qbt_webui_url
 from medialibrary.settings_util import _load_json_setting, _save_json_setting, _utc_now
 from medialibrary.tmdb_client import TmdbClient
@@ -56,6 +56,7 @@ def save_settings():
     auth_username_raw = request.form.get('auth_username')
     auth_password_raw = request.form.get('auth_password')
     auth_password_confirm = request.form.get('auth_password_confirm')
+    torrent_main_url_raw = request.form.get('torrent_main_url')
     mirror_urls_raw = request.form.get('mirror_urls')
     qbt_webui_url_raw = request.form.get('qbt_webui_url')
     tmdb_api_key_raw = request.form.get('tmdb_api_key')
@@ -119,6 +120,8 @@ def save_settings():
         if port is not None:
             runtime.store().set_setting('server_port', str(port))
         return redirect(url_for('core.index', section='settings', status='public_access_saved'))
+    if torrent_main_url_raw is not None:
+        runtime.store().set_setting('torrent_main_url', torrent_main_url_raw.strip().rstrip('/'))
     if mirror_urls_raw is not None:
         mirror_urls = [
             line.strip().rstrip('/') for line in mirror_urls_raw.splitlines() if line.strip()
@@ -151,7 +154,7 @@ def save_settings():
     if changed_client_id or changed_client_secret:
         _clear_trakt_auth()
 
-    runtime.qb().set_mirror_urls(configured_mirror_urls())
+    runtime.qb().set_mirror_urls(configured_search_urls())
     new_movies = (runtime.store().get_setting('movies_path') or '').strip()
     new_tv = (runtime.store().get_setting('tv_path') or '').strip()
     if new_movies != prev_movies or new_tv != prev_tv:

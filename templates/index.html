@@ -1345,8 +1345,15 @@
           <div class="settings-subtitle" style="margin-top:0"><span>Torrent settings</span></div>
           <form action="/settings" method="post">
             <div class="settings-grid" style="margin-bottom:8px;">
+              <label for="torrent_main_url">Main torrent URL</label>
+              <input type="text" id="torrent_main_url" name="torrent_main_url" value="{{ main_url }}" placeholder="https://kickasstorrents.to">
               <label for="mirror_urls">Mirrors</label>
               <textarea id="mirror_urls" name="mirror_urls" placeholder="One mirror URL per line">{{ mirror_urls_text }}</textarea>
+              <span></span>
+              <p class="settings-note" style="margin:0 0 4px;">
+                Every search tries the main URL first. Mirrors are only used
+                as a fallback, in order, if the main URL cannot be reached.
+              </p>
               <span></span>
               <div>
                 <button type="submit" class="btn-save">Save settings</button>

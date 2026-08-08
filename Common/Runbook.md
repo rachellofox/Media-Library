@@ -444,11 +444,15 @@ Use this when the higher-quality search stops returning results or starts return
 
 ### Current Failsafe Behavior
 
-- Mirror URLs are configured in the app Settings screen and synced into the qBittorrent engine file before searches run.
-- The plugin tries mirrors in order from `MIRROR_URLS` in the engine file.
-- It keeps the first mirror that returns parseable search rows.
-- Detail-page magnet resolution also retries across mirrors.
-- Keep the most reliable mirror first in the UI mirror list.
+- The main torrent URL and the mirrors are both configured in the app Settings
+  screen (Downloads → Torrent settings) and synced into the qBittorrent engine
+  file's `MIRROR_URLS` before searches run, main URL first, then mirrors in
+  the order they're listed.
+- The plugin tries `MIRROR_URLS` in that order and keeps the first one that
+  returns parseable search rows — so the main URL is always tried before any
+  mirror, and a mirror is only used if the main URL fails.
+- Detail-page magnet resolution also retries across the same ordered list.
+- Keep the most reliable fallback mirror first in the UI mirrors list.
 
 ### Validation Commands
 
@@ -469,8 +473,10 @@ Expected signals:
 ### If Search Breaks Again
 
 1. Check the plugin log for which mirror was tried and whether `parsed_rows=0` on every page.
-2. Open the mirror manually in a browser and confirm `/usearch/<query>/` shows real result rows.
-3. If one mirror works in the browser, move it to the top of `MIRROR_URLS`.
+2. Open the site manually in a browser and confirm `/usearch/<query>/` shows real result rows.
+3. If the main URL is down but a mirror works, set that mirror as the Main
+   torrent URL in Settings rather than reordering the Mirrors list — the main
+   URL is always tried first regardless of mirror order.
 4. If detail pages load but downloads fail, inspect whether magnets are still wrapped and update the unwrap regex if needed.
 5. Re-run the validation commands above before touching app code.
 

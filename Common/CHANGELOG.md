@@ -2,6 +2,14 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.1.8 - 2026-08-08
+
+- Added a Main torrent URL setting (Settings → Downloads → Torrent settings),
+  tried before the Mirrors list on every search. Mirrors are now purely a
+  fallback for when the main URL can't be reached, rather than an ordered
+  list you had to keep the working domain at the top of yourself
+  (F-0108.08). Defaults to kickasstorrents.to.
+
 ## v0.1.7 - 2026-08-08
 
 - Moved the favourite heart off the poster and onto the title, next to the
