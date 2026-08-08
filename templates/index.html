@@ -816,6 +816,26 @@
       font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
       color: var(--text);
     }
+    .rename-list { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
+    .rename-group-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--text-muted); margin: 10px 0 4px;
+    }
+    .rename-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      border: 1px solid var(--border); background: var(--surface2); padding: 8px 10px;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .rename-row input[type="checkbox"] {
+      width: 15px; height: 15px; accent-color: var(--cyan); cursor: pointer; margin-top: 2px;
+      flex-shrink: 0;
+    }
+    .rename-row.is-conflict { border-color: var(--amber); }
+    .rename-names { min-width: 0; flex: 1; }
+    .rename-from { color: var(--text-muted); word-break: break-all; }
+    .rename-to { color: var(--text); word-break: break-all; }
+    .rename-to::before { content: '\2192  '; color: var(--cyan); }
+    .rename-note { color: var(--amber); font-size: 11px; margin-top: 2px; }
     .ignored-list { display: flex; flex-direction: column; gap: 8px; }
     .ignored-item {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -870,6 +890,9 @@
     <button class="nav-item" id="nav-favourites" onclick="showSection('favourites')">
       Favourites
       <span class="nav-count">{{ favourites|length }}</span>
+    </button>
+    <button class="nav-item" id="nav-tools" onclick="showSection('tools')">
+      Tools
     </button>
     <button class="nav-item" id="nav-settings" onclick="showSection('settings')">
       Settings
@@ -1185,6 +1208,51 @@
   </div>
   {% endfor %}
 
+  <!-- Tools section -->
+  <div id="section-tools" class="settings-content">
+    <div class="settings-section">
+      <div class="settings-title">Tools</div>
+
+      <div class="settings-block">
+        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Library Scans</span></div>
+        <p class="settings-note" style="margin-top:0;margin-bottom:10px;">
+          Read the library and update what is recorded about it. None of these
+          rename, move or delete anything.
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          {% if movies_path or tv_path %}
+          <form action="/sync-library" method="post" data-bulk-label="Scanning library folders for new titles"><button type="submit" class="settings-inline-btn">Scan folders</button></form>
+          {% endif %}
+          <form action="/scan-quality" method="post" data-bulk-label="Scanning media quality"><button type="submit" class="settings-inline-btn">Scan media quality</button></form>
+          <form action="/scan-subtitles" method="post" data-bulk-label="Scanning subtitles"><button type="submit" class="settings-inline-btn">Scan subtitles</button></form>
+          <form action="/refresh-all" method="post" data-bulk-label="Refreshing metadata from TMDB"><button type="submit" class="settings-inline-btn">Refresh all metadata</button></form>
+        </div>
+      </div>
+
+      <div class="settings-block">
+        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;">
+          <span>Canonical Names</span>
+          <button type="button" id="rename-refresh-btn" class="settings-inline-btn">Refresh</button>
+        </div>
+        <p class="settings-note" style="margin-top:0;margin-bottom:10px;">
+          Folders and files whose names do not match the library's naming
+          scheme, which is built from the title and year stored for each entry.
+          Nothing is renamed until you tick it and choose Rename selected, and
+          nothing is ever deleted or overwritten. A title mid-download is left
+          out entirely.
+        </p>
+        <div id="rename-summary" class="settings-note" style="margin-top:0;margin-bottom:10px;">Loading…</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+          <button type="button" id="rename-select-all-btn" class="settings-inline-btn">Select all</button>
+          <button type="button" id="rename-select-none-btn" class="settings-inline-btn">Select none</button>
+          <button type="button" id="rename-apply-btn" class="btn-save" disabled>Rename selected</button>
+          <span id="rename-status" class="settings-note" style="margin:0;"></span>
+        </div>
+        <div id="rename-list" class="rename-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings section -->
   <div id="section-settings" class="settings-content">
     <div class="settings-section">
@@ -1223,17 +1291,6 @@
           </form>
         </div>
 
-        <div class="settings-block">
-          <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Bulk Actions</span></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            {% if movies_path or tv_path %}
-            <form action="/sync-library" method="post" data-bulk-label="Scanning library folders for new titles"><button type="submit" class="settings-inline-btn">Scan folders</button></form>
-            {% endif %}
-            <form action="/scan-quality" method="post" data-bulk-label="Scanning media quality"><button type="submit" class="settings-inline-btn">Scan media quality</button></form>
-            <form action="/scan-subtitles" method="post" data-bulk-label="Scanning subtitles"><button type="submit" class="settings-inline-btn">Scan subtitles</button></form>
-            <form action="/refresh-all" method="post" data-bulk-label="Refreshing metadata from TMDB"><button type="submit" class="settings-inline-btn">Refresh all metadata</button></form>
-          </div>
-        </div>
         </div>
       </div>
 
@@ -1555,6 +1612,7 @@
   const TMDB_CONFIGURED = {{ tmdb_api_configured | tojson }};
   const IGNORES_STATE = { loaded: false, loading: false };
   const HISTORY_SUMMARY_STATE = { loaded: false, loading: false };
+  const RENAME_STATE = { loaded: false, loading: false };
   const HERO_STATE = { source: 'library', item: null };
   const SUBTITLE_FETCH_INFLIGHT = new Set();
   const TORRENT_MODAL_STATE = { mediaId: null, title: '' };

@@ -57,6 +57,7 @@ Something the app does not do yet.
 
 | ID | Title | Source | Priority | Status |
 | -- | ----- | ------ | -------- | ------ |
+| F-0808.02 | Bring the per-episode TV renamer into the Tools section — it exists only as `scripts/_plan_tv_naming.py` | Follow-up to F-0808.01 | P3 | Proposed |
 
 ## Library
 
@@ -76,3 +77,12 @@ was raised — see the note at the top of this file.
 
 Only where a row needs more than its title. Anything much longer than a paragraph
 is a sign it should be worked on rather than described.
+
+### F-0808.02 — per-episode TV renaming in the Tools section
+
+F-0808.01 brought title-level renaming into Tools: library folders, and the
+video/subtitle files inside a movie folder. Episodes are named per episode
+rather than per show, so renaming them needs the TMDB episode list, episode
+matching and ordering resolution — all of which already exist in
+`scripts/_plan_tv_naming.py`, which is run by hand. Lifting that into a module
+behind the same preview/apply pair is the remaining half.

@@ -24,6 +24,7 @@ from medialibrary.web.core import bp as core_bp
 from medialibrary.web.discover import bp as discover_bp
 from medialibrary.web.library import bp as library_bp
 from medialibrary.web.settings import bp as settings_bp
+from medialibrary.web.tools import bp as tools_bp
 from medialibrary.web.tv import bp as tv_bp
 from medialibrary.web.video import bp as video_bp
 
@@ -313,6 +314,7 @@ app.register_blueprint(discover_bp)
 app.register_blueprint(library_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(settings_bp)
+app.register_blueprint(tools_bp)
 app.register_blueprint(core_bp)
 
 # Clean up old HLS cache on startup

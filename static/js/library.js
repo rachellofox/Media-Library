@@ -12,7 +12,7 @@ const LIBRARY_VIEW_STATE = {
 };
 
 // ── Section switching
-const SECTIONS = ['discover', 'movies', 'tv', 'favourites', 'settings'];
+const SECTIONS = ['discover', 'movies', 'tv', 'favourites', 'tools', 'settings'];
 const LAST_SECTION_KEY = 'media-library.last-section';
 
 function resolveInitialSection() {
@@ -45,6 +45,7 @@ function activateSection(name) {
     // Ignore storage issues.
   }
   if (name === 'discover') loadDiscoverOnce();
+  if (name === 'tools') loadRenamePreviewOnce();
   if (name === 'settings') { loadIgnoredItemsOnce(); loadHistorySummaryOnce(); }
 }
 
@@ -768,6 +769,120 @@ async function importHistoryFile() {
 }
 
 document.getElementById('history-import-btn').addEventListener('click', importHistoryFile);
+
+// ── Tools: canonical renames (F-0808.01)
+
+function renameRowMarkup(entry) {
+  const conflict = entry.conflict
+    ? '<div class="rename-note">Skipped — something already has that name.</div>'
+    : '';
+  const context = entry.folder ? ` <span style="opacity:.7">in ${escHtml(entry.folder)}</span>` : '';
+  return `
+    <label class="rename-row${entry.conflict ? ' is-conflict' : ''}">
+      <input type="checkbox" data-rename-key="${escAttr(entry.key)}"${entry.conflict ? ' disabled' : ''}>
+      <span class="rename-names">
+        <span class="rename-from">${escHtml(entry.from_name)}</span>${context}
+        <div class="rename-to">${escHtml(entry.to_name)}</div>
+        ${conflict}
+      </span>
+    </label>
+  `;
+}
+
+function syncRenameApplyButton() {
+  const button = document.getElementById('rename-apply-btn');
+  if (!button) return;
+  const checked = document.querySelectorAll('[data-rename-key]:checked').length;
+  button.disabled = checked === 0;
+  button.textContent = checked ? `Rename ${checked} selected` : 'Rename selected';
+}
+
+async function loadRenamePreviewOnce(force = false) {
+  if ((RENAME_STATE.loaded && !force) || RENAME_STATE.loading) return;
+  RENAME_STATE.loading = true;
+  const list = document.getElementById('rename-list');
+  const summary = document.getElementById('rename-summary');
+  try {
+    const response = await fetch('/api/tools/rename-preview', { headers: { 'Accept': 'application/json' } });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error('preview_failed');
+
+    const sections = [];
+    if (data.folders.length) {
+      sections.push('<div class="rename-group-title">Folders</div>'
+        + data.folders.map(renameRowMarkup).join(''));
+    }
+    if (data.files.length) {
+      sections.push('<div class="rename-group-title">Files</div>'
+        + data.files.map(renameRowMarkup).join(''));
+    }
+    list.innerHTML = sections.join('')
+      || '<div class="ignored-empty">Everything already matches the naming scheme.</div>';
+
+    const parts = [];
+    if (data.total) parts.push(`${data.total} name${data.total === 1 ? '' : 's'} differ from the scheme`);
+    if (data.blocked) parts.push(`${data.blocked} blocked by an existing name`);
+    if ((data.skipped || []).length) {
+      // Named rather than counted: "skipped" with no reason reads as a failure.
+      parts.push((data.skipped).map(s => `${s.title} (${s.reason})`).join(', ') + ' left out');
+    }
+    summary.textContent = parts.length ? parts.join(' · ') : 'Nothing to rename.';
+    RENAME_STATE.loaded = true;
+  } catch (_error) {
+    if (list) list.innerHTML = '';
+    if (summary) summary.textContent = 'Could not read the library right now.';
+  } finally {
+    RENAME_STATE.loading = false;
+    syncRenameApplyButton();
+  }
+}
+
+async function applySelectedRenames() {
+  const button = document.getElementById('rename-apply-btn');
+  const statusEl = document.getElementById('rename-status');
+  const keys = [...document.querySelectorAll('[data-rename-key]:checked')]
+    .map(box => box.dataset.renameKey);
+  if (!keys.length) return;
+
+  button.disabled = true;
+  statusEl.textContent = 'Renaming…';
+  try {
+    const response = await fetch('/api/tools/rename-apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ keys }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error('rename_failed');
+    const failed = (data.failed || []).length;
+    statusEl.textContent = `Renamed ${data.renamed}.`
+      + (failed ? ` ${failed} failed — ${data.failed[0].from}: ${data.failed[0].error}` : '')
+      + (data.skipped_conflict ? ` ${data.skipped_conflict} skipped as blocked.` : '');
+    showToast(`Renamed ${data.renamed} item${data.renamed === 1 ? '' : 's'}.`);
+    await loadRenamePreviewOnce(true);
+  } catch (_error) {
+    statusEl.textContent = 'Rename failed.';
+    showToast('Rename failed.', 'error');
+  } finally {
+    syncRenameApplyButton();
+  }
+}
+
+document.getElementById('rename-refresh-btn').addEventListener('click', () => {
+  loadRenamePreviewOnce(true);
+});
+document.getElementById('rename-apply-btn').addEventListener('click', applySelectedRenames);
+document.getElementById('rename-select-all-btn').addEventListener('click', () => {
+  document.querySelectorAll('[data-rename-key]:not(:disabled)').forEach(box => { box.checked = true; });
+  syncRenameApplyButton();
+});
+document.getElementById('rename-select-none-btn').addEventListener('click', () => {
+  document.querySelectorAll('[data-rename-key]').forEach(box => { box.checked = false; });
+  syncRenameApplyButton();
+});
+document.getElementById('rename-list').addEventListener('change', event => {
+  if (event.target.matches('[data-rename-key]')) syncRenameApplyButton();
+});
 
 function traktStatusMessage() {
   if (TRAKT_STATE.connected) {

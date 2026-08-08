@@ -2,6 +2,17 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.2.1 - 2026-08-08
+
+- Added a Tools section (F-0808.01). The library scans that used to sit under
+  Settings → Library → Bulk Actions — scan folders, media quality, subtitles,
+  refresh metadata — now live there, alongside a new canonical rename tool.
+  The rename tool lists every folder and file whose name doesn't match the
+  library's naming scheme and shows exactly what each would become; tick the
+  ones you want and choose Rename selected. Nothing is renamed until you pick
+  it, nothing is ever deleted or overwritten, a name that would collide with
+  an existing one is refused, and a title mid-download is left out entirely.
+
 ## v0.2.0 - 2026-08-08
 
 - Fixed a completed download getting stuck showing "downloading" at 100%

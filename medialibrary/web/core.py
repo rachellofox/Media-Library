@@ -86,7 +86,7 @@ def index():
     mirror_urls_text = '\n'.join(configured_mirror_urls())
     main_url = configured_main_url()
     initial_section = request.args.get('section', 'movies')
-    if initial_section not in {'discover', 'movies', 'tv', 'favourites', 'settings'}:
+    if initial_section not in {'discover', 'movies', 'tv', 'favourites', 'tools', 'settings'}:
         initial_section = 'movies'
 
     trakt = _trakt_context()
