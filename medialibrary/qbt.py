@@ -57,7 +57,19 @@ def _setting(key: str) -> str:
         return ''
 
 
-QBT_DONE_STATES = {'uploading', 'stalledup', 'seeding', 'pausedup', 'forcedup', 'checkingup'}
+QBT_DONE_STATES = {
+    'uploading',
+    'stalledup',
+    'seeding',
+    'pausedup',
+    'stoppedup',
+    'forcedup',
+    'checkingup',
+}
+# qBittorrent 5.0 renamed pausedDL/pausedUP to stoppedDL/stoppedUP (the
+# Stop/Start terminology change) but kept the old names for older installs
+# still running v4 — both are accepted so a finished download does not sit
+# reported as "downloading" forever depending on which version wrote it.
 
 
 def _torrent_is_complete(torrent: dict) -> bool:

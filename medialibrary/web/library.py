@@ -94,14 +94,7 @@ def library_download_progress(media_id: int):
             except Exception:
                 progress = 0.0
             qbt_state = (torrent.get('state') or '').lower()
-            done_states = {
-                'uploading',
-                'stalledup',
-                'seeding',
-                'pausedup',
-                'forcedup',
-                'checkingup',
-            }
+            done_states = qbt.QBT_DONE_STATES
             return jsonify(
                 {
                     'ok': True,

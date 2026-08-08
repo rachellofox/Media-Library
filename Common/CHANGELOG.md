@@ -2,6 +2,14 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.2.0 - 2026-08-08
+
+- Fixed a completed download getting stuck showing "downloading" at 100%
+  forever, found live on Hacks season 5 (B-0808.01). qBittorrent 5.0 renamed
+  its "paused" torrent states to "stopped"; this app only recognised the old
+  names, so a torrent that finished under qBittorrent 5 was never counted as
+  done. Both names are now recognised.
+
 ## v0.1.9 - 2026-08-08
 
 - Added a local watchlist (F-0208.02). Discover's "Your Watchlist" strip is
