@@ -816,6 +816,26 @@
       font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
       color: var(--text);
     }
+    .preset-list { display: flex; flex-direction: column; gap: 6px; }
+    .preset-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      border: 1px solid var(--border); background: var(--surface2); padding: 9px 11px;
+      font-size: 12px; color: var(--text-muted); cursor: pointer;
+    }
+    .preset-row.is-selected { border-color: var(--cyan); }
+    .preset-row input[type="radio"] { accent-color: var(--cyan); margin-top: 2px; flex-shrink: 0; }
+    .preset-label { color: var(--text); font-weight: 700; }
+    .preset-example { font-family: monospace; font-size: 11px; color: var(--text-muted); word-break: break-all; }
+    .rename-show-title {
+      font-size: 12px; font-weight: 700; color: var(--text); margin: 12px 0 4px;
+    }
+    .rename-untrusted {
+      color: var(--amber); font-size: 11px; font-weight: 400; margin-left: 6px;
+    }
+    .rename-manual {
+      border: 1px solid var(--amber); background: rgba(255,183,0,0.06);
+      padding: 8px 10px; font-size: 12px; color: var(--text-muted);
+    }
     .rename-list { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
     .rename-group-title {
       font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
@@ -1230,16 +1250,22 @@
       </div>
 
       <div class="settings-block">
+        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;"><span>Naming Convention</span></div>
+        <p class="settings-note" style="margin-top:0;margin-bottom:10px;">
+          The shape every rename below aims for. Choosing one only changes what
+          is proposed — nothing is renamed until you pick it from a list.
+        </p>
+        <div id="naming-preset-list" class="preset-list"></div>
+      </div>
+
+      <div class="settings-block">
         <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;">
-          <span>Canonical Names</span>
+          <span>Movies</span>
           <button type="button" id="rename-refresh-btn" class="settings-inline-btn">Refresh</button>
         </div>
         <p class="settings-note" style="margin-top:0;margin-bottom:10px;">
-          Folders and files whose names do not match the library's naming
-          scheme, which is built from the title and year stored for each entry.
-          Nothing is renamed until you tick it and choose Rename selected, and
-          nothing is ever deleted or overwritten. A title mid-download is left
-          out entirely.
+          Movie folders, and the video and subtitle files inside them. A title
+          mid-download is left out entirely.
         </p>
         <div id="rename-summary" class="settings-note" style="margin-top:0;margin-bottom:10px;">Loading…</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
@@ -1249,6 +1275,30 @@
           <span id="rename-status" class="settings-note" style="margin:0;"></span>
         </div>
         <div id="rename-list" class="rename-list"></div>
+      </div>
+
+      <div class="settings-block">
+        <div class="settings-subtitle" style="margin-top:0;margin-bottom:8px;">
+          <span>TV Shows</span>
+          <button type="button" id="tv-rename-refresh-btn" class="settings-inline-btn">Refresh</button>
+        </div>
+        <p class="settings-note" style="margin-top:0;margin-bottom:10px;">
+          Show folders, and episode files that already say which episode they
+          are. The episode number in a filename is never changed — it is what
+          decides which episode the file is, and this only tidies the name
+          around it. An episode title already in the filename is kept; TMDB is
+          consulted for a missing one only where a show's own files prove its
+          numbering matches TMDB's. Anything else is listed for you to handle
+          by hand.
+        </p>
+        <div id="tv-rename-summary" class="settings-note" style="margin-top:0;margin-bottom:10px;">Loading…</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+          <button type="button" id="tv-rename-select-all-btn" class="settings-inline-btn">Select all</button>
+          <button type="button" id="tv-rename-select-none-btn" class="settings-inline-btn">Select none</button>
+          <button type="button" id="tv-rename-apply-btn" class="btn-save" disabled>Rename selected</button>
+          <span id="tv-rename-status" class="settings-note" style="margin:0;"></span>
+        </div>
+        <div id="tv-rename-list" class="rename-list"></div>
       </div>
     </div>
   </div>
@@ -1613,6 +1663,8 @@
   const IGNORES_STATE = { loaded: false, loading: false };
   const HISTORY_SUMMARY_STATE = { loaded: false, loading: false };
   const RENAME_STATE = { loaded: false, loading: false };
+  const TV_RENAME_STATE = { loaded: false, loading: false };
+  const PRESET_STATE = { loaded: false, loading: false, selected: 'house' };
   const HERO_STATE = { source: 'library', item: null };
   const SUBTITLE_FETCH_INFLIGHT = new Set();
   const TORRENT_MODAL_STATE = { mediaId: null, title: '' };

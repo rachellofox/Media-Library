@@ -1,4 +1,20 @@
 """
+SUPERSEDED — DO NOT RUN. Use Tools -> TV Shows in the app instead.
+
+This script names episodes from TMDB's episode list, which means it decides
+what episode a file is from TMDB rather than from the file's own name. On a
+show whose numbering differs from TMDB's — production order versus aired
+order — that puts the wrong titles on the right files. It did exactly that to
+Buffy season 3 episodes 18-22, which had to be repaired by hand.
+
+The Tools section does this safely: an SxxExx marker in a filename is the
+source of truth and is never reassigned, and TMDB is consulted only for a
+show whose own files prove its numbering agrees. See
+`medialibrary/tv_rename_plan.py`.
+
+Kept only for the extras/stray-file gathering it does that the app does not
+yet cover. If you run it, run it without --apply and read the output.
+
 TV naming preview.
 Usage: python scripts/_plan_tv_naming.py [--apply] [--show "Name"]
 

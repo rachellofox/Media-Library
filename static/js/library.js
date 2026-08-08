@@ -45,7 +45,7 @@ function activateSection(name) {
     // Ignore storage issues.
   }
   if (name === 'discover') loadDiscoverOnce();
-  if (name === 'tools') loadRenamePreviewOnce();
+  if (name === 'tools') loadToolsOnce();
   if (name === 'settings') { loadIgnoredItemsOnce(); loadHistorySummaryOnce(); }
 }
 
@@ -789,12 +789,27 @@ function renameRowMarkup(entry) {
   `;
 }
 
-function syncRenameApplyButton() {
-  const button = document.getElementById('rename-apply-btn');
-  if (!button) return;
-  const checked = document.querySelectorAll('[data-rename-key]:checked').length;
+// Movies and TV are two independent lists on one page, so every selector here
+// is scoped to its own list rather than the document.
+function syncApplyButton(listId, buttonId) {
+  const list = document.getElementById(listId);
+  const button = document.getElementById(buttonId);
+  if (!list || !button) return;
+  const checked = list.querySelectorAll('[data-rename-key]:checked').length;
   button.disabled = checked === 0;
   button.textContent = checked ? `Rename ${checked} selected` : 'Rename selected';
+}
+
+function summariseRenamePlan(data) {
+  const parts = [];
+  if (data.total) parts.push(`${data.total} name${data.total === 1 ? '' : 's'} differ from the scheme`);
+  if (data.blocked) parts.push(`${data.blocked} blocked by an existing name`);
+  if (data.manual_count) parts.push(`${data.manual_count} need doing by hand`);
+  if ((data.skipped || []).length) {
+    // Named rather than counted: "skipped" with no reason reads as a failure.
+    parts.push(data.skipped.map(s => `${s.title} (${s.reason})`).join(', ') + ' left out');
+  }
+  return parts.length ? parts.join(' · ') : 'Nothing to rename.';
 }
 
 async function loadRenamePreviewOnce(force = false) {
@@ -817,37 +832,73 @@ async function loadRenamePreviewOnce(force = false) {
         + data.files.map(renameRowMarkup).join(''));
     }
     list.innerHTML = sections.join('')
-      || '<div class="ignored-empty">Everything already matches the naming scheme.</div>';
-
-    const parts = [];
-    if (data.total) parts.push(`${data.total} name${data.total === 1 ? '' : 's'} differ from the scheme`);
-    if (data.blocked) parts.push(`${data.blocked} blocked by an existing name`);
-    if ((data.skipped || []).length) {
-      // Named rather than counted: "skipped" with no reason reads as a failure.
-      parts.push((data.skipped).map(s => `${s.title} (${s.reason})`).join(', ') + ' left out');
-    }
-    summary.textContent = parts.length ? parts.join(' · ') : 'Nothing to rename.';
+      || '<div class="ignored-empty">Every movie already matches the naming scheme.</div>';
+    summary.textContent = summariseRenamePlan(data);
     RENAME_STATE.loaded = true;
   } catch (_error) {
     if (list) list.innerHTML = '';
     if (summary) summary.textContent = 'Could not read the library right now.';
   } finally {
     RENAME_STATE.loading = false;
-    syncRenameApplyButton();
+    syncApplyButton('rename-list', 'rename-apply-btn');
   }
 }
 
-async function applySelectedRenames() {
-  const button = document.getElementById('rename-apply-btn');
-  const statusEl = document.getElementById('rename-status');
-  const keys = [...document.querySelectorAll('[data-rename-key]:checked')]
+async function loadTvRenamePreviewOnce(force = false) {
+  if ((TV_RENAME_STATE.loaded && !force) || TV_RENAME_STATE.loading) return;
+  TV_RENAME_STATE.loading = true;
+  const list = document.getElementById('tv-rename-list');
+  const summary = document.getElementById('tv-rename-summary');
+  try {
+    const response = await fetch('/api/tools/tv-rename-preview', { headers: { 'Accept': 'application/json' } });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error('preview_failed');
+
+    const sections = [];
+    if (data.folders.length) {
+      sections.push('<div class="rename-group-title">Show folders</div>'
+        + data.folders.map(renameRowMarkup).join(''));
+    }
+    (data.shows || []).forEach(show => {
+      const rows = show.episodes.concat(show.subtitles);
+      if (!rows.length && !show.manual.length) return;
+      // Saying why a show is untrusted matters more than that it is: it is the
+      // difference between "nothing to do" and "we refused to guess here".
+      const untrusted = show.trusted
+        ? ''
+        : `<span class="rename-untrusted">TMDB not used — ${escHtml(show.trust_reason)}</span>`;
+      sections.push(`<div class="rename-show-title">${escHtml(show.show)}${untrusted}</div>`
+        + rows.map(renameRowMarkup).join('')
+        + show.manual.map(entry =>
+          `<div class="rename-manual">${escHtml(entry.file)} — ${escHtml(entry.reason)}</div>`
+        ).join(''));
+    });
+    list.innerHTML = sections.join('')
+      || '<div class="ignored-empty">Every episode already matches the naming scheme.</div>';
+    summary.textContent = summariseRenamePlan(data);
+    TV_RENAME_STATE.loaded = true;
+  } catch (_error) {
+    if (list) list.innerHTML = '';
+    if (summary) summary.textContent = 'Could not read the library right now.';
+  } finally {
+    TV_RENAME_STATE.loading = false;
+    syncApplyButton('tv-rename-list', 'tv-rename-apply-btn');
+  }
+}
+
+async function applyRenames(options) {
+  const { listId, buttonId, statusId, endpoint, reload } = options;
+  const list = document.getElementById(listId);
+  const button = document.getElementById(buttonId);
+  const statusEl = document.getElementById(statusId);
+  const keys = [...list.querySelectorAll('[data-rename-key]:checked')]
     .map(box => box.dataset.renameKey);
   if (!keys.length) return;
 
   button.disabled = true;
   statusEl.textContent = 'Renaming…';
   try {
-    const response = await fetch('/api/tools/rename-apply', {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ keys }),
@@ -859,30 +910,116 @@ async function applySelectedRenames() {
       + (failed ? ` ${failed} failed — ${data.failed[0].from}: ${data.failed[0].error}` : '')
       + (data.skipped_conflict ? ` ${data.skipped_conflict} skipped as blocked.` : '');
     showToast(`Renamed ${data.renamed} item${data.renamed === 1 ? '' : 's'}.`);
-    await loadRenamePreviewOnce(true);
+    await reload(true);
   } catch (_error) {
     statusEl.textContent = 'Rename failed.';
     showToast('Rename failed.', 'error');
   } finally {
-    syncRenameApplyButton();
+    syncApplyButton(listId, buttonId);
   }
 }
+
+function presetRowMarkup(preset, selectedKey) {
+  const selected = preset.key === selectedKey;
+  return `
+    <label class="preset-row${selected ? ' is-selected' : ''}">
+      <input type="radio" name="naming-preset" value="${escAttr(preset.key)}"${selected ? ' checked' : ''}>
+      <span>
+        <span class="preset-label">${escHtml(preset.label)}</span>
+        <div>${escHtml(preset.description)}</div>
+        <div class="preset-example">${escHtml(preset.example_movie)}</div>
+        <div class="preset-example">${escHtml(preset.example_episode)}</div>
+      </span>
+    </label>
+  `;
+}
+
+async function loadNamingPresetsOnce(force = false) {
+  if ((PRESET_STATE.loaded && !force) || PRESET_STATE.loading) return;
+  PRESET_STATE.loading = true;
+  const list = document.getElementById('naming-preset-list');
+  try {
+    const response = await fetch('/api/tools/naming-presets', { headers: { 'Accept': 'application/json' } });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error('presets_failed');
+    PRESET_STATE.selected = data.selected;
+    list.innerHTML = data.presets.map(preset => presetRowMarkup(preset, data.selected)).join('');
+    PRESET_STATE.loaded = true;
+  } catch (_error) {
+    if (list) list.innerHTML = '<div class="ignored-empty">Could not load naming conventions.</div>';
+  } finally {
+    PRESET_STATE.loading = false;
+  }
+}
+
+async function chooseNamingPreset(key) {
+  if (!key || key === PRESET_STATE.selected) return;
+  try {
+    const response = await fetch('/api/tools/naming-preset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ preset: key }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error('preset_failed');
+    PRESET_STATE.selected = data.selected;
+    document.querySelectorAll('.preset-row').forEach(row => {
+      const input = row.querySelector('input[name="naming-preset"]');
+      row.classList.toggle('is-selected', !!input && input.value === data.selected);
+    });
+    // Both previews are answers to "what would this convention change?", so
+    // neither survives the convention changing.
+    await Promise.all([loadRenamePreviewOnce(true), loadTvRenamePreviewOnce(true)]);
+  } catch (_error) {
+    showToast('Could not change the naming convention.', 'error');
+  }
+}
+
+function loadToolsOnce() {
+  loadNamingPresetsOnce();
+  loadRenamePreviewOnce();
+  loadTvRenamePreviewOnce();
+}
+
+document.getElementById('naming-preset-list').addEventListener('change', event => {
+  if (event.target.matches('input[name="naming-preset"]')) chooseNamingPreset(event.target.value);
+});
 
 document.getElementById('rename-refresh-btn').addEventListener('click', () => {
   loadRenamePreviewOnce(true);
 });
-document.getElementById('rename-apply-btn').addEventListener('click', applySelectedRenames);
-document.getElementById('rename-select-all-btn').addEventListener('click', () => {
-  document.querySelectorAll('[data-rename-key]:not(:disabled)').forEach(box => { box.checked = true; });
-  syncRenameApplyButton();
+document.getElementById('rename-apply-btn').addEventListener('click', () => applyRenames({
+  listId: 'rename-list', buttonId: 'rename-apply-btn', statusId: 'rename-status',
+  endpoint: '/api/tools/rename-apply', reload: loadRenamePreviewOnce,
+}));
+document.getElementById('tv-rename-refresh-btn').addEventListener('click', () => {
+  loadTvRenamePreviewOnce(true);
 });
-document.getElementById('rename-select-none-btn').addEventListener('click', () => {
-  document.querySelectorAll('[data-rename-key]').forEach(box => { box.checked = false; });
-  syncRenameApplyButton();
+document.getElementById('tv-rename-apply-btn').addEventListener('click', () => applyRenames({
+  listId: 'tv-rename-list', buttonId: 'tv-rename-apply-btn', statusId: 'tv-rename-status',
+  endpoint: '/api/tools/tv-rename-apply', reload: loadTvRenamePreviewOnce,
+}));
+
+[
+  ['rename-select-all-btn', 'rename-list', 'rename-apply-btn', true],
+  ['rename-select-none-btn', 'rename-list', 'rename-apply-btn', false],
+  ['tv-rename-select-all-btn', 'tv-rename-list', 'tv-rename-apply-btn', true],
+  ['tv-rename-select-none-btn', 'tv-rename-list', 'tv-rename-apply-btn', false],
+].forEach(([buttonId, listId, applyId, checked]) => {
+  document.getElementById(buttonId).addEventListener('click', () => {
+    const selector = checked ? '[data-rename-key]:not(:disabled)' : '[data-rename-key]';
+    document.getElementById(listId).querySelectorAll(selector)
+      .forEach(box => { box.checked = checked; });
+    syncApplyButton(listId, applyId);
+  });
 });
-document.getElementById('rename-list').addEventListener('change', event => {
-  if (event.target.matches('[data-rename-key]')) syncRenameApplyButton();
-});
+
+[['rename-list', 'rename-apply-btn'], ['tv-rename-list', 'tv-rename-apply-btn']]
+  .forEach(([listId, applyId]) => {
+    document.getElementById(listId).addEventListener('change', event => {
+      if (event.target.matches('[data-rename-key]')) syncApplyButton(listId, applyId);
+    });
+  });
 
 function traktStatusMessage() {
   if (TRAKT_STATE.connected) {

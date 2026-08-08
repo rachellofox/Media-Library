@@ -2,6 +2,27 @@
 
 All notable user-facing changes to this project are documented here.
 
+## v0.2.2 - 2026-08-08
+
+- The Tools rename tool is now split into **Movies** and **TV Shows**, with a
+  **Naming Convention** picker above them — current house style, Plex /
+  Jellyfin / Emby, Kodi, or titles-only. Choosing one only changes what is
+  proposed; nothing is renamed until you tick it (F-0808.01).
+
+- TV episode renaming is now included, and is deliberately narrow (F-0808.02).
+  An episode number already in a filename is **never** changed — it is what
+  decides which episode the file is, and the tool only tidies the name around
+  it. An episode title already in the filename is kept, with release tags
+  stripped. TMDB is consulted for a missing title only where a show's own
+  files prove its numbering agrees with TMDB's; where they disagree — a show
+  in production order rather than aired order — TMDB is not used at all and
+  the reason is shown. Anything the tool cannot identify is listed for you to
+  handle by hand rather than guessed at.
+
+  This replaces `scripts/_plan_tv_naming.py`, which named episodes from TMDB's
+  episode list and so rewrote Buffy season 3 episodes 18-22 into the wrong
+  order. That script is now marked superseded.
+
 ## v0.2.1 - 2026-08-08
 
 - Added a Tools section (F-0808.01). The library scans that used to sit under

@@ -24,7 +24,7 @@ show's own name.
 import os
 
 from medialibrary.identify import VIDEO_EXTENSIONS
-from medialibrary.naming import canonical_stem
+from medialibrary.naming_presets import configured_preset
 from medialibrary.subtitles import SUBTITLE_EXTENSIONS
 
 # A title mid-download is being written to right now, and finalisation records
@@ -50,7 +50,7 @@ def entry_key(path: str) -> str:
     return os.path.normcase(os.path.normpath(path))
 
 
-def _plan_for_item(item: dict) -> tuple[dict | None, list[dict], dict | None]:
+def _plan_for_item(item: dict, preset) -> tuple[dict | None, list[dict], dict | None]:
     """(folder_rename, file_renames, skipped) for one library item."""
     media_id = int(item['id'])
     title = item['title'] or ''
@@ -64,8 +64,12 @@ def _plan_for_item(item: dict) -> tuple[dict | None, list[dict], dict | None]:
     if not os.path.isdir(path):
         return None, [], {'media_id': media_id, 'title': title, 'reason': 'folder not found'}
 
-    stem = canonical_stem(title, item['year'], media_type)
-    if not stem:
+    if media_type == 'tv':
+        folder_name = preset.show_folder_name(title, item['year'])
+        stem = folder_name
+    else:
+        folder_name, stem = preset.movie_names(title, item['year'])
+    if not folder_name or not stem:
         return None, [], {'media_id': media_id, 'title': title, 'reason': 'no canonical name'}
 
     normalized = os.path.normpath(path)
@@ -73,8 +77,8 @@ def _plan_for_item(item: dict) -> tuple[dict | None, list[dict], dict | None]:
     parent = os.path.dirname(normalized)
 
     folder_rename = None
-    if current_folder != stem:
-        target = os.path.join(parent, stem)
+    if current_folder != folder_name:
+        target = os.path.join(parent, folder_name)
         folder_rename = {
             'kind': 'folder',
             'key': entry_key(path),
@@ -84,7 +88,7 @@ def _plan_for_item(item: dict) -> tuple[dict | None, list[dict], dict | None]:
             'from': path,
             'to': target,
             'from_name': current_folder,
-            'to_name': stem,
+            'to_name': folder_name,
             # A case-only rename on Windows reads as "already exists" but is a
             # legitimate correction, so it is not a conflict.
             'conflict': os.path.exists(target) and not _same_path(target, path),
@@ -137,17 +141,23 @@ def _plan_for_item(item: dict) -> tuple[dict | None, list[dict], dict | None]:
     return folder_rename, file_renames, None
 
 
-def plan_renames(store) -> dict:
-    """What would change to bring every library entry to its canonical name.
+def plan_renames(store, preset=None, media_types: set[str] | None = None) -> dict:
+    """What would change to bring library entries to the chosen naming scheme.
 
-    Reads the disk but never writes to it.
+    Reads the disk but never writes to it. `media_types` limits the plan to
+    movies or to TV, since the Tools section lists them as separate jobs.
     """
+    if preset is None:
+        preset = configured_preset(store)
     folders: list[dict] = []
     files: list[dict] = []
     skipped: list[dict] = []
 
     for row in store.list_media_items():
-        folder_rename, file_renames, skip = _plan_for_item(dict(row))
+        item = dict(row)
+        if media_types is not None and (item['media_type'] or 'movie') not in media_types:
+            continue
+        folder_rename, file_renames, skip = _plan_for_item(item, preset)
         if skip:
             skipped.append(skip)
         if folder_rename:
